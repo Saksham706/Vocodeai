@@ -1,4 +1,4 @@
 
 export function getImageForWorkspace() {
-  return "CodeWhisper/universal-dev:latest";
+  return "vocodeai/universal-dev:latest";
 }

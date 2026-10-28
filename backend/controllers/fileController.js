@@ -65,35 +65,38 @@ export async function saveFile(req, res) {
 
 /* ========== RENAME FILE / FOLDER ========== */
 export async function renameNode(req, res) {
-  const { workspaceId, oldPath, newPath } = req.body;
+  try {
+    const { workspaceId, oldPath, newPath } = req.body;
 
-  await FileNode.updateMany(
-    {
+    // Escape regex properly
+    const escapedOldPath = oldPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    const nodes = await FileNode.find({
       workspaceId,
-      path: { $regex: `^${oldPath}` },
-    },
-    [
-      {
-        $set: {
-          path: {
-            $concat: [
-              newPath,
-              { $substrCP: ["$path", oldPath.length, { $strLenCP: "$path" }] }
-            ]
-          }
-        }
-      }
-    ]
-  );
+      path: { $regex: `^${escapedOldPath}` },
+    });
 
-  fsService.renameNode(
-    req.user.id,
-    workspaceId,
-    oldPath,
-    newPath
-  );
+    for (const node of nodes) {
+      const updatedPath = node.path.replace(oldPath, newPath);
 
-  res.json({ success: true });
+      await FileNode.updateOne(
+        { _id: node._id },
+        { path: updatedPath }
+      );
+    }
+
+    fsService.renameNode(
+      req.user.id,
+      workspaceId,
+      oldPath,
+      newPath
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("RENAME ERROR:", err);
+    res.status(500).json({ error: "Rename failed" });
+  }
 }
 
 /* ========== DELETE FILE / FOLDER ========== */

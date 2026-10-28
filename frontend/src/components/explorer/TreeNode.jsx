@@ -200,25 +200,25 @@ export default function TreeNode({ node, path }) {
       )}
 
       {!editing && (
-        <div className="tree-actions">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditing(true);
-            }}
-          >
-            ✎
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              deleteNode(currentPath);
-            }}
-          >
-            🗑
-          </button>
-        </div>
-      )}
+  <div className="tree-actions">
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setEditing(true);
+      }}
+    >
+      ✎
+    </button>
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        deleteNode(currentPath);
+      }}
+    >
+      🗑
+    </button>
+  </div>
+)}
     </div>
   );
 }

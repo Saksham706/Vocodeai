@@ -1,4 +1,11 @@
 /* =========================
+   GLOBAL (IMPORTANT)
+========================= */
+html, body, #root {
+  height: 100%;
+}
+
+/* =========================
    WORKSPACE LAYOUT
 ========================= */
 
@@ -39,6 +46,23 @@
   min-height: 0;
 }
 
+/* 🔥 ADD THIS (MISSING LAYER) */
+.workspace-content {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 🔥 ADD THIS (CRITICAL) */
+.editor-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
 /* =========================
    EDITOR
 ========================= */
@@ -46,7 +70,13 @@
 .editor-area {
   flex: 1;
   min-height: 0;
+  position: relative;
   overflow: hidden;
+}
+
+/* Monaco fix */
+.editor-area > div {
+  height: 100%;
 }
 
 /* =========================
@@ -68,4 +98,46 @@
 
 .terminal-resizer:hover {
   background: rgba(0, 122, 204, 0.25);
+}
+
+/* =========================
+   AI HEADER (FIXED)
+========================= */
+
+.ai-header {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  background: #0c141b;
+  border-bottom: 1px solid #1f2a36;
+  flex-shrink: 0;
+}
+
+.ai-header span {
+  font-size: 13px;
+  font-weight: 600;
+  color: #00ff9c;
+  letter-spacing: 0.5px;
+}
+
+/* Close button */
+.ai-header button {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: #1f2a36;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+}
+
+.ai-header button:hover {
+  background: #ff3b3b;
 }

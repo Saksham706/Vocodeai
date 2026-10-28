@@ -18,14 +18,20 @@ export async function listWorkspaces(token) {
 export async function createWorkspace(token, name) {
   const res = await fetch(BASE, {
     method: "POST",
+    credentials: "include", // ✅ ADD THIS
     headers: {
       "Content-Type": "application/json",
-      ...authHeaders(token),
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ name }),
   });
 
-  if (!res.ok) throw new Error("Failed to create workspace");
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("Create error:", text);
+    throw new Error("Failed to create workspace");
+  }
+
   return res.json();
 }
 

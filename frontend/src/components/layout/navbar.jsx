@@ -45,7 +45,7 @@ export default function Navbar() {
         className="navbar-left"
         onClick={() => navigate("/dashboard")}
       >
-        <img src="/icon.png" alt="CodeWhisper" className="logo-img" />
+        <img src="/icon.png" alt="Vocodeai" className="logo-img" />
       </div>
 
       {/* CENTER */}
@@ -65,7 +65,16 @@ export default function Navbar() {
           <span>Terminal</span>
         </div>
 
-        <div className="nav-tab ai-tab">
+        <div className="nav-tab ai-tab" onClick={() => {
+          const params = new URLSearchParams(location.search);
+          const isOpen = params.get("ai") === "true";
+
+          navigate(
+            isOpen
+              ? location.pathname
+              : `${location.pathname}?ai=true`
+          );
+        }}>
           <FaRobot />
           <span>AI</span>
         </div>

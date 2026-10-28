@@ -1,90 +1,122 @@
+/* SIDEBAR CONTAINER */
 .sidebar {
-  width: 240px;
-  background: #252526;
-  border-right: 1px solid #2f2f2f;
+  width: 260px;
+  height: 95vh;
+  background: linear-gradient(180deg, #0b0f0f, #050707);
+  color: #cbd5d1;
   display: flex;
   flex-direction: column;
-  font-family: system-ui, sans-serif;
+  border-right: 1px solid rgba(0, 255, 170, 0.2);
+  font-family: "Inter", sans-serif;
 }
 
 /* HEADER */
 .sidebar-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: #252526;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 6px 8px;
-  border-bottom: 1px solid #333;
+  align-items: center;
+  padding: 14px 12px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: #8b949e;
 }
 
 .sidebar-title {
-  font-size: 11px;
-  letter-spacing: 0.5px;
-  color: #cccccc;
+  font-weight: 600;
 }
 
-/* HEADER ACTIONS */
+/* HEADER ICON BUTTONS */
 .sidebar-header-actions {
   display: flex;
-  gap: 4px;
+  gap: 8px;
 }
 
 .sidebar-header-actions button {
-  background: none;
+  background: transparent;
   border: none;
-  padding: 4px;
+  color: #8b949e;
   cursor: pointer;
-  color: #c5c5c5;
+  font-size: 16px;
+  padding: 4px;
   border-radius: 4px;
+  transition: 0.2s ease;
 }
 
 .sidebar-header-actions button:hover {
-  background: #37373d;
-  color: white;
+  background: rgba(0, 255, 170, 0.1);
+  color: #00ffa6;
 }
 
-/* WORKSPACE */
+/* WORKSPACE NAME */
 .workspace-name {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: #ddd;
-  border-bottom: 1px solid #333;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #e6edf3;
 }
 
 .workspace-icon {
-  font-size: 13px;
+  font-size: 16px;
 }
 
-.workspace-text {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* FILE TREE */
+/* TREE AREA */
 .sidebar-tree {
   flex: 1;
+  padding: 5px 0;
   overflow-y: auto;
-  padding: 4px 0;
 }
 
-/* SCROLLBAR (optional but pro) */
+/* FILE / FOLDER ITEM */
+.file-item,
+.folder-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  border-radius: 8px;
+  margin: 2px 8px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+/* HOVER EFFECT */
+.file-item:hover,
+.folder-item:hover {
+  background: rgba(0, 255, 170, 0.08);
+}
+
+/* ACTIVE FILE (MAIN GREEN STYLE LIKE IMAGE) */
+.file-item.active {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 255, 170, 0.2),
+    rgba(0, 255, 170, 0.05)
+  );
+  border: 1px solid rgba(0, 255, 170, 0.4);
+  color: #00ffa6;
+}
+
+/* FILE ICON */
+.file-icon {
+  color: #00ffa6;
+  font-size: 16px;
+}
+
+/* FOLDER ICON */
+.folder-icon {
+  color: #facc15;
+  font-size: 16px;
+}
+
+/* SCROLLBAR (OPTIONAL BUT CLEAN) */
 .sidebar-tree::-webkit-scrollbar {
-  width: 8px;
+  width: 5px;
 }
 
 .sidebar-tree::-webkit-scrollbar-thumb {
-  background: #3e3e42;
-  border-radius: 4px;
-}
-
-.sidebar-tree::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: rgba(0, 255, 170, 0.2);
+  border-radius: 10px;
 }

@@ -84,6 +84,7 @@ export function setupTerminalServer(server) {
             pty: ptyProcess,
             workspaceId,
             userId,
+            buffer: "", // 🔥 store terminal output
           });
 
           /* ---------- FILE WATCHER ---------- */
@@ -107,6 +108,11 @@ export function setupTerminalServer(server) {
 
           /* ---------- TERMINAL OUTPUT ---------- */
           ptyProcess.onData((data) => {
+            const entry = getTerminal(terminalId);
+            if (entry) {
+              entry.buffer += data; // ✅ persist output
+            }
+
             ws.send(
               JSON.stringify({
                 type: "output",
@@ -138,7 +144,7 @@ export function setupTerminalServer(server) {
             JSON.stringify({
               type: "created",
               terminalId,
-              title: "bash",
+              title: `terminal-${terminalId.slice(0, 4)}`,
             })
           );
         } catch (err) {
@@ -147,14 +153,46 @@ export function setupTerminalServer(server) {
       }
 
       /* ================================================= */
+      /* ================= ATTACH (RECONNECT) ============= */
+      /* ================================================= */
+
+      if (msg.type === "attach") {
+        const entry = getTerminal(msg.terminalId);
+        if (!entry) return;
+
+        ws.send(
+          JSON.stringify({
+            type: "output",
+            terminalId: msg.terminalId,
+            data: entry.buffer, // 🔥 replay old output
+          })
+        );
+      }
+
+      /* ================================================= */
       /* ================= INPUT ========================= */
       /* ================================================= */
 
       if (msg.type === "input") {
         const entry = getTerminal(msg.terminalId);
-        if (entry) {
-          entry.pty.write(msg.data);
+        if (!entry) return;
+
+        const command = msg.data.trim();
+
+        /* 🔥 CUSTOM COMMANDS */
+        if (command === "cls") {
+          entry.buffer = "";
+          ws.send(
+            JSON.stringify({
+              type: "output",
+              terminalId: msg.terminalId,
+              data: "\x1Bc",
+            })
+          );
+          return;
         }
+
+        entry.pty.write(msg.data);
       }
 
       /* ================================================= */
@@ -175,6 +213,7 @@ export function setupTerminalServer(server) {
       if (msg.type === "clear") {
         const entry = getTerminal(msg.terminalId);
         if (entry) {
+          entry.buffer = "";
           entry.pty.write("clear\n");
         }
       }
@@ -212,9 +251,13 @@ export function setupTerminalServer(server) {
           pty: newPty,
           workspaceId,
           userId,
+          buffer: "",
         });
 
         newPty.onData((data) => {
+          const entry = getTerminal(msg.terminalId);
+          if (entry) entry.buffer += data;
+
           ws.send(
             JSON.stringify({
               type: "output",
@@ -257,15 +300,9 @@ export function setupTerminalServer(server) {
 
     ws.on("close", async () => {
       try {
-        // Kill all terminals of this connection
-        for (const [id, entry] of getAllTerminals()) {
-          if (entry.userId === userId) {
-            entry.pty.kill();
-            removeTerminal(id);
-          }
-        }
+        // ❌ DO NOT kill terminals (VS Code behavior)
 
-        // Close watchers
+        // Only close watchers
         for (const watcher of watchers.values()) {
           await watcher.close();
         }

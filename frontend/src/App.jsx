@@ -7,7 +7,6 @@ import Landing from "./pages/Landing";
 import ForgotPassword from "./auth/ForgotPassword";
 import ResetPassword from "./auth/ResetPassword";
 import OAuthSuccess from "./auth/OAuthSuccess";
-
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
 /* =========================
@@ -41,82 +40,74 @@ function PublicRoute({ children }) {
   return children;
 }
 
-/* =========================
-   APP
-========================= */
-
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* ===== PUBLIC ROUTES ===== */}
+        <BrowserRouter>
+          <Routes>   {/* ✅ REQUIRED */}
 
-          <Route path="/" element={<Landing />} />
+            <Route path="/" element={<Landing />} />
 
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            }
-          />
+            <Route
+              path="/login"
+              element={
+                <PublicRoute>
+                  <Login />
+                </PublicRoute>
+              }
+            />
 
-          <Route
-            path="/signup"
-            element={
-              <PublicRoute>
-                <Signup />
-              </PublicRoute>
-            }
-          />
+            <Route
+              path="/signup"
+              element={
+                <PublicRoute>
+                  <Signup />
+                </PublicRoute>
+              }
+            />
 
-          <Route
-            path="/forgot"
-            element={
-              <PublicRoute>
-                <ForgotPassword />
-              </PublicRoute>
-            }
-          />
+            <Route
+              path="/forgot"
+              element={
+                <PublicRoute>
+                  <ForgotPassword />
+                </PublicRoute>
+              }
+            />
 
-          <Route
-            path="/reset"
-            element={
-              <PublicRoute>
-                <ResetPassword />
-              </PublicRoute>
-            }
-          />
+            <Route
+              path="/reset"
+              element={
+                <PublicRoute>
+                  <ResetPassword />
+                </PublicRoute>
+              }
+            />
 
-          <Route path="/oauth-success" element={<OAuthSuccess />} />
+            <Route path="/oauth-success" element={<OAuthSuccess />} />
 
-          {/* ===== PROTECTED ROUTES ===== */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/workspace/:id"
+              element={
+                <ProtectedRoute>
+                  <Workspace />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/workspace/:id"
-            element={
-              <ProtectedRoute>
-                <Workspace />
-              </ProtectedRoute>
-            }
-          />
+            <Route path="*" element={<Navigate to="/" replace />} />
 
-          {/* ===== FALLBACK ===== */}
-
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
+          </Routes>
+        </BrowserRouter>
     </AuthProvider>
   );
 }

@@ -18,6 +18,8 @@ import executeRoutes from "./routes/executeRoutes.js";
 import runRoutes from "./routes/runRoutes.js";
 import statsRoutes from "./routes/statsRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
+import aiRoutes from "./routes/aiRoutes.js";
+
 
 import { setupTerminalServer } from "./terminalServer.js";
 import { startContainerReaper } from "./sandbox/containerReaper.js";
@@ -49,7 +51,7 @@ app.use(
   cors({
     origin: process.env.FRONTEND_URL,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS","PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
@@ -64,7 +66,7 @@ connectDB();
 startContainerReaper();
 
 app.get("/",(req,res) =>{
-  res.send("CodeWhisper Backend is running");
+  res.send("Vocodeai Backend is running");
 })
 /* ================= ROUTES ================= */
 
@@ -75,6 +77,7 @@ app.use("/api/execute", executeRoutes);
 app.use("/api/run", runRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.use(
   "/preview",
@@ -88,7 +91,7 @@ app.use(
 const server = http.createServer(app);
 setupTerminalServer(server);
 
- const PORT = process.env.PORT || 5000;
+ const PORT = process.env.PORT || 8000;
 server.listen(PORT, () =>
   console.log(`Backend running on http://localhost:${PORT}`)
 );

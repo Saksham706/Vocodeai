@@ -1,291 +1,497 @@
-import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
 import "../styles/landing.css";
-import { FaInstagram, FaLinkedin } from "react-icons/fa";
-
-export default function Landing() {
+import { useEffect, useState } from "react";
+import {
+  FaFolderPlus,
+  FaCommentDots,
+  FaRocket,
+  FaGithub,
+  FaTwitter,
+  FaLinkedin,
+  FaEnvelope,
+} from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+const Landing = () => {
+  const [displayedLines, setDisplayedLines] = useState([]);
+  const [visible, setVisible] = useState([]);
   const navigate = useNavigate();
+  const login = () => {
+    navigate("/login");
+  };
 
-  const [stats, setStats] = useState({
-    activeUsers: 0,
-    totalUsers: 0,
-    projectsCreated: 0,
-    uptime: 0,
-  });
-
-  const backendUrl = import.meta.env.VITE_BACKEND_URL;
-  /* ================= FETCH STATS ================= */
+  const codeLines = [
+    "function fibonacci(n) {",
+    "  if (n <= 1) return n;",
+    "  return fibonacci(n-1) + fibonacci(n-2);",
+    "}",
+  ];
 
   useEffect(() => {
-    const loadStats = () => {
-      fetch(`${backendUrl}/api/stats`)
-        .then((res) => {
-          if (!res.ok) throw new Error("Stats fetch failed");
-          return res.json();
-        })
-        .then((data) => {
-          setStats({
-            activeUsers: data.activeUsers || 0,
-            totalUsers: data.totalUsers || 0,
-            projectsCreated: data.projectsCreated || 0,
-            uptime: data.uptime || 0,
-          });
-        })
-        .catch((err) => {
-          console.error("Stats error:", err.message);
-        });
-    };
-
-    loadStats();
-
-    // Auto refresh every 30 sec
-    const interval = setInterval(loadStats, 30000);
+    let i = 0;
+    const interval = setInterval(() => {
+      setDisplayedLines((prev) => [...prev, codeLines[i]]);
+      i++;
+      if (i === codeLines.length) clearInterval(interval);
+    }, 600); // speed of typing
 
     return () => clearInterval(interval);
   }, []);
 
-  /* ================= FORMAT UPTIME ================= */
+  useEffect(() => {
+    const delays = [0, 300, 600, 900];
 
-  const formatUptime = (seconds) => {
-    if (!seconds) return "0h 0m";
+    delays.forEach((delay, index) => {
+      setTimeout(() => {
+        setVisible((prev) => [...prev, index]);
+      }, delay);
+    });
+  }, []);
 
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
+  const features = [
+    {
+      title: "AI Assistant",
+      desc: "Get intelligent code suggestions, debugging help, and instant answers powered by advanced AI.",
+      icon: "🤖",
+    },
+    {
+      title: "Smart Code Editor",
+      desc: "Syntax highlighting, auto-completion, and real-time collaboration in a beautiful interface.",
+      icon: "</>",
+    },
+    {
+      title: "Cloud Terminal",
+      desc: "Execute commands, run scripts, and build projects directly in the cloud with instant feedback.",
+      icon: ">_",
+    },
+    {
+      title: "Voice Control",
+      desc: "Code with your voice. Dictate commands, write code, and control your workspace hands-free.",
+      icon: "🎤",
+    },
+  ];
 
-    if (days > 0) {
-      return `${days}d ${hours}h`;
-    }
+  useEffect(() => {
+    const delays = [0, 300, 600, 900];
 
-    return `${hours}h ${minutes}m`;
-  };
+    delays.forEach((delay, index) => {
+      setTimeout(() => {
+        setVisible((prev) => [...prev, index]);
+      }, delay);
+    });
+  }, []);
+
+  const data = [
+    {
+      title: "Students",
+      desc: "Learn coding with AI guidance",
+      icon: "🎓",
+    },
+    {
+      title: "Developers",
+      desc: "Build projects faster with AI",
+      icon: "</>",
+    },
+    {
+      title: "Teams",
+      desc: "Collaborate in real-time",
+      icon: "👥",
+    },
+    {
+      title: "Hackathon Builders",
+      desc: "Ship MVPs in hours",
+      icon: "🏆",
+    },
+  ];
+
+  useEffect(() => {
+    const delays = [0, 300, 600, 900];
+
+    delays.forEach((delay, index) => {
+      setTimeout(() => {
+        setVisible((prev) => [...prev, index]);
+      }, delay);
+    });
+  }, []);
+
+  const items = [
+    {
+      title: "Rapid Prototyping",
+      desc: "Build and test ideas in minutes with AI-assisted coding and instant deployment.",
+      icon: "⚡",
+    },
+    {
+      title: "Learning Coding",
+      desc: "Interactive tutorials, AI explanations, and real-time feedback for beginners.",
+      icon: "📘",
+    },
+    {
+      title: "AI Development",
+      desc: "Experiment with AI models, train algorithms, and integrate machine learning.",
+      icon: "🧠",
+    },
+    {
+      title: "Remote Coding",
+      desc: "Access your workspace anywhere with cloud-based development environment.",
+      icon: "☁️",
+    },
+  ];
 
   return (
-    <div className="landing">
-      {/* NAVBAR */}
-      <nav className="landing-nav">
-        <img src="/Nlogo.png" alt="CodeWhisper" />
-        <button
-          className="primary-btn"
-          onClick={() => navigate("/login")}
-        >
-          Enter CodeWhisper
-        </button>
-      </nav>
-
-      {/* HERO */}
-      <section className="hero">
-        <h1>
-          The <span>AI Workspace</span><br />
-          Built for Modern Developers
-        </h1>
-
-        <p>
-          CodeWhisper is a cloud-native AI coding environment where developers
-          think, build, run, and scale software — without friction.
-        </p>
-
-        <button
-          className="primary-btn large"
-          onClick={() => navigate("/login")}
-        >
-          Start Your Journey
-        </button>
-      </section>
-
-      {/* STATS */}
-      {/* STATS */}
-<section className="stats">
-
-  <div className="stats-header">
-    <span className="live-indicator"></span>
-    <p className="live-text">Live Platform Metrics</p>
-  </div>
-
-  <div className="stat">
-    <h3>{stats.activeUsers}</h3>
-    <p>Active Developers</p>
-  </div>
-
-  <div className="stat">
-    <h3>{stats.totalUsers}</h3>
-    <p>Total Users</p>
-  </div>
-
-  <div className="stat">
-    <h3>{stats.projectsCreated}</h3>
-    <p>Projects Created</p>
-  </div>
-
-  <div className="stat">
-    <h3>{formatUptime(stats.uptime)}</h3>
-    <p>Platform Uptime</p>
-  </div>
-
-</section>
-
-      {/* VISION */}
-      <section className="vision">
-        <h2>Our Vision</h2>
-        <p>
-          We believe the future of software development is a collaboration
-          between human creativity and artificial intelligence. CodeWhisper
-          empowers developers to focus on ideas — while AI handles execution.
-        </p>
-      </section>
-
-      {/* USE CASES */}
-      <section className="use-cases">
-        <h2>Who Is CodeWhisper For?</h2>
-
-        <div className="use-grid">
-          <div className="use-card">
-            <span>🎓</span>
-            <h3>Students</h3>
-            <p>Learn faster with AI guidance and live execution.</p>
+    <div>
+      <nav className="navbar">
+        <div className="navbar-inner">
+          {/* LEFT: Logo */}
+          <div className="mainlogo">
+            <img src="/Nlogo.png" alt="VocodeAI Logo" className="mainlogo-img" />
           </div>
 
-          <div className="use-card">
-            <span>👨‍💻</span>
-            <h3>Developers</h3>
-            <p>Build real-world applications with AI-assisted workflows.</p>
-          </div>
+          {/* RIGHT: Links + Button */}
+          <div className="right-group">
+            <ul className="links">
+              <li>Features</li>
+              <li>Use Cases</li>
+              <li>Pricing</li>
+              <li>Docs</li>
+            </ul>
 
-          <div className="use-card">
-            <span>🚀</span>
-            <h3>Startups</h3>
-            <p>Prototype and scale without infrastructure overhead.</p>
-          </div>
-
-          <div className="use-card">
-            <span>🏫</span>
-            <h3>Educators</h3>
-            <p>Teach programming interactively with real execution.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* DIFFERENTIATORS */}
-      <section className="difference">
-        <h2>What Makes CodeWhisper Different?</h2>
-
-        <div className="difference-grid">
-          <div className="difference-card">
-            <span>🧠</span>
-            <h3>AI-Native Core</h3>
-            <p>Designed from day one for AI-driven development.</p>
-          </div>
-
-          <div className="difference-card">
-            <span>☁️</span>
-            <h3>Zero Setup</h3>
-            <p>Run code instantly without local configuration.</p>
-          </div>
-
-          <div className="difference-card">
-            <span>🎙️</span>
-            <h3>Voice to Code</h3>
-            <p>Convert ideas into code using natural speech.</p>
-          </div>
-
-          <div className="difference-card">
-            <span>📁</span>
-            <h3>Persistent Workspaces</h3>
-            <p>Your projects live securely in the cloud.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* FINAL CTA */}
-      <section className="final-cta">
-        <div className="final-cta-inner">
-          <p className="final-eyebrow">
-            Built for the next generation of developers
-          </p>
-
-          <h2 className="final-title">
-            Code with <span>Intelligence</span>,<br />
-            not overhead.
-          </h2>
-
-          <p className="final-subtitle">
-            CodeWhisper removes setup, friction, and guesswork — so you can focus
-            on building real software with AI at your side.
-          </p>
-
-          <div className="final-actions">
-            <button
-              className="final-primary"
-              onClick={() => navigate("/login")}
-            >
-              Enter CodeWhisper
+            <button className="btn" onClick={login}>
+              Enter VocodeAI
             </button>
           </div>
+        </div>
+      </nav>
+      <section className="hero">
+        {/* LEFT */}
+        <div className="hero-left">
+          <div className="badges">🚀 AI-Powered Coding Platform</div>
 
-          <div className="final-trust">
-            Trusted by developers, students, and teams worldwide
+          <h1>
+            Build, Code, and <br />
+            Execute with AI —
+            <span className="highlight"> All in One Workspace</span>
+          </h1>
+
+          <p>
+            A futuristic AI workspace with smart coding, voice commands, and
+            cloud execution.
+          </p>
+
+          <div className="buttons">
+            <button className="primary" onClick={login}>Get Started</button>
+            <button className="secondary">View Demo</button>
+          </div>
+        </div>
+
+        {/* RIGHT */}
+        <div className="hero-right">
+          {/* Code Editor */}
+          <div className="code-box">
+            <div className="code-header">
+              <span className="dot red"></span>
+              <span className="dot yellow"></span>
+              <span className="dot green"></span>
+              <span className="file">main.js</span>
+            </div>
+
+            <div className="code-content">
+              {displayedLines.map((line, index) => (
+                <div key={index} className="code-line">
+                  {line}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Terminal */}
+          <div className="terminal">
+            <p>$ node main.js</p>
+            <p className="running">Running...</p>
+            <p className="success">✓ Executed successfully</p>
+          </div>
+
+          {/* AI Assistant */}
+          <div className="assistants">
+            <strong>✨ AI Assistant</strong>
+            <p>I optimized your code for better performance!</p>
+          </div>
+        </div>
+      </section>
+      <section className="features">
+        {/* Heading */}
+        <div className="features-header">
+          <h2>
+            Powerful Features for <span>Modern Developers</span>
+          </h2>
+          <p>Everything you need to code faster and smarter</p>
+        </div>
+
+        {/* Cards */}
+        <div className="features-grid">
+          {features.map((item, index) => (
+            <div
+              key={index}
+              className={`card ${visible.includes(index) ? "show" : ""}`}
+            >
+              <div className="icon">{item.icon}</div>
+              <h3>{item.title}</h3>
+              <p>{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="audience">
+        {/* HEADER */}
+        <div className="audience-header">
+          <h2>Made For Everyone</h2>
+          <p>From beginners to professionals</p>
+        </div>
+
+        {/* CARDS */}
+        <div className="audience-grid">
+          {data.map((item, index) => (
+            <div
+              key={index}
+              className={`audience-card ${
+                visible.includes(index) ? "show" : ""
+              }`}
+            >
+              <div className="icon-circle">{item.icon}</div>
+              <h3>{item.title}</h3>
+              <p>{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="possibilities">
+        {/* HEADER */}
+        <div className="poss-header">
+          <h2>
+            Endless <span>Possibilities</span>
+          </h2>
+          <p>See what you can build with VocodeAI</p>
+        </div>
+
+        {/* GRID */}
+        <div className="poss-grid">
+          {items.map((item, index) => (
+            <div
+              key={index}
+              className={`poss-card ${visible.includes(index) ? "show" : ""}`}
+            >
+              <div className="icon-box">{item.icon}</div>
+              <h3>{item.title}</h3>
+              <p>{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="how-container">
+        <h1 className="title">How It Works</h1>
+        <p className="subtitle">Get started in three simple steps</p>
+
+        <div className="steps-wrapper">
+          {/* Horizontal Line */}
+
+          {/* Step 1 */}
+          <div className="step">
+            <div className="circle">1</div>
+
+            <div className="icon-box">
+              <FaFolderPlus />
+            </div>
+
+            <h3>Create Workspace</h3>
+            <p>Set up your coding environment in seconds</p>
+          </div>
+
+          {/* Step 2 */}
+          <div className="step">
+            <div className="circle">2</div>
+
+            <div className="icon-box">
+              <FaCommentDots />
+            </div>
+
+            <h3>Write or Speak Code</h3>
+            <p>Type naturally or use voice commands</p>
+          </div>
+
+          {/* Step 3 */}
+          <div className="step">
+            <div className="circle">3</div>
+
+            <div className="icon-box">
+              <FaRocket />
+            </div>
+
+            <h3>Run & Build Instantly</h3>
+            <p>Execute and deploy with one click</p>
           </div>
         </div>
       </section>
 
-      {/* FOOTER */}
+      <section className="pricing">
+        {/* HEADER */}
+        <div className="pricing-header">
+          <h2>
+            Simple, <span>Transparent Pricing</span>
+          </h2>
+          <p>Choose the plan that fits your needs</p>
+        </div>
+
+        {/* CARDS */}
+        <div className="pricing-grid">
+          {/* FREE */}
+          <div className="pricing-card">
+            <h3>Free</h3>
+            <p className="subtitle">Perfect for getting started</p>
+
+            <div className="price">
+              ₹0 <span>/month</span>
+            </div>
+
+            <ul>
+              <li>✔ Limited AI usage</li>
+              <li>✔ 1 workspace</li>
+              <li>✔ Basic code editor</li>
+              <li>✔ Community support</li>
+            </ul>
+
+            <button className="btn-outline">Get Started</button>
+          </div>
+
+          {/* PRO (Highlighted) */}
+          <div className="pricing-card active">
+            <div className="badge">⭐ MOST POPULAR</div>
+
+            <h3>Pro</h3>
+            <p className="subtitle">For serious developers</p>
+
+            <div className="price">
+              ₹499 <span>/month</span>
+            </div>
+
+            <ul>
+              <li>✔ Unlimited AI usage</li>
+              <li>✔ Unlimited workspaces</li>
+              <li>✔ Cloud execution</li>
+              <li>✔ Advanced code editor</li>
+              <li>✔ Priority support</li>
+              <li>✔ Voice commands</li>
+            </ul>
+
+            <button className="btn-fill">Get Started</button>
+          </div>
+
+          {/* TEAM */}
+          <div className="pricing-card">
+            <h3>Team</h3>
+            <p className="subtitle">For collaborative teams</p>
+
+            <div className="price">
+              ₹999 <span>/month</span>
+            </div>
+
+            <ul>
+              <li>✔ Everything in Pro</li>
+              <li>✔ Team collaboration</li>
+              <li>✔ Shared workspaces</li>
+              <li>✔ Admin dashboard</li>
+              <li>✔ SSO integration</li>
+              <li>✔ 24/7 support</li>
+            </ul>
+
+            <button className="btn-outline" onClick={login}>
+              Get Started
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="cta-section">
+        <div className="cta-box">
+          {/* ICON */}
+          <div className="cta-icon">✨</div>
+
+          {/* HEADING */}
+          <h2>
+            Start Building with AI <span>Today</span>
+          </h2>
+
+          {/* SUBTEXT */}
+          <p>
+            Join thousands of developers who are building faster and smarter
+            with VocodeAI's AI-powered workspace.
+          </p>
+
+          {/* BUTTON */}
+          <button className="cta-btn">Enter VocodeAI →</button>
+
+          {/* FOOT TEXT */}
+          <div className="cta-footer">
+            No credit card required • Free forever plan available
+          </div>
+        </div>
+      </section>
+
       <footer className="footer">
-  <div className="footer-container">
+        <div className="footer-container">
+          {/* LEFT */}
+          <div className="footer-left">
+            <div className="mainlogo">
+            <img src="/Nlogo.png" alt="VocodeAI Logo" className="mainlogos-img" />
+          </div>
 
-    {/* Brand */}
-    <div>
-      <h3>CodeWhisper</h3>
-      <p>
-        A cloud-native AI workspace built for modern developers.
-        Think, build, and scale — without friction.
-      </p>
-    </div>
+            <p>Build, code, and execute with AI — all in one workspace.</p>
 
-    {/* Contact */}
-    <div>
-      <h3>Contact</h3>
-      <a href="mailto:support@codewhisper.ai">
-        📧 codewhisper.ai@gmail.com
-      </a>
-      <a href="tel:+919999999999">
-        📞 +91 98977 87403
-      </a>
-    </div>
+            <div className="socials">
+              <FaGithub />
+              <FaTwitter />
+              <FaLinkedin />
+              <FaEnvelope />
+            </div>
+          </div>
 
-    {/* Social */}
-    <div>
-      <h3>Connect With Us</h3>
-      <a 
-        href="https://www.instagram.com/codewhisper.ai" 
-        target="_blank" 
-        rel="noopener noreferrer"
-      >
-        <FaInstagram />
-      </a>
-      <a 
-        href="https://linkedin.com/" 
-        target="_blank" 
-        rel="noopener noreferrer"
-      >
-        <FaLinkedin /> 
-      </a>
-    </div>
+          {/* COLUMN 1 */}
+          <div className="footer-col">
+            <h4>Product</h4>
+            <ul>
+              <li>Features</li>
+              <li>Pricing</li>
+              <li>Use Cases</li>
+              <li>Docs</li>
+            </ul>
+          </div>
 
-    {/* Product */}
-    <div>
-      <h3>Product</h3>
-      <a href="#">Features</a>
-      <a href="#">Documentation</a>
-      <a href="#">Privacy Policy</a>
-      <a href="#">Terms of Service</a>
-    </div>
+          {/* COLUMN 2 */}
+          <div className="footer-col">
+            <h4>Company</h4>
+            <ul>
+              <li>About</li>
+              <li>Blog</li>
+              <li>Careers</li>
+              <li>Contact</li>
+            </ul>
+          </div>
 
-  </div>
+          {/* COLUMN 3 */}
+          <div className="footer-col">
+            <h4>Legal</h4>
+            <ul>
+              <li>Privacy</li>
+              <li>Terms</li>
+              <li>Security</li>
+              <li>Cookies</li>
+            </ul>
+          </div>
+        </div>
 
-  <div className="footer-bottom">
-    © 2026 CodeWhisper AI — Built with intelligence.
-  </div>
-</footer>
+        {/* BOTTOM */}
+        <div className="footer-bottom">
+          <span>© 2026 VocodeAI. All rights reserved.</span>
+        </div>
+      </footer>
     </div>
   );
-}
+};
+
+export default Landing;

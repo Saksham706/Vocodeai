@@ -269,26 +269,57 @@ const closeTab = (path) => {
 
 
 const renameNode = async (oldPath, newName) => {
-    const newPath = oldPath
-      .split("/")
-      .slice(0, -1)
-      .concat(newName)
-      .join("/");
+  const newPath = oldPath
+    .split("/")
+    .slice(0, -1)
+    .concat(newName)
+    .join("/");
 
+  try {
     await fileApi.renameNode(
       accessToken,
       workspaceId,
       oldPath,
       newPath
     );
+  } catch (err) {
+    console.error("Rename failed", err);
+  }
 
-    await loadWorkspace();
-  };
+  await loadWorkspace();
+};
 
   const deleteNode = async (path) => {
-      await fileApi.deleteNode(accessToken, workspaceId, path);
-      await loadWorkspace();
-    };
+  await fileApi.deleteNode(accessToken, workspaceId, path);
+
+  // ✅ Remove from open tabs
+  setOpenTabs((prev) => prev.filter((t) => !t.startsWith(path)));
+
+  // ✅ Remove file contents
+  setFileContents((prev) => {
+    const updated = { ...prev };
+    Object.keys(updated).forEach((key) => {
+      if (key.startsWith(path)) delete updated[key];
+    });
+    return updated;
+  });
+
+  // ✅ Remove dirty flags
+  setDirtyFiles((prev) => {
+    const newSet = new Set(prev);
+    [...newSet].forEach((file) => {
+      if (file.startsWith(path)) newSet.delete(file);
+    });
+    return newSet;
+  });
+
+  // ✅ Reset active file if deleted
+  setActiveFile((prev) =>
+    prev && prev.startsWith(path) ? null : prev
+  );
+
+  await loadWorkspace();
+};
 
   /* ================= RUN FILE ================= */
 
@@ -370,21 +401,26 @@ const runProject = async () => {
 
   /* ================= PREVIEW ================= */
 
-  const refreshPreview = async () => {
-    if (!activeFile?.endsWith(".html")) return;
+  let previewWindow = null; // 👈 persists across calls
 
-    await fileApi.saveFile(
-      accessToken,
-      workspaceId,
-      activeFile,
-      fileContentsRef.current[activeFile] || ""
-    );
+const refreshPreview = async () => {
+  if (!activeFile?.endsWith(".html")) return;
 
-    setPreviewUrl(
-      `${backendUrl}/preview/${userId}/${workspaceId}/${activeFile}?t=${Date.now()}`
-    );
-  };
+  await fileApi.saveFile(
+    accessToken,
+    workspaceId,
+    activeFile,
+    fileContentsRef.current[activeFile] || ""
+  );
 
+  const url = `${backendUrl}/preview/${userId}/${workspaceId}/${activeFile}`;
+
+  if (!previewWindow || previewWindow.closed) {
+    previewWindow = window.open(url, "LIVE_PREVIEW");
+  } else {
+    previewWindow.focus();
+  }
+};
 
   useEffect(() => {
     if (!activeFile?.endsWith(".html")) {

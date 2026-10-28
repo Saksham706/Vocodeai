@@ -92,19 +92,19 @@ export async function forgotPassword(req, res) {
 
    await sendEmail(
   email,
-  "Password Reset OTP - CodeWhisper",
+  "Password Reset OTP - Vocodeai",
   `
   <div style="margin:0;padding:0;background-color:#0b1f1a;font-family:Arial,Helvetica,sans-serif;">
     <div style="max-width:600px;margin:40px auto;background:linear-gradient(135deg,#0f2e25,#092019);border-radius:12px;padding:40px;text-align:center;color:#e6f4ef;">
 
       <!-- Logo -->
-      <h1 style="color:#00ff9c;margin-bottom:10px;">CodeWhisper</h1>
+      <h1 style="color:#00ff9c;margin-bottom:10px;">Vocodeai</h1>
 
       <!-- Title -->
       <h2 style="margin-top:0;color:#ffffff;">Password Reset Request</h2>
 
       <p style="color:#b5d8cc;font-size:15px;line-height:1.6;">
-        We received a request to reset your password for your CodeWhisper account.
+        We received a request to reset your password for your Vocodeai account.
       </p>
 
       <!-- OTP Box -->
@@ -134,7 +134,7 @@ export async function forgotPassword(req, res) {
       <hr style="border:none;border-top:1px solid #123c31;margin:30px 0;">
 
       <p style="font-size:12px;color:#6f9488;">
-        © ${new Date().getFullYear()} CodeWhisper — The AI Workspace Built for Modern Developers
+        © ${new Date().getFullYear()} Vocodeai — The AI Workspace Built for Modern Developers
       </p>
 
     </div>

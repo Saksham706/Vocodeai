@@ -10,7 +10,7 @@ export async function sendEmail(to, subject, html) {
   });
 
   await transporter.sendMail({
-    from: `"CodeWhisper" <${process.env.EMAIL_USER}>`,
+    from: `"Vocodeai" <${process.env.EMAIL_USER}>`,
     to,
     subject,
     html,             

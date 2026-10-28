@@ -1,136 +1,176 @@
+/* ================= NAVBAR ================= */
 .navbar {
-  height: 48px;
-  background: #1e1e1e;
-  border-bottom: 1px solid #2a2a2a;
+  height: 70px;
   display: flex;
   align-items: center;
-  padding: 0 14px;
-  user-select: none;
+  justify-content: space-between;
+  padding: 0 30px;
+
+  background: linear-gradient(180deg, #001f1a, #001510);
+  border-bottom: 1px solid rgba(0, 255, 170, 0.08);
+  position: relative;
+  z-index: 100;
 }
 
-/* LEFT */
+/* ================= LEFT ================= */
 .navbar-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
 }
 
 .logo-img {
-  height: 80px;
-  width: 80px;
+  width: 36px;
+  filter: drop-shadow(0 0 10px #00ffa6);
 }
 
-.brand {
-  font-size: 13px;
-  color: #ddd;
-  font-weight: 500;
-}
-
-/* CENTER */
+/* ================= CENTER (TABS) ================= */
 .navbar-center {
   display: flex;
-  gap: 22px;
-  margin: auto;
+  align-items: center;
+  gap: 10px;
+
+  background: rgba(0, 255, 170, 0.05);
+  padding: 6px;
+  border-radius: 30px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 255, 170, 0.1);
 }
 
+/* TAB */
 .nav-tab {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  font-size: 13px;
-  color: #bdbdbd;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
+
+  color: #9fbdb7;
+  font-size: 14px;
+  transition: all 0.25s ease;
 }
 
+/* ICON */
+.nav-tab svg {
+  font-size: 16px;
+}
+
+/* HOVER */
 .nav-tab:hover {
-  color: #fff;
+  color: #00ffa6;
+  background: rgba(0, 255, 170, 0.08);
 }
 
+/* ACTIVE TAB (FILES) */
 .nav-tab.active {
-  color: #fff;
-  border-bottom: 2px solid #4fc3f7;
+  background: linear-gradient(90deg, #00ffa6, #00cc88);
+  color: #001a14;
+  font-weight: 500;
+  box-shadow: 0 0 12px rgba(0, 255, 170, 0.4);
 }
 
-/* AI TAB */
-.ai-tab {
-  background: rgba(79, 195, 247, 0.15);
-  border-radius: 6px;
-  color: #4fc3f7;
-  padding: 6px 10px;
-}
-
+/* AI TAB SPECIAL */
 .ai-tab:hover {
-  background: rgba(79, 195, 247, 0.25);
+  background: rgba(0, 255, 170, 0.12);
 }
 
-/* RIGHT */
+/* ================= RIGHT ================= */
 .navbar-right {
   position: relative;
 }
 
+/* MORE BUTTON */
 .more-btn {
-  background: none;
-  border: none;
-  color: #ccc;
-  padding: 6px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 255, 170, 0.1);
+  background: rgba(0, 255, 170, 0.05);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
   cursor: pointer;
+  color: white;
+  transition: all 0.3s ease;
 }
 
 .more-btn:hover {
-  color: white;
+  background: rgba(0, 255, 170, 0.12);
+  box-shadow: 0 0 12px rgba(0, 255, 170, 0.3);
 }
 
-/* DROPDOWN */
+/* ================= DROPDOWN ================= */
 .dropdown {
   position: absolute;
+  top: 55px;
   right: 0;
-  top: 44px;
-  background: #252526;
-  border: 1px solid #333;
-  min-width: 190px;
-  animation: fadeIn 120ms ease-out;
-  z-index: 1000;
+
+  width: 260px;
+  padding: 12px;
+
+  border-radius: 16px;
+  background: rgba(0, 30, 24, 0.95);
+  backdrop-filter: blur(16px);
+
+  border: 1px solid rgba(0, 255, 170, 0.15);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+
+  animation: dropdownFade 0.25s ease;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
+/* ITEM */
 .dropdown-item {
-  padding: 9px 12px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: #ccc;
+  gap: 12px;
+
+  padding: 12px 14px;
+  border-radius: 10px;
+
+  color: #c7eae3;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
+.dropdown-item svg {
+  font-size: 16px;
+}
+
+/* HOVER */
 .dropdown-item:hover {
-  background: #37373d;
-  color: white;
+  background: rgba(0, 255, 170, 0.1);
+  color: #00ffa6;
 }
 
+/* SEPARATOR */
 .dropdown-separator {
   height: 1px;
-  background: #333;
-  margin: 6px 0;
+  background: rgba(0, 255, 170, 0.1);
+  margin: 10px 0;
 }
 
+/* DANGER */
 .dropdown-item.danger {
-  color: #f48771;
+  color: #ff9a3c;
 }
 
 .dropdown-item.danger:hover {
-  background: #4b1f1f;
+  background: rgba(255, 154, 60, 0.1);
+  color: #ff9a3c;
+}
+
+/* ================= ANIMATION ================= */
+@keyframes dropdownFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

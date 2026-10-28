@@ -1,6 +1,9 @@
-import { useParams } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { WorkspaceProvider, useWorkspace } from "../context/WorkspaceContext";
+import {
+  WorkspaceProvider,
+  useWorkspace,
+} from "../context/WorkspaceContext";
 import { useEffect, useState, useRef } from "react";
 import { getWorkspace } from "../services/workspaceApi";
 
@@ -12,6 +15,9 @@ import RunBar from "../components/editor/RunBar";
 import TerminalTabs from "../components/terminal/TerminalTabs";
 import TerminalPanel from "../components/terminal/TerminalPanel";
 import LivePreview from "../components/preview/LivePreview";
+import AIChat from "../components/ai/AIChat";
+
+import { AIProvider } from "../context/AIContext";
 
 import "../styles/workspace.css";
 
@@ -19,14 +25,25 @@ import "../styles/workspace.css";
 
 function WorkspaceLayout() {
   const {
-  terminals,
-  activeTerminal,
-  setActiveTerminal,
-  killTerminal,
-  previewUrl,
-  activeFile   // ✅ ADD THIS
-} = useWorkspace();
+    terminals,
+    activeTerminal,
+    setActiveTerminal,
+    killTerminal,
+    previewUrl,
+    activeFile,
+    currentProject,
+  } = useWorkspace();
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  /* ---------- AI PANEL ---------- */
+  const [showAI, setShowAI] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setShowAI(params.get("ai") === "true");
+  }, [location.search]);
 
   /* ---------- RESIZABLE SIDEBAR ---------- */
   const [sidebarWidth, setSidebarWidth] = useState(240);
@@ -101,18 +118,41 @@ function WorkspaceLayout() {
 
         {/* ---------- MAIN AREA ---------- */}
         <div className="workspace-main">
-          <RunBar />
-          <EditorTabs />
+          <div className="workspace-content">
 
-          <div className="editor-area">
-            <CodeEditor />
+            {/* ===== EDITOR ===== */}
+            <div className="editor-section">
+              <RunBar />
+              <EditorTabs />
+
+              <div className="editor-area">
+                <CodeEditor />
+              </div>
+
+              <LivePreview url={previewUrl} activeFile={activeFile} />
+            </div>
+
+            {/* ===== AI PANEL ===== */}
+            {showAI && currentProject && (
+              <div className="ai-sidebar">
+                <div className="ai-header">
+                  <span>VocodeAI</span>
+
+                  {/* ✅ FIXED CLOSE BUTTON */}
+                  <button
+                    onClick={() => navigate(location.pathname)}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <AIChat workspaceId={currentProject} />
+              </div>
+            )}
+
           </div>
 
-          <LivePreview url={previewUrl} activeFile={activeFile} />
-
-
-
-          {/* ---------- TERMINAL ---------- */}
+          {/* ===== TERMINAL ===== */}
           {showTerminal && (
             <div
               className="terminal-section"
@@ -133,6 +173,8 @@ function WorkspaceLayout() {
               {activeTerminal && (
                 <TerminalPanel terminalId={activeTerminal} />
               )}
+
+              
             </div>
           )}
         </div>
@@ -165,16 +207,16 @@ export default function Workspace() {
 
   if (loading) return null;
   if (!user || !accessToken) return null;
-  
 
   return (
     <WorkspaceProvider userId={user.id} workspaceId={workspaceId}>
-      <WorkspaceLoader
-        userId={user.id}
-        workspaceId={workspaceId}
-        accessToken={accessToken}
-      />
-      <WorkspaceLayout />
+      <AIProvider>
+        <WorkspaceLoader
+          workspaceId={workspaceId}
+          accessToken={accessToken}
+        />
+        <WorkspaceLayout />
+      </AIProvider>
     </WorkspaceProvider>
   );
 }

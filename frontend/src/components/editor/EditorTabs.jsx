@@ -1,5 +1,6 @@
 import { useWorkspace } from "../../context/WorkspaceContext";
 import "../../styles/editor.css";
+
 export default function EditorTabs() {
   const { openTabs, activeFile, openFile, closeTab, dirtyFiles } =
     useWorkspace();
@@ -12,8 +13,10 @@ export default function EditorTabs() {
           className={`tab ${activeFile === file ? "active" : ""}`}
           onClick={() => openFile(file)}
         >
-          {file}
-          {dirtyFiles.has(file) && <span className="dirty-dot">●</span>}
+          <span className="file-name">{file}</span>
+
+          {dirtyFiles.has(file) && <span className="dirty-dot" />}
+
           <span
             className="close"
             onClick={(e) => {

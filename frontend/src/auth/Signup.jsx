@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/auth.css";
 
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
 export default function Signup() {
   const [form, setForm] = useState({
     firstName: "",
@@ -13,7 +15,6 @@ export default function Signup() {
     confirmPassword: "",
   });
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL;
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -52,71 +53,107 @@ export default function Signup() {
         return;
       }
 
-      navigate("/");
+      navigate("/login");
     } catch {
-      setError("Server error. Try again later.");
+      setError("Server error");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-page">
-      <form className="auth-card" onSubmit={submit}>
-        <h2>Create account</h2>
-
-        {error && <div className="auth-error">{error}</div>}
-
-        <input name="firstName" placeholder="First Name" onChange={handleChange} />
-        <input name="lastName" placeholder="Last Name" onChange={handleChange} />
-
-        {/* 📱 Phone Input with Country Code */}
-        <div className="phone-group">
-          <select
-            name="countryCode"
-            value={form.countryCode}
-            onChange={handleChange}
-          >
-            <option value="+91">🇮🇳 +91</option>
-            <option value="+1">🇺🇸 +1</option>
-            <option value="+44">🇬🇧 +44</option>
-            <option value="+61">🇦🇺 +61</option>
-          </select>
-
-          <input
-            type="tel"
-            name="phone"
-            placeholder="Phone number"
-            value={form.phone}
-            onChange={handleChange}
-          />
+    <div className="auth-container">
+      {/* LEFT SAME */}
+      <div className="auth-left">
+        <div className="logo">
+          <img src="/icon.png" alt="logo" />
+          <span>VocodeAI</span>
         </div>
 
-        <input name="email" placeholder="Email Address" onChange={handleChange} />
+        <h1>Welcome to VocodeAI</h1>
+        <p>Your AI-powered coding workspace</p>
 
-        <input
-          type="password"
-          name="password"
-          placeholder="Password"
-          onChange={handleChange}
-        />
+        <div className="terminal-box">
+          <div className="dots">
+            <span className="red"></span>
+            <span className="yellow"></span>
+            <span className="green"></span>
+          </div>
+          <pre>
+{`>_ $ vocode init
+Initializing AI workspace...
 
-        <input
-          type="password"
-          name="confirmPassword"
-          placeholder="Confirm Password"
-          onChange={handleChange}
-        />
+✨ Ready to code smarter`}
+          </pre>
+        </div>
+      </div>
 
-        <button className="primary-btn" disabled={loading}>
-          {loading ? "Creating account..." : "Start Building with AI"}
-        </button>
+      {/* RIGHT */}
+      <div className="auth-right">
+        <div className="auth-card">
+          <h2>Create your account</h2>
+          <p className="sub-text">
+            Get started with your AI coding workspace.
+          </p>
 
-        <p className="auth-switch">
-          Already inside?{" "}
-          <span onClick={() => navigate("/login")}>Sign in</span>
-        </p>
-      </form>
+          <button
+            className="google-btn"
+            onClick={() =>
+              (window.location.href = `${backendUrl}/api/auth/google`)
+            }
+          >
+            <img src="/google.png" alt="google" />
+            Continue with Google
+          </button>
+
+          <div className="divider">
+            <span>or continue with email</span>
+          </div>
+
+          {error && <div className="auth-error">{error}</div>}
+
+          <form onSubmit={submit}>
+            <label>Full Name</label>
+            <input
+              name="firstName"
+              placeholder="John Doe"
+              onChange={handleChange}
+            />
+
+            <label>Email</label>
+            <input
+              name="email"
+              placeholder="you@example.com"
+              onChange={handleChange}
+            />
+
+            <label>Password</label>
+            <input
+              type="password"
+              name="password"
+              placeholder="••••••••"
+              onChange={handleChange}
+            />
+
+            <label>Confirm Password</label>
+            <input
+              type="password"
+              name="confirmPassword"
+              placeholder="••••••••"
+              onChange={handleChange}
+            />
+
+            <button className="primary-btn" disabled={loading}>
+              {loading ? "Creating..." : "Sign Up"}
+            </button>
+          </form>
+
+          <p className="switch">
+            Already have an account?{" "}
+            <span onClick={() => navigate("/login")}>Login</span>
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

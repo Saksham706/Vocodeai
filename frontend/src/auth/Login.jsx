@@ -5,6 +5,7 @@ import api from "../utils/api";
 import "../styles/auth.css";
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -26,90 +27,99 @@ export default function Login() {
     }
 
     try {
-      const { data } = await api.post("/auth/login", {
-        email,
-        password,
-      });
-
-      // 🔥 store access token in memory
+      const { data } = await api.post("/auth/login", { email, password });
       login(data.accessToken, data.user);
-
       navigate("/dashboard");
-
     } catch (err) {
-      setError(
-        err.response?.data?.error ||
-          "Invalid email or password"
-      );
+      setError(err.response?.data?.error || "Invalid email or password");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-page">
-      <form className="auth-card" onSubmit={handleSubmit}>
-        <div className="auth-logo">
-          <img src="/icon.png" alt="CodeWhisper" />
+    <div className="auth-container">
+      {/* LEFT SIDE */}
+      <div className="auth-left">
+        <div className="logo">
+          <img src="/icon.png" alt="logo" />
+          <span>VocodeAI</span>
         </div>
 
-        <h2>Sign in</h2>
+        <h1>Welcome to VocodeAI</h1>
+        <p>Your AI-powered coding workspace</p>
 
-        {error && <div className="auth-error">{error}</div>}
+        <div className="terminal-box">
+          <div className="dots">
+            <span className="red"></span>
+            <span className="yellow"></span>
+            <span className="green"></span>
+          </div>
+          <pre>
+{`>_ $ vocode init
+Initializing AI workspace...
 
-        <input
-          type="email"
-          placeholder="Email address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-
-        <div className="auth-forgot">
-          <span onClick={() => navigate("/forgot")}>
-            Forgot password?
-          </span>
+✨ Ready to code smarter`}
+          </pre>
         </div>
+      </div>
 
-        <button
-          type="submit"
-          className="primary-btn"
-          disabled={loading}
-        >
-          {loading ? "Signing in..." : "Enter CodeWhisper"}
-        </button>
+      {/* RIGHT SIDE */}
+      <div className="auth-right">
+        <div className="auth-card">
+          <h2>Login to your account</h2>
+          <p className="sub-text">Welcome back! Please enter your details.</p>
 
-        <div className="auth-divider">
-          <span>OR</span>
+          <button
+            className="google-btn"
+            onClick={() =>
+              (window.location.href = `${backendUrl}/api/auth/google`)
+            }
+          >
+            <img src="/google.png" alt="google" />
+            Continue with Google
+          </button>
+
+          <div className="divider">
+            <span>or continue with email</span>
+          </div>
+
+          {error && <div className="auth-error">{error}</div>}
+
+          <form onSubmit={handleSubmit}>
+            <label>Email</label>
+            <input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+
+            <label>Password</label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+
+            <div className="forgot">
+              <span onClick={() => navigate("/forgot")}>
+                Forgot Password?
+              </span>
+            </div>
+
+            <button className="primary-btn" disabled={loading}>
+              {loading ? "Signing in..." : "Login"}
+            </button>
+          </form>
+
+          <p className="switch">
+            Don’t have an account?{" "}
+            <span onClick={() => navigate("/signup")}>Sign up</span>
+          </p>
         </div>
-
-        <button
-          type="button"
-          className="google-btn"
-          onClick={() =>
-            (window.location.href =
-              `${backendUrl}/api/auth/google`)
-          }
-        >
-          <img src="/google.png" alt="Google" />
-          Continue with Google
-        </button>
-
-        <p className="auth-switch">
-          New to CodeWhisper?{" "}
-          <span onClick={() => navigate("/signup")}>
-            Create account
-          </span>
-        </p>
-      </form>
+      </div>
     </div>
   );
 }

@@ -8,20 +8,18 @@ export default function TerminalPanel({ terminalId }) {
   const { socketRef } = useWorkspace();
 
   const containerRef = useRef(null);
-  const termRef = useRef(null);
-  const fitRef = useRef(null);
 
   useEffect(() => {
     if (!terminalId || !socketRef.current) return;
 
     const term = new Terminal({
       theme: {
-        background: "#1e1e1e",
+        background: "#000000",
         foreground: "#ffffff",
       },
       fontSize: 14,
       cursorBlink: true,
-      scrollback: 1000,
+      scrollback: 2000,
     });
 
     const fitAddon = new FitAddon();
@@ -41,48 +39,23 @@ export default function TerminalPanel({ terminalId }) {
       );
     });
 
-    const handleResize = () => {
-      setTimeout(() => {
-        fitAddon.fit();
-      }, 50);
-
-      socketRef.current.send(
-        JSON.stringify({
-          type: "resize",
-          terminalId,
-          cols: term.cols,
-          rows: term.rows,
-        })
-      );
-    };
-
-    window.addEventListener("resize", handleResize);
-
     const outputHandler = (e) => {
-      const msg = e.detail;
-      if (msg.terminalId === terminalId) {
-        term.write(msg.data);
+      if (e.detail.terminalId === terminalId) {
+        term.write(e.detail.data);
       }
     };
 
     window.addEventListener("terminal-output", outputHandler);
 
-    termRef.current = term;
-    fitRef.current = fitAddon;
-
     return () => {
-      window.removeEventListener("resize", handleResize);
       window.removeEventListener("terminal-output", outputHandler);
       term.dispose();
     };
   }, [terminalId]);
 
- return (
-  <div className="terminal-panel">
-    <div
-      ref={containerRef}
-      style={{ width: "100%", height: "100%" }}
-    />
-  </div>
-);
+  return (
+    <div className="terminal-panel">
+      <div ref={containerRef} className="xterm-container" />
+    </div>
+  );
 }
