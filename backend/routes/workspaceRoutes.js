@@ -9,6 +9,7 @@ import {
   duplicateWorkspace,
   togglePin,
 } from "../controllers/workspaceController.js";
+import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
 
 const router = express.Router();
 
@@ -31,6 +32,22 @@ router.get("/:id", auth, async (req, res) => {
   }
 
   res.json(ws);
+});
+
+router.post("/:id/hydrate", auth, async (req, res) => {
+  try {
+    await hydrateWorkspace(req.user.id, req.params.id);
+
+    res.json({
+      success: true,
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Hydrate failed",
+    });
+  }
 });
 
 export default router;

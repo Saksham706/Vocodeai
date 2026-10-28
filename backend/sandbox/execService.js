@@ -1,5 +1,6 @@
 import { getOrCreateContainer } from "./containerManager.js";
 import { touchContainer } from "./containerRegistry.js";
+import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
 
 function getContainerKey(userId, workspaceId) {
   return `${userId}-${workspaceId}`;
@@ -12,44 +13,88 @@ export async function execInWorkspace({
   command,
   detach = false,
 }) {
-  const key = `${userId}-${workspaceId}`;
+  try {
+    /* ========================================= */
+    /* HYDRATE WORKSPACE FROM MONGODB            */
+    /* ========================================= */
 
-  const container = await getOrCreateContainer({
-    workspaceKey: key,
-    workspacePath,
-  });
+    await hydrateWorkspace(userId, workspaceId);
 
-  touchContainer(key);
+    /* ========================================= */
+    /* CONTAINER                                */
+    /* ========================================= */
 
-  const execInstance = await container.exec({
-    Cmd: ["bash", "-lc", command],
-    AttachStdout: true,
-    AttachStderr: true,
-    Tty: false,
-    WorkingDir: "/workspace",
-  });
+    const key = getContainerKey(userId, workspaceId);
 
-  if (detach) {
-    await execInstance.start({ hijack: true, stdin: false });
-    return { started: true };
+    const container = await getOrCreateContainer({
+      workspaceKey: key,
+      workspacePath,
+    });
+
+    touchContainer(key);
+
+    /* ========================================= */
+    /* EXEC                                      */
+    /* ========================================= */
+
+    const execInstance = await container.exec({
+      Cmd: ["bash", "-lc", command],
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: false,
+      WorkingDir: "/workspace",
+    });
+
+    /* ========================================= */
+    /* DETACHED MODE                             */
+    /* ========================================= */
+
+    if (detach) {
+      await execInstance.start({
+        hijack: true,
+        stdin: false,
+      });
+
+      return {
+        started: true,
+      };
+    }
+
+    /* ========================================= */
+    /* NORMAL EXECUTION                          */
+    /* ========================================= */
+
+    const stream = await execInstance.start({
+      hijack: true,
+      stdin: false,
+    });
+
+    return new Promise((resolve, reject) => {
+      let output = "";
+
+      stream.on("data", (chunk) => {
+        output += chunk.toString();
+      });
+
+      stream.on("end", async () => {
+        resolve({
+          success: true,
+          output,
+        });
+      });
+
+      stream.on("error", (err) => {
+        reject(err);
+      });
+    });
+
+  } catch (err) {
+    console.error("EXEC WORKSPACE ERROR:", err);
+
+    return {
+      success: false,
+      output: "",
+      error: err.message,
+    };
   }
-
-  const stream = await execInstance.start({
-    hijack: true,
-    stdin: false,
-  });
-
-  return new Promise((resolve, reject) => {
-    let output = "";
-
-    stream.on("data", (chunk) => {
-      output += chunk.toString();
-    });
-
-    stream.on("end", () => {
-      resolve({ output });
-    });
-
-    stream.on("error", reject);
-  });
 }

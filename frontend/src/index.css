@@ -6,12 +6,22 @@
   box-sizing: border-box;
 }
 
-html, body, #root {
-  height: 100%;
+html,
+body,
+#root {
   width: 100%;
+  min-height: 100%;
   margin: 0;
   padding: 0;
-  background: #050709; /* match dashboard background */
+
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  background: #010d0a;
+}
+
+body {
+  font-family: "Inter", sans-serif;
 }
 
 /* Remove any default white background */

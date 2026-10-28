@@ -1,48 +1,86 @@
-import { FiFilePlus, FiFolderPlus } from "react-icons/fi";
+import { FiFilePlus, FiFolderPlus, FiX } from "react-icons/fi";
 import FileExplorer from "../explorer/FileExplorer";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import "../../styles/sidebar.css";
 
-export default function Sidebar() {
-  const { setCreateRequest, currentWorkspace } = useWorkspace();
+export default function Sidebar({
+  mobileOpen,
+  setMobileOpen,
+}) {
+  const { setCreateRequest, currentWorkspace } =
+    useWorkspace();
 
   return (
-    <aside className="sidebar">
-      {/* HEADER */}
-      <div className="sidebar-header">
-        <span className="sidebar-title">EXPLORER</span>
+    <>
+      {/* MOBILE OVERLAY */}
+      {mobileOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
 
-        <div className="sidebar-header-actions">
+      <aside
+        className={`sidebar ${
+          mobileOpen ? "sidebar-mobile-open" : ""
+        }`}
+      >
+        {/* MOBILE CLOSE */}
+        <div className="sidebar-mobile-top">
           <button
-            title="New File"
-            onClick={() =>
-              setCreateRequest({ type: "file", parent: "" })
-            }
+            onClick={() => setMobileOpen(false)}
           >
-            <FiFilePlus />
-          </button>
-
-          <button
-            title="New Folder"
-            onClick={() =>
-              setCreateRequest({ type: "folder", parent: "" })
-            }
-          >
-            <FiFolderPlus />
+            <FiX />
           </button>
         </div>
-      </div>
 
-      {/* WORKSPACE */}
-      <div className="workspace-name">
-        <span className="workspace-icon">📁</span>
-         {currentWorkspace?.name || "Loading..."}
-      </div>
+        {/* HEADER */}
+        <div className="sidebar-header">
+          <span className="sidebar-title">
+            EXPLORER
+          </span>
 
-      {/* TREE */}
-      <div className="sidebar-tree">
-        <FileExplorer />
-      </div>
-    </aside>
+          <div className="sidebar-header-actions">
+            <button
+              title="New File"
+              onClick={() =>
+                setCreateRequest({
+                  type: "file",
+                  parent: "",
+                })
+              }
+            >
+              <FiFilePlus />
+            </button>
+
+            <button
+              title="New Folder"
+              onClick={() =>
+                setCreateRequest({
+                  type: "folder",
+                  parent: "",
+                })
+              }
+            >
+              <FiFolderPlus />
+            </button>
+          </div>
+        </div>
+
+        {/* WORKSPACE */}
+        <div className="workspace-name">
+          <span className="workspace-icon">
+            📁
+          </span>
+
+          {currentWorkspace?.name || "Loading..."}
+        </div>
+
+        {/* TREE */}
+        <div className="sidebar-tree">
+          <FileExplorer />
+        </div>
+      </aside>
+    </>
   );
 }

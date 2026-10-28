@@ -35,7 +35,7 @@ new Worker(
   },
   {
     connection: redisConnection,
-    concurrency: 3,
+    concurrency: 1,
   }
 );
 

@@ -22,15 +22,16 @@ const authHeaders = (token, isJson = true) => {
 /* ================= LOAD TREE ================= */
 
 export async function loadTree(token, workspaceId) {
-  const res = await fetch(
-    `${BASE}/tree?workspaceId=${workspaceId}`,
-    {
-      headers: authHeaders(token, false),
-    }
-  );
+  const res = await fetch(`${BASE}/tree?workspaceId=${workspaceId}`, {
+    headers: authHeaders(token, false),
+  });
 
   if (!res.ok) {
-    throw new Error("Failed to load workspace tree");
+    const err = await res.json();
+
+    console.error(err);
+
+    return err;
   }
 
   return res.json();
@@ -75,7 +76,7 @@ export async function readFile(token, workspaceId, path) {
     `${BASE}/read?workspaceId=${workspaceId}&path=${encodeURIComponent(path)}`,
     {
       headers: authHeaders(token, false),
-    }
+    },
   );
 
   if (!res.ok) throw new Error("Failed to read file");
@@ -103,12 +104,7 @@ export async function saveFile(token, workspaceId, path, content) {
 
 /* ================= RENAME ================= */
 
-export async function renameNode(
-  token,
-  workspaceId,
-  oldPath,
-  newPath
-) {
+export async function renameNode(token, workspaceId, oldPath, newPath) {
   const res = await fetch(`${BASE}/rename`, {
     method: "PUT",
     headers: authHeaders(token),
