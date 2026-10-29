@@ -22,19 +22,21 @@ const authHeaders = (token, isJson = true) => {
 /* ================= LOAD TREE ================= */
 
 export async function loadTree(token, workspaceId) {
-  const res = await fetch(`${BASE}/tree?workspaceId=${workspaceId}`, {
-    headers: authHeaders(token, false),
-  });
+  try {
+    const res = await fetch(`${BASE}/tree?workspaceId=${workspaceId}`, {
+      headers: authHeaders(token, false),
+    });
 
-  if (!res.ok) {
-    const err = await res.json();
+    if (!res.ok) {
+      return [];
+    }
 
-    console.error(err);
-
-    return err;
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.error("loadTree error:", err);
+    return [];
   }
-
-  return res.json();
 }
 
 /* ================= CREATE FILE ================= */
@@ -50,7 +52,10 @@ export async function createFile(token, workspaceId, path) {
     }),
   });
 
-  if (!res.ok) throw new Error("Failed to create file");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to create file");
+  }
   return res.json();
 }
 
@@ -65,7 +70,10 @@ export async function createFolder(token, workspaceId, path) {
     }),
   });
 
-  if (!res.ok) throw new Error("Failed to create folder");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to create folder");
+  }
   return res.json();
 }
 
@@ -76,10 +84,13 @@ export async function readFile(token, workspaceId, path) {
     `${BASE}/read?workspaceId=${workspaceId}&path=${encodeURIComponent(path)}`,
     {
       headers: authHeaders(token, false),
-    },
+    }
   );
 
-  if (!res.ok) throw new Error("Failed to read file");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to read file");
+  }
 
   const data = await res.json();
   return data.content ?? "";
@@ -98,7 +109,10 @@ export async function saveFile(token, workspaceId, path, content) {
     }),
   });
 
-  if (!res.ok) throw new Error("Failed to save file");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to save file");
+  }
   return res.json();
 }
 
@@ -115,7 +129,10 @@ export async function renameNode(token, workspaceId, oldPath, newPath) {
     }),
   });
 
-  if (!res.ok) throw new Error("Failed to rename node");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to rename node");
+  }
   return res.json();
 }
 
@@ -131,6 +148,9 @@ export async function deleteNode(token, workspaceId, path) {
     }),
   });
 
-  if (!res.ok) throw new Error("Failed to delete node");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to delete node");
+  }
   return res.json();
 }

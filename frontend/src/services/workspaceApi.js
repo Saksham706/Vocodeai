@@ -7,18 +7,23 @@ const authHeaders = (token) => ({
 
 /* LIST */
 export async function listWorkspaces(token) {
-  const res = await fetch(BASE, {
-    headers: authHeaders(token),
-  });
-  if (!res.ok) throw new Error("Failed to load workspaces");
-  return res.json();
+  try {
+    const res = await fetch(BASE, {
+      headers: authHeaders(token),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.error("listWorkspaces error:", err);
+    return [];
+  }
 }
 
 /* CREATE */
 export async function createWorkspace(token, name) {
   const res = await fetch(BASE, {
     method: "POST",
-    credentials: "include", // ✅ ADD THIS
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,

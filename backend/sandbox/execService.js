@@ -17,13 +17,13 @@ export async function execInWorkspace({
     /* ========================================= */
     /* HYDRATE WORKSPACE FROM MONGODB            */
     /* ========================================= */
-
-    await hydrateWorkspace(userId, workspaceId);
+    if (userId && workspaceId) {
+      await hydrateWorkspace(userId, workspaceId);
+    }
 
     /* ========================================= */
     /* CONTAINER                                */
     /* ========================================= */
-
     const key = getContainerKey(userId, workspaceId);
 
     const container = await getOrCreateContainer({
@@ -36,19 +36,17 @@ export async function execInWorkspace({
     /* ========================================= */
     /* EXEC                                      */
     /* ========================================= */
-
     const execInstance = await container.exec({
       Cmd: ["bash", "-lc", command],
       AttachStdout: true,
       AttachStderr: true,
-      Tty: false,
+      Tty: true,
       WorkingDir: "/workspace",
     });
 
     /* ========================================= */
     /* DETACHED MODE                             */
     /* ========================================= */
-
     if (detach) {
       await execInstance.start({
         hijack: true,
@@ -56,6 +54,7 @@ export async function execInWorkspace({
       });
 
       return {
+        success: true,
         started: true,
       };
     }
@@ -63,31 +62,33 @@ export async function execInWorkspace({
     /* ========================================= */
     /* NORMAL EXECUTION                          */
     /* ========================================= */
-
     const stream = await execInstance.start({
       hijack: true,
       stdin: false,
     });
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       let output = "";
 
       stream.on("data", (chunk) => {
-        output += chunk.toString();
+        output += chunk.toString("utf-8");
       });
 
       stream.on("end", async () => {
         resolve({
           success: true,
-          output,
+          output: output.trim(),
         });
       });
 
       stream.on("error", (err) => {
-        reject(err);
+        resolve({
+          success: false,
+          output,
+          error: err.message,
+        });
       });
     });
-
   } catch (err) {
     console.error("EXEC WORKSPACE ERROR:", err);
 

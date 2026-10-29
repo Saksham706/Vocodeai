@@ -1,3 +1,29 @@
+const IGNORED_EXTENSIONS = [
+  ".class",
+  ".out",
+  ".o",
+  ".obj",
+  ".exe",
+  ".pyc",
+  ".pyo",
+  ".so",
+  ".dll",
+  ".dylib",
+];
+
+const IGNORED_FILENAMES = ["a.out", "a.exe", ".workspace.json", ".ds_store", "thumbs.db"];
+
+export function isIgnoredArtifact(path) {
+  if (!path) return true;
+  const lower = path.toLowerCase();
+  const filename = lower.split("/").pop();
+
+  if (IGNORED_FILENAMES.includes(filename)) return true;
+  if (IGNORED_EXTENSIONS.some((ext) => filename.endsWith(ext))) return true;
+
+  return false;
+}
+
 export function buildTree(nodes) {
   const root = {
     name: "",
@@ -5,10 +31,15 @@ export function buildTree(nodes) {
     children: [],
   };
 
+  if (!Array.isArray(nodes)) {
+    return root;
+  }
+
   const map = { "": root };
 
   for (const node of nodes) {
-    const parts = node.path.split("/");
+    if (!node?.path || isIgnoredArtifact(node.path)) continue;
+    const parts = node.path.split("/").filter(Boolean);
     let currentPath = "";
 
     parts.forEach((part, index) => {
@@ -22,7 +53,9 @@ export function buildTree(nodes) {
           children: [],
         };
 
-        map[parentPath].children.push(map[currentPath]);
+        if (map[parentPath]) {
+          map[parentPath].children.push(map[currentPath]);
+        }
       }
     });
   }

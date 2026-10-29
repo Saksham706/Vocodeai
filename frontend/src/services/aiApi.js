@@ -1,6 +1,6 @@
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-export async function askAI(token, message, workspaceId) {
+export async function askAI(token, message, workspaceId, activeFile) {
   const res = await fetch(`${backendUrl}/api/ai`, {
     method: "POST",
     headers: {
@@ -10,10 +10,14 @@ export async function askAI(token, message, workspaceId) {
     body: JSON.stringify({
       message,
       workspaceId,
+      activeFile,
     }),
   });
 
-  if (!res.ok) throw new Error("AI request failed");
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || "AI request failed");
+  }
 
-  return res.json();
+  return data;
 }

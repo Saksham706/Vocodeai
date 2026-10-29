@@ -2,16 +2,64 @@ import fs from "fs/promises";
 import path from "path";
 import FileNode from "../models/FileNode.js";
 
+const IGNORED_PATTERNS = [
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  "__pycache__",
+  ".venv",
+  ".pytest_cache",
+  ".DS_Store",
+  ".workspace.json",
+];
+
+const IGNORED_EXTENSIONS = [
+  ".class",
+  ".out",
+  ".o",
+  ".obj",
+  ".exe",
+  ".pyc",
+  ".pyo",
+  ".pyd",
+  ".so",
+  ".dll",
+  ".dylib",
+  ".pdb",
+  ".idb",
+  ".ilk",
+  ".map",
+];
+
+const IGNORED_FILENAMES = [
+  "a.out",
+  "a.exe",
+  ".ds_store",
+  "thumbs.db",
+];
+
+export function isIgnoredFile(relativePath) {
+  if (!relativePath) return true;
+  const lower = relativePath.toLowerCase();
+  const filename = lower.split("/").pop();
+
+  if (IGNORED_PATTERNS.some((pattern) => lower.includes(pattern))) return true;
+  if (IGNORED_FILENAMES.includes(filename)) return true;
+  if (IGNORED_EXTENSIONS.some((ext) => filename.endsWith(ext))) return true;
+
+  return false;
+}
+
 export async function syncWorkspaceToDB(userId, workspaceId) {
   try {
     const workspacePath = path.join(
       process.cwd(),
-      "workspaces",
+      process.env.WORKSPACES_ROOT || "workspaces",
       userId,
       workspaceId
     );
 
-    // Workspace does not exist
     try {
       await fs.access(workspacePath);
     } catch {
@@ -32,17 +80,11 @@ export async function syncWorkspaceToDB(userId, workspaceId) {
           ? `${base}/${entry.name}`
           : entry.name;
 
-        // Ignore system files
-        if (
-          relativePath.includes("node_modules") ||
-          relativePath.includes(".git") ||
-          relativePath.includes("dist") ||
-          relativePath.includes("build")
-        ) {
+        // Skip ignored system, dependency, and compiled binary files (.class, a.out, etc.)
+        if (isIgnoredFile(relativePath)) {
           continue;
         }
 
-        // Folder
         if (entry.isDirectory()) {
           nodes.push({
             workspaceId,
@@ -51,10 +93,7 @@ export async function syncWorkspaceToDB(userId, workspaceId) {
           });
 
           await walk(fullPath, relativePath);
-        }
-
-        // File
-        else {
+        } else {
           let content = "";
 
           try {
@@ -80,13 +119,8 @@ export async function syncWorkspaceToDB(userId, workspaceId) {
       workspaceId,
     }).lean();
 
-    const existingPaths = new Set(
-      existingNodes.map((n) => n.path)
-    );
-
-    const currentPaths = new Set(
-      nodes.map((n) => n.path)
-    );
+    const existingPaths = new Set(existingNodes.map((n) => n.path));
+    const currentPaths = new Set(nodes.map((n) => n.path));
 
     // Remove deleted files/folders
     const pathsToDelete = [...existingPaths].filter(
@@ -100,7 +134,16 @@ export async function syncWorkspaceToDB(userId, workspaceId) {
       });
     }
 
-    // Bulk upsert
+    // Explicitly delete any compiled binary files (.class, a.out, etc.) from MongoDB
+    await FileNode.deleteMany({
+      workspaceId,
+      $or: [
+        { path: { $regex: "\\.(class|out|o|obj|exe|pyc|so|dll)$", $options: "i" } },
+        { path: { $regex: "(^|/)a\\.out$", $options: "i" } },
+      ],
+    });
+
+    // Bulk upsert current nodes
     if (nodes.length > 0) {
       const operations = nodes.map((node) => ({
         updateOne: {
@@ -117,15 +160,7 @@ export async function syncWorkspaceToDB(userId, workspaceId) {
 
       await FileNode.bulkWrite(operations);
     }
-
-    console.log(
-      `✅ Workspace synced: ${workspaceId}`
-    );
-
   } catch (err) {
-    console.error(
-      "❌ syncWorkspaceToDB ERROR:",
-      err
-    );
+    console.error("❌ syncWorkspaceToDB ERROR:", err.message);
   }
 }

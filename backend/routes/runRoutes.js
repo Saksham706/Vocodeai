@@ -1,37 +1,30 @@
 import express from "express";
 import path from "path";
-
 import { auth } from "../middleware/auth.js";
 import { detectProject } from "../projects/projectDetector.js";
 import { codeQueue } from "../queue/codeQueue.js";
 import rateLimit from "express-rate-limit";
 
 const runLimiter = rateLimit({
-  windowMs: 10 * 1000,
-  max: 5,
-
+  windowMs: 5 * 1000,
+  max: 10,
   message: {
-    error: "Too many run requests",
+    error: "Too many run requests, please wait a moment",
   },
 });
 
 const router = express.Router();
-
-/* ========================================= */
-/* ACTIVE RUN LOCKS                          */
-/* ========================================= */
-
 const activeRuns = new Map();
 
-router.post("/",runLimiter, auth, async (req, res) => {
+router.post("/", runLimiter, auth, async (req, res) => {
   try {
     const { workspaceId } = req.body;
 
-    const runKey = `${req.user.id}-${workspaceId}`;
+    if (!workspaceId) {
+      return res.status(400).json({ error: "workspaceId is required" });
+    }
 
-    /* ========================================= */
-    /* BLOCK DUPLICATE RUNS                      */
-    /* ========================================= */
+    const runKey = `${req.user.id}-${workspaceId}`;
 
     if (activeRuns.has(runKey)) {
       return res.status(429).json({
@@ -43,7 +36,7 @@ router.post("/",runLimiter, auth, async (req, res) => {
 
     const workspacePath = path.join(
       process.cwd(),
-      "workspaces",
+      process.env.WORKSPACES_ROOT || "workspaces",
       req.user.id,
       workspaceId
     );
@@ -52,9 +45,8 @@ router.post("/",runLimiter, auth, async (req, res) => {
 
     if (!detected) {
       activeRuns.delete(runKey);
-
       return res.status(400).json({
-        error: "No supported project detected",
+        error: "No supported project detected in workspace",
       });
     }
 
@@ -73,26 +65,22 @@ router.post("/",runLimiter, auth, async (req, res) => {
       }
     );
 
-    /* ========================================= */
-    /* AUTO UNLOCK                               */
-    /* ========================================= */
-
     setTimeout(() => {
       activeRuns.delete(runKey);
-    }, 10000);
+    }, 5000);
 
     res.json({
       success: true,
       jobId: job.id,
       type: detected.type,
+      command: detected.command,
+      mode: detected.mode,
       port: detected.port || null,
     });
-
   } catch (err) {
     console.error("RUN ROUTE ERROR:", err);
-
     res.status(500).json({
-      error: "Run failed",
+      error: "Run failed: " + err.message,
     });
   }
 });

@@ -4,6 +4,7 @@ import Signup from "./auth/Signup";
 import Dashboard from "./pages/Dashboard";
 import Workspace from "./pages/Workspace";
 import Landing from "./pages/Landing";
+import Documentation from "./pages/Documentation";
 import ForgotPassword from "./auth/ForgotPassword";
 import ResetPassword from "./auth/ResetPassword";
 import OAuthSuccess from "./auth/OAuthSuccess";
@@ -47,6 +48,7 @@ export default function App() {
           <Routes>   {/* ✅ REQUIRED */}
 
             <Route path="/" element={<Landing />} />
+            <Route path="/docs" element={<Documentation />} />
 
             <Route
               path="/login"

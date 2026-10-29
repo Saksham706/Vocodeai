@@ -3,6 +3,7 @@ import { FaMicrophone, FaStop } from "react-icons/fa";
 
 export default function VoiceInput({ onCommand }) {
   const [listening, setListening] = useState(false);
+  const [errorNotice, setErrorNotice] = useState("");
   const recognitionRef = useRef(null);
 
   const startListening = () => {
@@ -10,50 +11,68 @@ export default function VoiceInput({ onCommand }) {
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert("Speech recognition not supported");
+      setErrorNotice("Speech recognition is not supported in this browser.");
+      setTimeout(() => setErrorNotice(""), 3000);
       return;
     }
 
-    const recognition = new SpeechRecognition();
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
 
-    recognition.continuous = false;   
-    recognition.interimResults = false;
-    recognition.lang = "en-US";
+      recognition.onstart = () => {
+        setListening(true);
+      };
 
-    recognition.onresult = (event) => {
-      const text =
-        event.results[0][0].transcript;
+      recognition.onresult = (event) => {
+        const text = event.results?.[0]?.[0]?.transcript;
+        if (text && onCommand) {
+          onCommand(text);
+        }
+      };
 
-      console.log("VOICE:", text);
+      recognition.onerror = (err) => {
+        console.warn("Speech recognition error:", err.error);
+        setListening(false);
+      };
 
-      // ✅ DIRECT COMMAND (NO WAKE WORD)
-      onCommand(text);
-    };
+      recognition.onend = () => {
+        setListening(false);
+      };
 
-    recognition.onerror = (err) => {
-      console.error("Speech error:", err);
-    };
-
-    recognition.onend = () => {
+      recognition.start();
+      recognitionRef.current = recognition;
+    } catch (e) {
+      console.error("Speech initialization error:", e);
       setListening(false);
-    };
-
-    recognition.start();
-    recognitionRef.current = recognition;
-    setListening(true);
+    }
   };
 
   const stopListening = () => {
-    recognitionRef.current?.stop();
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
     setListening(false);
   };
 
   return (
-    <button
-      className={`voice-btn ${listening ? "active" : ""}`}
-      onClick={listening ? stopListening : startListening}
-    >
-      {listening ? <FaStop /> : <FaMicrophone />}
-    </button>
+    <div className="voice-wrapper" style={{ position: "relative" }}>
+      <button
+        type="button"
+        className={`voice-btn ${listening ? "active" : ""}`}
+        onClick={listening ? stopListening : startListening}
+        title={listening ? "Click to stop listening" : "Click to speak voice command"}
+      >
+        {listening ? <FaStop /> : <FaMicrophone />}
+      </button>
+
+      {errorNotice && (
+        <div className="voice-tooltip">
+          {errorNotice}
+        </div>
+      )}
+    </div>
   );
 }

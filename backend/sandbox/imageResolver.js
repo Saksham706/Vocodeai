@@ -1,4 +1,3 @@
-
 export function getImageForWorkspace() {
-  return "vocodeai/universal-dev:latest";
+  return process.env.DEV_DOCKER_IMAGE || "vocodeai/universal-dev:latest";
 }

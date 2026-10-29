@@ -1,0 +1,176 @@
+/* ========================================================
+   VOCODEAI ANTIGRAVITY IDE — WELCOME DASHBOARD STYLING
+   ======================================================== */
+
+.welcome-dashboard-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background-color: var(--welcome-bg, #020A07);
+  box-sizing: border-box;
+  user-select: none;
+}
+
+[data-theme="dark"] .welcome-dashboard-container {
+  --welcome-bg: #020A07;
+  --welcome-title-color: #E6F5EE;
+  --welcome-subtitle-color: #7B9A8C;
+  --welcome-primary-bg: #093322;
+  --welcome-primary-border: #17633D;
+  --welcome-primary-text: #FFFFFF;
+  --welcome-primary-hover: #0E442F;
+  --welcome-sec-bg: #04150E;
+  --welcome-sec-border: rgba(255, 255, 255, 0.07);
+  --welcome-sec-text: #D2E7DD;
+  --welcome-sec-hover: #072318;
+  --welcome-sec-hover-border: rgba(43, 216, 127, 0.3);
+  --welcome-sec-shortcut: #608272;
+}
+
+[data-theme="light"] .welcome-dashboard-container {
+  --welcome-bg: #FFFDFB;
+  --welcome-title-color: #1A1412;
+  --welcome-subtitle-color: #8C7C73;
+  --welcome-primary-bg: linear-gradient(90deg, #FF7B25 0%, #FF5A36 100%);
+  --welcome-primary-border: rgba(255, 110, 30, 0.35);
+  --welcome-primary-text: #FFFFFF;
+  --welcome-primary-hover: linear-gradient(90deg, #FF6F14 0%, #F54A24 100%);
+  --welcome-sec-bg: #FFFFFF;
+  --welcome-sec-border: rgba(225, 210, 200, 0.75);
+  --welcome-sec-text: #2D231E;
+  --welcome-sec-hover: #FFF7F2;
+  --welcome-sec-hover-border: rgba(255, 130, 50, 0.4);
+  --welcome-sec-shortcut: #9A897F;
+}
+
+/* Background SVGs */
+.welcome-bg-curves-wrap {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.welcome-svg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Center Card */
+.welcome-center-card {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 350px;
+  max-width: 90%;
+  text-align: center;
+}
+
+.welcome-logo-wrap {
+  width: auto;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.welcome-brand-logo-img {
+  height: 48px;
+  width: auto;
+  max-width: 220px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 16px rgba(43, 216, 127, 0.25));
+}
+
+[data-theme="light"] .welcome-brand-logo-img {
+  filter: drop-shadow(0 4px 16px rgba(255, 120, 40, 0.18));
+}
+
+.welcome-subtitle {
+  margin: 4px 0 24px 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--welcome-subtitle-color);
+  letter-spacing: 0.1px;
+}
+
+/* Action Buttons */
+.welcome-actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.welcome-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.welcome-btn-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-icon {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+/* Primary Button (Open Folder) */
+.welcome-btn-primary {
+  background: var(--welcome-primary-bg);
+  border: 1px solid var(--welcome-primary-border);
+  color: var(--welcome-primary-text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.welcome-btn-primary:hover {
+  background: var(--welcome-primary-hover);
+  transform: translateY(-1px);
+}
+
+[data-theme="light"] .welcome-btn-primary {
+  box-shadow: 0 4px 16px rgba(255, 100, 30, 0.22);
+}
+
+/* Secondary Buttons */
+.welcome-btn-secondary {
+  background: var(--welcome-sec-bg);
+  border: 1px solid var(--welcome-sec-border);
+  color: var(--welcome-sec-text);
+}
+
+.welcome-btn-secondary:hover {
+  background: var(--welcome-sec-hover);
+  border-color: var(--welcome-sec-hover-border);
+}
+
+.welcome-btn-shortcut {
+  font-size: 11.5px;
+  color: var(--welcome-sec-shortcut);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+

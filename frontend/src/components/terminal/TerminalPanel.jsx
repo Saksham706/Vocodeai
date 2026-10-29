@@ -4,58 +4,145 @@ import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import { useWorkspace } from "../../context/WorkspaceContext";
 
-export default function TerminalPanel({ terminalId }) {
+export default function TerminalPanel({ terminalId, theme = "dark" }) {
   const { socketRef } = useWorkspace();
-
   const containerRef = useRef(null);
 
   useEffect(() => {
-    if (!terminalId || !socketRef.current) return;
+    if (!terminalId || !containerRef.current) return;
+
+    // Detect theme
+    const isLight = theme === "light" || document.documentElement.getAttribute("data-theme") === "light";
 
     const term = new Terminal({
-      theme: {
-        background: "#000000",
-        foreground: "#ffffff",
-      },
-      fontSize: 14,
+      theme: isLight
+        ? {
+            background: "#ffffff",
+            foreground: "#101C24",
+            cursor: "#FF8B32",
+            cursorAccent: "#ffffff",
+            selectionBackground: "rgba(255, 139, 50, 0.25)",
+            black: "#101C24",
+            red: "#E53E3E",
+            green: "#38A169",
+            yellow: "#D69E2E",
+            blue: "#3182CE",
+            magenta: "#805AD5",
+            cyan: "#319795",
+            white: "#718096",
+          }
+        : {
+            background: "#030C08",
+            foreground: "#c9d1d9",
+            cursor: "#43E65C",
+            cursorAccent: "#030C08",
+            selectionBackground: "rgba(67, 230, 92, 0.25)",
+            black: "#484f58",
+            red: "#ff7b72",
+            green: "#43E65C",
+            yellow: "#d29922",
+            blue: "#58a6ff",
+            magenta: "#bc8cff",
+            cyan: "#39c5cf",
+            white: "#b1bac4",
+          },
+      fontSize: 13,
+      fontFamily: "'Fira Code', Consolas, 'Courier New', monospace",
       cursorBlink: true,
-      scrollback: 2000,
+      scrollback: 5000,
+      convertEol: true,
     });
 
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
 
     term.open(containerRef.current);
-    fitAddon.fit();
+    try {
+      fitAddon.fit();
+    } catch {}
+
     term.focus();
 
-    term.onData((data) => {
+    // Replay existing buffer from server
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(
         JSON.stringify({
-          type: "input",
+          type: "attach",
           terminalId,
-          data,
         })
       );
+    }
+
+    term.onData((data) => {
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(
+          JSON.stringify({
+            type: "input",
+            terminalId,
+            data,
+          })
+        );
+      }
     });
 
     const outputHandler = (e) => {
-      if (e.detail.terminalId === terminalId) {
+      if (e.detail?.terminalId === terminalId) {
         term.write(e.detail.data);
       }
     };
 
+    const bufferHandler = (e) => {
+      if (e.detail?.terminalId === terminalId) {
+        term.reset();
+        if (e.detail.data) {
+          term.write(e.detail.data);
+        }
+      }
+    };
+
     window.addEventListener("terminal-output", outputHandler);
+    window.addEventListener("terminal-buffer", bufferHandler);
+
+    // Responsive resize observer
+    let resizeTimer = null;
+    const resizeObserver = new ResizeObserver(() => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        try {
+          fitAddon.fit();
+          if (
+            socketRef.current?.readyState === WebSocket.OPEN &&
+            term.cols &&
+            term.rows
+          ) {
+            socketRef.current.send(
+              JSON.stringify({
+                type: "resize",
+                terminalId,
+                cols: term.cols,
+                rows: term.rows,
+              })
+            );
+          }
+        } catch {}
+      }, 50);
+    });
+
+    resizeObserver.observe(containerRef.current);
 
     return () => {
       window.removeEventListener("terminal-output", outputHandler);
+      window.removeEventListener("terminal-buffer", bufferHandler);
+      resizeObserver.disconnect();
       term.dispose();
     };
-  }, [terminalId]);
+  }, [terminalId, socketRef, theme]);
 
   return (
-    <div className="terminal-panel">
-      <div ref={containerRef} className="xterm-container" />
-    </div>
+    <div
+      ref={containerRef}
+      className="terminal-active-box"
+      style={{ width: "100%", height: "100%" }}
+    />
   );
 }

@@ -1,143 +1,362 @@
-/* =========================
-   GLOBAL (IMPORTANT)
-========================= */
-html, body, #root {
-  height: 100%;
+/* ========================================================
+   VOCODEAI IDE — COMPLETE DUAL-THEME STYLING
+   ======================================================== */
+
+:root {
+  --ide-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ide-font-mono: 'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
 }
 
-/* =========================
-   WORKSPACE LAYOUT
-========================= */
+/* ========================================================
+   DARK THEME VARIABLES
+   ======================================================== */
+[data-theme="dark"], .ide-app.dark {
+  --ide-bg: #020B08;
+  --ide-nav-bg: #020D09;
+  --ide-sidebar-bg: #020B08;
+  --ide-editor-bg: #080F12;
+  --ide-terminal-bg: #030C08;
+  --ide-card-bg: #04100B;
+  --ide-border: rgba(66, 165, 104, 0.18);
+  --ide-border-hover: rgba(67, 230, 92, 0.35);
+  --ide-text-primary: #F3F8F4;
+  --ide-text-secondary: #C1D2C7;
+  --ide-text-muted: #8BA195;
+  --ide-accent-green: #43E65C;
+  --ide-accent-lime: #B7FF29;
+  --ide-accent-orange: #FF8B32;
+  --ide-accent-coral: #FF5F45;
+  --ide-active-pill-bg: rgba(255, 139, 50, 0.12);
+  --ide-active-pill-border: rgba(255, 139, 50, 0.45);
+  --ide-active-pill-text: #FF9B3D;
+  --ide-hover-bg: rgba(67, 230, 92, 0.08);
+  --ide-card-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --ide-glow-primary: rgba(67, 230, 92, 0.15);
 
-.workspace {
+  /* Section 3 Dark Mode Explorer Variables */
+  --explorer-bg: #020B08;
+  --explorer-surface: #04150F;
+  --explorer-surface-hover: #09271B;
+  --explorer-text: #F3F8F4;
+  --explorer-text-muted: #91A89B;
+  --explorer-border: rgba(74, 190, 113, 0.22);
+  --explorer-border-active: rgba(255, 160, 55, 0.90);
+  --explorer-accent: #FFAA43;
+  --explorer-accent-secondary: #FF6347;
+  --explorer-selection: rgba(255, 153, 48, 0.12);
+  --explorer-guide-line: rgba(74, 190, 113, 0.18);
+
+  /* Terminal Variables - Dark Mode */
+  --terminal-bg: #020B08;
+  --terminal-header-bg: #020D09;
+  --terminal-tabs-bg: #020B08;
+  --terminal-output-bg: #020B08;
+  --terminal-border: rgba(66, 165, 104, 0.25);
+  --terminal-border-active: rgba(255, 139, 50, 0.6);
+  --terminal-divider: rgba(66, 165, 104, 0.2);
+  --terminal-text: #E2E8F0;
+  --terminal-text-muted: #94A3B8;
+  --terminal-prompt-user: #22C55E;
+  --terminal-prompt-path: #38BDF8;
+  --terminal-cmd: #FFFFFF;
+  --terminal-link: #38BDF8;
+  --terminal-cursor: #FFFFFF;
+  --terminal-hover-bg: rgba(67, 230, 92, 0.08);
+  --terminal-active-tab-bg: rgba(255, 139, 50, 0.14);
+  --terminal-active-tab-border: rgba(255, 139, 50, 0.5);
+  --terminal-active-tab-text: #FF8B32;
+
+  /* AI Assistant Variables - Dark Mode */
+  --ai-bg: #020B08;
+  --ai-surface: #04140F;
+  --ai-surface-secondary: #061B13;
+  --ai-surface-hover: #0B291D;
+  --ai-text: #F3F8F4;
+  --ai-text-secondary: #C1D2C7;
+  --ai-text-muted: #91A89B;
+  --ai-border: rgba(52, 174, 112, 0.22);
+  --ai-border-strong: rgba(43, 218, 127, 0.38);
+  --ai-accent: #FF9B3D;
+  --ai-accent-secondary: #FF6347;
+  --ai-selection: rgba(255, 153, 48, 0.13);
+  --ai-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+
+/* ========================================================
+   LIGHT THEME VARIABLES
+   ======================================================== */
+[data-theme="light"], .ide-app.light {
+  --ide-bg: #FFFAF6;
+  --ide-nav-bg: #FFFAF6;
+  --ide-sidebar-bg: #FFFAF6;
+  --ide-editor-bg: #FFFFFF;
+  --ide-terminal-bg: #FFFDFB;
+  --ide-card-bg: #FFFFFF;
+  --ide-border: #F2DDD0;
+  --ide-border-hover: #E8C4B0;
+  --ide-text-primary: #101C24;
+  --ide-text-secondary: #344451;
+  --ide-text-muted: #687784;
+  --ide-accent-green: #10B981;
+  --ide-accent-lime: #84CC16;
+  --ide-accent-orange: #FF8B32;
+  --ide-accent-coral: #FF5F45;
+  --ide-active-pill-bg: #FFEFE6;
+  --ide-active-pill-border: #FF8B32;
+  --ide-active-pill-text: #E65100;
+  --ide-hover-bg: rgba(255, 139, 50, 0.08);
+  --ide-card-shadow: 0 10px 30px rgba(255, 139, 50, 0.08);
+  --ide-glow-primary: rgba(255, 139, 50, 0.15);
+
+  /* Section 3 Light Mode Explorer Variables */
+  --explorer-bg: #FFFAF6;
+  --explorer-surface: #FFFCFA;
+  --explorer-surface-hover: #FFF1E7;
+  --explorer-text: #101C24;
+  --explorer-text-muted: #687784;
+  --explorer-border: #F3DED2;
+  --explorer-border-active: #FF9A52;
+  --explorer-accent: #FF8B32;
+  --explorer-accent-secondary: #FF5F45;
+  --explorer-selection: #FFE6D7;
+  --explorer-guide-line: rgba(220, 200, 190, 0.45);
+
+  /* Terminal Variables - Light Mode */
+  --terminal-bg: #FFFAF6;
+  --terminal-header-bg: #FFFAF6;
+  --terminal-tabs-bg: #FFFAF6;
+  --terminal-output-bg: #FFFAF6;
+  --terminal-border: #FFD8C5;
+  --terminal-border-active: #FF9A52;
+  --terminal-divider: #FFE2D4;
+  --terminal-text: #1E293B;
+  --terminal-text-muted: #64748B;
+  --terminal-prompt-user: #16A34A;
+  --terminal-prompt-path: #0284C7;
+  --terminal-cmd: #0F172A;
+  --terminal-link: #0284C7;
+  --terminal-cursor: #0F172A;
+  --terminal-hover-bg: rgba(255, 139, 50, 0.08);
+  --terminal-active-tab-bg: rgba(255, 139, 50, 0.12);
+  --terminal-active-tab-border: #FF9A52;
+  --terminal-active-tab-text: #E65100;
+
+  /* AI Assistant Variables - Light Mode */
+  --ai-bg: #FFFAF6;
+  --ai-surface: #FFFCFA;
+  --ai-surface-secondary: #FFF6F0;
+  --ai-surface-hover: #FFF0E7;
+  --ai-text: #101C24;
+  --ai-text-secondary: #465563;
+  --ai-text-muted: #74818C;
+  --ai-border: #F3DED2;
+  --ai-border-strong: #FFD1BB;
+  --ai-accent: #FF8B32;
+  --ai-accent-secondary: #FF5F45;
+  --ai-selection: #FFE5D7;
+  --ai-shadow: 0 6px 22px rgba(173, 91, 48, 0.07);
+}
+
+/* ========================================================
+   FULL-SCREEN ROOT
+   ======================================================== */
+.ide-app {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
-  height: calc(100vh - 48px);
-  background: #1e1e1e;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--ide-bg);
+  color: var(--ide-text-primary);
+  font-family: var(--ide-font-sans);
+  position: relative;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* =========================
-   SIDEBAR RESIZE
-========================= */
+/* Faint ambient background curves */
+.ide-app::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: radial-gradient(circle at 80% 20%, var(--ide-glow-primary) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: 0;
+}
 
-.sidebar-wrapper {
+/* ========================================================
+   IDE MAIN WORKSPACE LAYOUT
+   ======================================================== */
+.ide-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* Left Sidebar Wrapper */
+.ide-sidebar-wrapper {
   display: flex;
   height: 100%;
   position: relative;
+  flex-shrink: 0;
+  background-color: var(--ide-sidebar-bg);
+  border-right: 1px solid var(--ide-border);
+  transition: border-color 0.2s ease;
 }
 
-.sidebar-resizer {
-  width: 6px;
+.ide-sidebar-resizer {
+  width: 5px;
   cursor: col-resize;
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: 0;
+  z-index: 10;
+  transition: background-color 0.2s ease;
 }
 
-.sidebar-resizer:hover {
-  background: rgba(0, 122, 204, 0.25);
+.ide-sidebar-resizer:hover,
+.ide-sidebar-resizer:active {
+  background-color: var(--ide-accent-orange);
 }
 
-/* =========================
-   MAIN AREA
-========================= */
-
-.workspace-main {
+/* Center Column (Editor + Terminal) */
+.ide-center {
   flex: 1;
-  display: flex;
-  flex-direction: column;
   min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
 }
 
-/* 🔥 ADD THIS (MISSING LAYER) */
-.workspace-content {
+/* Work Area (Editor + AI sidebar) */
+.ide-work-area {
   flex: 1;
-  display: flex;
   min-height: 0;
+  min-width: 0;
+  display: flex;
   overflow: hidden;
 }
 
-/* 🔥 ADD THIS (CRITICAL) */
-.editor-section {
+/* Editor Section */
+.ide-editor-section {
   flex: 1;
-  display: flex;
-  flex-direction: column;
   min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--ide-editor-bg);
+  border-radius: 8px 8px 0 0;
+  margin: 8px 8px 0 8px;
+  border: 1px solid var(--ide-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
-/* =========================
-   EDITOR
-========================= */
+/* Welcome Dashboard Section */
+.ide-welcome-section {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+  background-color: var(--ide-bg);
+}
 
-.editor-area {
+.ide-editor-view {
   flex: 1;
   min-height: 0;
   position: relative;
   overflow: hidden;
+  background-color: var(--ide-editor-bg);
 }
 
-/* Monaco fix */
-.editor-area > div {
+/* Right AI Sidebar Wrapper */
+.ide-ai-sidebar-wrapper {
+  width: 420px;
+  max-width: 430px;
+  flex-shrink: 0;
   height: 100%;
-}
-
-/* =========================
-   TERMINAL RESIZE
-========================= */
-
-.terminal-section {
   display: flex;
   flex-direction: column;
-  background: #1e1e1e;
-  border-top: 1px solid #333;
-  flex-shrink: 0;
+  padding: 6px 6px 6px 0;
+  box-sizing: border-box;
 }
 
-.terminal-resizer {
-  height: 6px;
+/* Terminal Section */
+.ide-terminal-section {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  background-color: var(--ide-terminal-bg);
+  border: 1px solid var(--ide-border);
+  border-radius: 0 0 8px 8px;
+  margin: 0 8px 8px 8px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  transition: height 0.15s ease-out;
+}
+
+.ide-terminal-section.maximized {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  margin: 0;
+  height: calc(100% - 16px) !important;
+  z-index: 50;
+  border-radius: 8px;
+}
+
+.ide-terminal-resizer {
+  height: 5px;
   cursor: row-resize;
+  width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  transition: background-color 0.2s ease;
 }
 
-.terminal-resizer:hover {
-  background: rgba(0, 122, 204, 0.25);
+.ide-terminal-resizer:hover,
+.ide-terminal-resizer:active {
+  background-color: var(--ide-accent-orange);
 }
 
-/* =========================
-   AI HEADER (FIXED)
-========================= */
-
-.ai-header {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 12px;
-  background: #0c141b;
-  border-bottom: 1px solid #1f2a36;
-  flex-shrink: 0;
+.ide-terminal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
 }
 
-.ai-header span {
-  font-size: 13px;
-  font-weight: 600;
-  color: #00ff9c;
-  letter-spacing: 0.5px;
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-/* Close button */
-.ai-header button {
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: 6px;
-  background: #1f2a36;
-  color: #fff;
-  cursor: pointer;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: 0.2s;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.ai-header button:hover {
-  background: #ff3b3b;
+::-webkit-scrollbar-thumb {
+  background: var(--ide-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ide-text-muted);
 }

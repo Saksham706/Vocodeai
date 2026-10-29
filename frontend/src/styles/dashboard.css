@@ -1,339 +1,977 @@
-.dashboard {
+/* =========================================================
+   VOCODEAI WORKSPACE DASHBOARD
+   Dual-Theme Modern SaaS Interface (Matching Reference Design)
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   GLOBAL THEME CUSTOM PROPERTIES
+   --------------------------------------------------------- */
+:root,
+[data-theme="light"],
+.dashboard-layout.light {
+  --bg-primary: #FFFAF6;
+  --bg-secondary: #FFF5EE;
+  --surface-primary: #FFFCFA;
+  --surface-secondary: #FFF5EF;
+  --surface-hover: #FFF0E7;
+
+  --text-primary: #101C24;
+  --text-secondary: #344451;
+  --text-muted: #687784;
+
+  --accent-primary: #FF8B32;
+  --accent-secondary: #FF5F45;
+  --accent-soft: #FFE3D3;
+
+  --border-primary: #F3DED2;
+  --border-secondary: #FFD1BB;
+
+  --shadow-card: 0 8px 24px rgba(173, 91, 48, 0.055);
+  --shadow-hover: 0 12px 30px rgba(173, 91, 48, 0.10);
+  --btn-gradient: linear-gradient(100deg, #FF9A32 0%, #FF5D43 100%);
+  --btn-gradient-hover: linear-gradient(100deg, #FF8D20 0%, #F54F33 100%);
+  --btn-shadow: 0 6px 18px rgba(255, 93, 67, 0.24);
+
+  --grid-line-color: rgba(255, 140, 85, 0.045);
+}
+
+[data-theme="dark"],
+.dashboard-layout.dark {
+  --bg-primary: #020B08;
+  --bg-secondary: #04140E;
+  --surface-primary: #061710;
+  --surface-secondary: #092018;
+  --surface-hover: #0D2A1D;
+
+  --text-primary: #F3F8F4;
+  --text-secondary: #C1D2C7;
+  --text-muted: #8BA195;
+
+  --accent-primary: #FF9B3D;
+  --accent-secondary: #FF6347;
+  --accent-soft: rgba(255, 151, 61, 0.12);
+
+  --border-primary: rgba(104, 185, 124, 0.17);
+  --border-secondary: rgba(136, 255, 83, 0.32);
+
+  --shadow-card: 0 8px 28px rgba(0, 0, 0, 0.24);
+  --shadow-hover: 0 14px 34px rgba(0, 0, 0, 0.34);
+  --btn-gradient: linear-gradient(100deg, #FF9B3D 0%, #FF6347 100%);
+  --btn-gradient-hover: linear-gradient(100deg, #FF8E28 0%, #F55132 100%);
+  --btn-shadow: 0 6px 18px rgba(255, 99, 71, 0.22);
+
+  --grid-line-color: rgba(67, 230, 92, 0.035);
+}
+
+/* ---------------------------------------------------------
+   DASHBOARD ROOT LAYOUT (2-COLUMN FULL VIEWPORT)
+   --------------------------------------------------------- */
+.dashboard-layout {
   min-height: 100vh;
-  background: radial-gradient(circle at top, #002f26, #001a14);
-  color: white;
-  padding: 20px 40px;
-}
-
-/* HEADER */
-.dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 40px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.brand img {
-  width: 100px;
-  filter: drop-shadow(0 0 10px #00ffa6);
-}
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-/* SEARCH */
-.search-input {
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: 1px solid #1f5c4c;
-  background: transparent;
-  color: white;
-}
-
-/* CREATE BUTTON */
-.create-btn {
-  background: linear-gradient(90deg, #00ffa6, #00cc88);
-  border: none;
-  padding: 10px 18px;
-  border-radius: 25px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: 0.3s;
-}
-
-.create-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 20px rgba(0,255,170,0.6);
-}
-
-/* CREATE POPUP */
-.create-popup {
-  position: absolute;
-  top: 115px;
-  right: 40px;
-  background: #01241d;
-  padding: 15px;
-  border-radius: 10px;
-  display: flex;
-  gap: 10px;
-  animation: fadeIn 0.3s ease;
-}
-
-.create-popup input {
-  padding: 8px;
-  border-radius: 8px;
-  border: none;
-}
-
-/* GRID */
-.workspace-grid {
+  min-height: 100dvh;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 25px;
-}
-
-/* CARD */
-.workspace-card {
-  background: rgba(0, 40, 30, 0.85);
-  border: 1px solid rgba(0,255,170,0.2);
-  border-radius: 16px;
-  padding: 25px;
+  grid-template-columns: 260px minmax(0, 1fr);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   position: relative;
-  transition: 0.3s;
-  cursor: pointer;
+  isolation: isolate;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-.workspace-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 0 25px rgba(0,255,170,0.3);
+/* Background Grid Pattern */
+.dashboard-layout::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 260px;
+  right: 0;
+  bottom: 0;
+  background-image:
+    linear-gradient(var(--grid-line-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line-color) 1px, transparent 1px);
+  background-size: 36px 36px;
+  pointer-events: none;
+  z-index: 0;
 }
 
-/* CONTENT */
-.card-main {
+/* Background Flowing Curves (SVG) */
+.dashboard-bg-curves {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ---------------------------------------------------------
+   LEFT SIDEBAR
+   --------------------------------------------------------- */
+.dashboard-sidebar {
+  width: 260px;
+  height: 100vh;
+  height: 100dvh;
+  position: sticky;
+  top: 0;
+  left: 0;
+  background-color: var(--bg-primary);
+  border-right: 1px solid var(--border-primary);
+  padding: 24px 18px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  z-index: 10;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+
+/* Brand Logo Section */
+.sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 15px;
+  cursor: pointer;
+  margin-bottom: 30px;
+  padding-left: 6px;
+  user-select: none;
 }
 
-.folder-icon {
-  font-size: 24px;
-  background: rgba(255,200,0,0.1);
-  padding: 12px;
+.sidebar-logo-img {
+  width: 155px;
+  height: auto;
+  max-height: 46px;
+  object-fit: contain;
+  display: block;
+  transition: transform 0.18s ease;
+}
+
+.sidebar-brand:hover .sidebar-logo-img {
+  transform: translateY(-1px);
+}
+
+/* Navigation List */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 50px;
+  padding: 0 16px;
   border-radius: 12px;
-}
-
-.name {
-  font-size: 18px;
-}
-
-.pin {
-  margin-left: auto;
-}
-
-/* RENAME */
-.rename-input {
   background: transparent;
-  border: 1px solid #00ffa6;
-  color: white;
-  padding: 5px;
-  border-radius: 6px;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 15px;
+  font-weight: 550;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
 }
 
-/* MENU */
-.menu-btn {
+.sidebar-nav-item:hover {
+  background-color: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+/* Active Nav Item (Workspaces) */
+.sidebar-nav-item.active {
+  background-color: var(--accent-soft);
+  border-color: var(--border-secondary);
+  color: var(--text-primary);
+  box-shadow: 0 2px 10px rgba(255, 139, 50, 0.08);
+}
+
+.sidebar-nav-item.active .nav-icon {
+  color: var(--accent-primary);
+  stroke-width: 2.2px;
+}
+
+.nav-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: inherit;
+  transition: color 0.18s ease;
+}
+
+/* User Profile Card (Bottom of Sidebar) */
+.sidebar-user-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 66px;
+  padding: 0 14px;
+  border-radius: 13px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.18s ease;
+  margin-top: auto;
+}
+
+.sidebar-user-card:hover {
+  border-color: var(--border-secondary);
+  box-shadow: var(--shadow-card);
+}
+
+.user-avatar {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 50%;
+  background: #3B4B58;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.dashboard-layout.dark .user-avatar {
+  background: #183A2E;
+  color: #A7F3D0;
+  border: 1px solid rgba(67, 230, 92, 0.3);
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.user-name {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-email {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* User Popover Dropdown */
+.user-popover {
   position: absolute;
-  top: 15px;
-  right: 15px;
+  bottom: 74px;
+  left: 0;
+  right: 0;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 50;
+  animation: fadeIn 0.15s ease;
+}
+
+.popover-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.popover-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.popover-item.danger {
+  color: #DC2626;
+}
+
+.popover-item.danger:hover {
+  background: rgba(220, 38, 38, 0.1);
+}
+
+/* ---------------------------------------------------------
+   MAIN DASHBOARD CONTENT AREA
+   --------------------------------------------------------- */
+.dashboard-main {
+  position: relative;
+  z-index: 2;
+  padding: 28px 48px 48px 48px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 100vh;
+}
+
+/* ---------------------------------------------------------
+   TOP TOOLBAR (Search, Theme Toggle, + Create Workspace)
+   --------------------------------------------------------- */
+.dashboard-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-bottom: 24px;
+  position: relative;
+  z-index: 5;
+}
+
+/* Search Workspace Field */
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 305px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+.search-wrapper:focus-within {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(255, 139, 50, 0.12);
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--accent-primary);
+  pointer-events: none;
+  stroke-width: 2.2px;
+}
+
+.search-input-field {
+  width: 100%;
+  height: 100%;
+  padding: 0 54px 0 42px;
   background: transparent;
   border: none;
-  color: white;
-  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+  box-sizing: border-box;
+  outline: none;
+  font-family: inherit;
 }
 
-/* DROPDOWN */
-.dropdown {
+.search-input-field::placeholder {
+  color: var(--text-muted);
+}
+
+/* Keyboard Shortcut Hint (⌘ K) */
+.search-shortcut-badge {
   position: absolute;
-  top: 50px;
-  right: 10px;
-  background: #011e18;
-  border-radius: 12px;
-  padding: 10px;
-  width: 180px;
-  animation: fadeIn 0.2s ease;
-  box-shadow: 0 0 20px rgba(0,0,0,0.6);
+  right: 12px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 7px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--text-muted);
+  user-select: none;
+  pointer-events: none;
+  font-family: inherit;
 }
 
-.dropdown div {
-  padding: 10px;
-  border-radius: 8px;
+/* Topbar Theme Toggle Button */
+.dash-theme-toggle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-primary);
+  color: var(--accent-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
 }
 
-.dropdown div:hover {
-  background: rgba(0,255,170,0.1);
+.dash-theme-toggle:hover {
+  transform: scale(1.06);
+  border-color: var(--border-secondary);
+  box-shadow: 0 4px 14px rgba(255, 139, 50, 0.16);
 }
 
-.dropdown .danger {
-  color: red;
+/* Primary "+ Create Workspace" Button */
+.btn-create-workspace-primary {
+  height: 46px;
+  padding: 0 20px;
+  border-radius: 13px;
+  background: var(--btn-gradient);
+  border: none;
+  color: #FFFFFF;
+  font-size: 14.5px;
+  font-weight: 650;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: var(--btn-shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+  font-family: inherit;
 }
 
-/* ANIMATION */
+.btn-create-workspace-primary:hover {
+  background: var(--btn-gradient-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(255, 93, 67, 0.35);
+}
+
+.btn-create-workspace-primary:active {
+  transform: translateY(0);
+}
+
+/* ---------------------------------------------------------
+   WORKSPACE CREATION INLINE BAR & HEADER ROW
+   --------------------------------------------------------- */
+.dashboard-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  min-height: 76px;
+  position: relative;
+  z-index: 5;
+}
+
+.workspace-create-inline-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 0;
+  margin-top: 4px;
+  position: relative;
+  z-index: 5;
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.create-name-input {
+  width: 235px;
+  height: 46px;
+  border-radius: 13px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-primary);
+  padding: 0 16px;
+  font-size: 14px;
+  color: var(--text-primary);
+  box-sizing: border-box;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.create-name-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(255, 139, 50, 0.12);
+}
+
+.create-name-input::placeholder {
+  color: var(--text-muted);
+}
+
+.btn-create-inline {
+  width: 108px;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--btn-gradient);
+  border: none;
+  color: #FFFFFF;
+  font-size: 14.5px;
+  font-weight: 650;
+  cursor: pointer;
+  box-shadow: var(--btn-shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  font-family: inherit;
+}
+
+.btn-create-inline:hover {
+  background: var(--btn-gradient-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(255, 93, 67, 0.35);
+}
+
+.btn-create-inline:active {
+  transform: translateY(0);
+}
+
+/* ---------------------------------------------------------
+   MAIN HEADING SECTION ("Your Workspaces")
+   --------------------------------------------------------- */
+.dashboard-heading-section {
+  margin-bottom: 0;
+}
+
+.dash-main-title {
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+  letter-spacing: -0.025em;
+}
+
+.dash-heading-accent {
+  background: var(--btn-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline;
+}
+
+.dash-main-subtitle {
+  font-size: 15px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------------
+   WORKSPACE CARDS GRID
+   --------------------------------------------------------- */
+.workspaces-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.workspaces-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 480px));
+  gap: 20px;
+}
+
+/* Workspace Card Item */
+.workspace-card-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 18px;
+  padding: 18px 22px;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.workspace-card-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--border-secondary);
+}
+
+/* Folder Icon Tile (72x72) */
+.workspace-folder-tile {
+  width: 72px;
+  height: 72px;
+  min-width: 72px;
+  border-radius: 16px;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 18px;
+  cursor: pointer;
+  transition: transform 0.18s ease;
+}
+
+.dashboard-layout.dark .workspace-folder-tile {
+  background: rgba(255, 151, 61, 0.12);
+  border: 1px solid rgba(255, 151, 61, 0.2);
+}
+
+.workspace-folder-tile:hover {
+  transform: scale(1.04);
+}
+
+.workspace-folder-svg {
+  width: 32px;
+  height: 32px;
+  color: var(--accent-primary);
+  fill: var(--accent-primary);
+}
+
+/* Workspace Details */
+.workspace-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.workspace-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.workspace-card-item .workspace-name,
+.workspace-name {
+  font-size: 16.5px;
+  font-weight: 750;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.dashboard-layout.light .workspace-card-item .workspace-name {
+  color: #101C24 !important;
+}
+
+.dashboard-layout.dark .workspace-card-item .workspace-name {
+  color: #F3F8F4 !important;
+}
+
+.dashboard-layout.light .workspace-card-item .workspace-meta {
+  color: #64748B !important;
+  font-weight: 500;
+}
+
+.dashboard-layout.dark .workspace-card-item .workspace-meta {
+  color: #8BA195 !important;
+}
+
+.workspace-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.workspace-pinned-star {
+  font-size: 14px;
+}
+
+/* Inline Rename Input */
+.workspace-rename-input {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--surface-secondary);
+  border: 1px solid var(--accent-primary);
+  border-radius: 6px;
+  padding: 4px 8px;
+  width: 85%;
+  outline: none;
+}
+
+/* Overflow Menu Button */
+.workspace-menu-trigger {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  margin-left: 8px;
+}
+
+.workspace-menu-trigger:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+/* Card Dropdown Menu */
+.workspace-dropdown-menu {
+  position: absolute;
+  top: 48px;
+  right: 18px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+  z-index: 30;
+  animation: fadeIn 0.15s ease;
+}
+
+.dropdown-action-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.dropdown-action-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.dropdown-action-item.danger {
+  color: #DC2626;
+}
+
+.dropdown-action-item.danger:hover {
+  background: rgba(220, 38, 38, 0.1);
+}
+
+/* ---------------------------------------------------------
+   EMPTY STATE VIEW
+   --------------------------------------------------------- */
+.workspaces-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 20px;
+  max-width: 440px;
+  margin: 40px auto 0 auto;
+}
+
+.empty-state-icon-tile {
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+  margin-bottom: 20px;
+}
+
+.empty-state-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.empty-state-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------------
+   TAB PLACEHOLDER PANELS (TEMPLATES, TERMINAL, AI, SETTINGS)
+   --------------------------------------------------------- */
+.dashboard-placeholder-panel {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: var(--shadow-card);
+  max-width: 680px;
+  margin-top: 10px;
+}
+
+.placeholder-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-primary);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.placeholder-title {
+  font-size: 24px;
+  font-weight: 750;
+  color: var(--text-primary);
+  margin: 0 0 10px 0;
+}
+
+.placeholder-text {
+  font-size: 14.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0 0 24px 0;
+}
+
+/* Mobile Toggle Header */
+.mobile-dashboard-header {
+  display: none;
+}
+
+/* ---------------------------------------------------------
+   ANIMATIONS & UTILITIES
+   --------------------------------------------------------- */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* ============================= */
-/* 📱 TABLET (≤1024px) */
-/* ============================= */
+/* ---------------------------------------------------------
+   RESPONSIVENESS (TABLET & MOBILE)
+   --------------------------------------------------------- */
 @media (max-width: 1024px) {
-
-  .dashboard {
-    padding: 20px;
+  .dashboard-layout {
+    grid-template-columns: 230px minmax(0, 1fr);
   }
 
-  /* HEADER STACK */
-  .dashboard-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 20px;
+  .dashboard-sidebar {
+    width: 230px;
+    padding: 20px 14px;
   }
 
-  .actions {
-    width: 100%;
-    flex-wrap: wrap;
-    gap: 10px;
+  .dashboard-main {
+    padding: 24px 28px;
   }
 
-  .search-input {
-    flex: 1;
-    min-width: 200px;
-    width: 100%;
-  }
-
-  .create-btn {
-    width: auto;
-  }
-
-  /* CREATE POPUP FIX */
-  .create-popup {
-    position: static;
-    width: 100%;
-    margin-top: 10px;
-    justify-content: space-between;
-  }
-
-  /* GRID */
-  .workspace-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-
-/* ============================= */
-/* 📱 MOBILE (≤768px) */
-/* ============================= */
-@media (max-width: 768px) {
-
-  .dashboard {
-    padding: 15px;
-  }
-
-  /* HEADER */
-  .dashboard-header {
-    gap: 15px;
-  }
-
-  .brand img {
-    width: 70px;
-  }
-
-  .actions {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .search-input {
-    width: 100%;
-    font-size: 14px;
-    padding: 10px;
-  }
-
-  .create-btn {
-    width: 100%;
-    text-align: center;
-    padding: 12px;
-  }
-
-  /* CREATE POPUP */
-  .create-popup {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .create-popup input {
-    width: 100%;
-  }
-
-  /* GRID → SINGLE COLUMN */
-  .workspace-grid {
+  .workspaces-grid {
     grid-template-columns: 1fr;
-    gap: 15px;
-  }
-
-  /* CARD */
-  .workspace-card {
-    padding: 18px;
-  }
-
-  .name {
-    font-size: 16px;
-  }
-
-  .folder-icon {
-    font-size: 20px;
-    padding: 10px;
-  }
-
-  /* DROPDOWN FIX */
-  .dropdown {
-    right: 5px;
-    width: 160px;
   }
 }
 
-
-/* ============================= */
-/* 📱 SMALL MOBILE (≤480px) */
-/* ============================= */
-@media (max-width: 480px) {
-
-  .dashboard {
-    padding: 10px;
+@media (max-width: 768px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
   }
 
-  .brand img {
-    width: 60px;
+  .dashboard-layout::before {
+    left: 0;
   }
 
-  .search-input {
-    font-size: 13px;
-    padding: 8px;
+  /* Mobile Top Navbar with hamburger */
+  .mobile-dashboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-primary);
+    position: sticky;
+    top: 0;
+    z-index: 40;
   }
 
-  .create-btn {
-    font-size: 13px;
-    padding: 10px;
+  .mobile-hamburger-btn {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .workspace-card {
-    padding: 15px;
+  /* Collapsible mobile sidebar */
+  .dashboard-sidebar {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    width: 260px;
+    height: 100vh;
+    z-index: 100;
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.2);
+    transition: left 0.25s ease;
   }
 
-  .name {
-    font-size: 14px;
+  .dashboard-sidebar.mobile-open {
+    left: 0;
   }
 
-  .menu-btn {
-    font-size: 14px;
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    z-index: 99;
   }
 
-  .dropdown {
-    width: 140px;
+  .dashboard-main {
+    padding: 20px 16px;
+  }
+
+  .dashboard-topbar {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .search-wrapper {
+    width: 100%;
+    order: 3;
+    margin-top: 8px;
+  }
+
+  .workspace-create-inline-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .create-name-input {
+    width: 100%;
+  }
+
+  .btn-create-inline {
+    width: 100%;
+  }
+
+  .dash-main-title {
+    font-size: 28px;
   }
 }

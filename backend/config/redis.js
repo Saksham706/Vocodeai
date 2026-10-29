@@ -2,8 +2,13 @@ import IORedis from "ioredis";
 
 export const redisConnection = new IORedis({
   host: process.env.REDIS_HOST || "127.0.0.1",
-  port: process.env.REDIS_PORT || 6379,
-  maxRetriesPerRequest: null, 
+  port: Number(process.env.REDIS_PORT) || 6379,
+  maxRetriesPerRequest: null,
+  enableReadyCheck: false,
+  retryStrategy(times) {
+    const delay = Math.min(times * 200, 2000);
+    return delay;
+  },
 });
 
 redisConnection.on("connect", () => {
@@ -11,5 +16,5 @@ redisConnection.on("connect", () => {
 });
 
 redisConnection.on("error", (err) => {
-  console.error("❌ Redis error:", err.message);
+  console.warn("⚠️ Redis warning/error:", err.message);
 });

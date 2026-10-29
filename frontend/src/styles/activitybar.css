@@ -1,0 +1,86 @@
+/* ========================================================
+   VOCODEAI ANTIGRAVITY IDE — ACTIVITY BAR STYLING
+   ======================================================== */
+
+.ide-activity-bar {
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0 12px 0;
+  box-sizing: border-box;
+  background-color: var(--activity-bg, #020805);
+  border-right: 1px solid var(--activity-border, rgba(16, 185, 129, 0.12));
+  user-select: none;
+  z-index: 10;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+[data-theme="dark"] .ide-activity-bar {
+  --activity-bg: #020805;
+  --activity-border: rgba(16, 185, 129, 0.1);
+  --activity-icon: #769588;
+  --activity-icon-hover: #D1E5DC;
+  --activity-active-bg: #0B3826;
+  --activity-active-border: rgba(43, 216, 127, 0.6);
+  --activity-active-icon: #2BD87F;
+  --activity-active-glow: 0 0 14px rgba(43, 216, 127, 0.22);
+}
+
+[data-theme="light"] .ide-activity-bar {
+  --activity-bg: #FFFDFB;
+  --activity-border: rgba(230, 215, 205, 0.7);
+  --activity-icon: #94857B;
+  --activity-icon-hover: #3E3027;
+  --activity-active-bg: #FFEFE6;
+  --activity-active-border: rgba(255, 139, 50, 0.5);
+  --activity-active-icon: #FF7A1A;
+  --activity-active-glow: 0 0 10px rgba(255, 139, 50, 0.16);
+}
+
+.activity-bar-top,
+.activity-bar-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.activity-bar-btn {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background-color: transparent;
+  color: var(--activity-icon);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+  outline: none;
+}
+
+.activity-bar-btn:hover {
+  color: var(--activity-icon-hover);
+  background-color: rgba(120, 150, 130, 0.08);
+}
+
+[data-theme="light"] .activity-bar-btn:hover {
+  background-color: rgba(240, 220, 205, 0.35);
+}
+
+.activity-bar-btn.active {
+  background-color: var(--activity-active-bg);
+  border: 1px solid var(--activity-active-border);
+  color: var(--activity-active-icon);
+  box-shadow: var(--activity-active-glow);
+}
+

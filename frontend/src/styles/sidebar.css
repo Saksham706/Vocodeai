@@ -1,122 +1,144 @@
-/* SIDEBAR CONTAINER */
-.sidebar {
-  width: 260px;
-  height: 95vh;
-  background: linear-gradient(180deg, #0b0f0f, #050707);
-  color: #cbd5d1;
+/* ========================================================
+   VOCODEAI ANTIGRAVITY IDE — EXPLORER SIDEBAR STYLING
+   ======================================================== */
+@import "./explorer.css";
+
+.ide-sidebar {
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid rgba(0, 255, 170, 0.2);
-  font-family: "Inter", sans-serif;
+  overflow: hidden;
+  background-color: var(--explorer-bg, #020B08);
+  border-right: 1px solid var(--explorer-border, rgba(16, 185, 129, 0.12));
+  box-sizing: border-box;
+  user-select: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
-/* HEADER */
-.sidebar-header {
+[data-theme="dark"] .ide-sidebar {
+  --explorer-bg: #020B08;
+  --explorer-border: rgba(16, 185, 129, 0.12);
+  --explorer-text: #F3F8F4;
+  --explorer-text-muted: #809C8E;
+  --explorer-surface: #04160F;
+  --explorer-surface-hover: rgba(255, 255, 255, 0.06);
+  --explorer-selection: #08281B;
+  --explorer-border-active: rgba(43, 216, 127, 0.45);
+}
+
+[data-theme="light"] .ide-sidebar {
+  --explorer-bg: #FFFDFB;
+  --explorer-border: rgba(225, 210, 200, 0.7);
+  --explorer-text: #211B17;
+  --explorer-text-muted: #87786F;
+  --explorer-surface: #FFFFFF;
+  --explorer-surface-hover: rgba(0, 0, 0, 0.04);
+  --explorer-selection: #FFEFE6;
+  --explorer-border-active: rgba(255, 139, 50, 0.45);
+}
+
+/* ========================================================
+   TOP EXPLORER HEADER (Explorer  ···)
+   ======================================================== */
+.sidebar-explorer-header {
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0 10px 0 14px;
+  flex-shrink: 0;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.explorer-header-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--explorer-text-muted);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.explorer-header-btn {
+  width: 24px;
+  height: 24px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 14px 12px;
-  font-size: 12px;
-  letter-spacing: 1px;
-  color: #8b949e;
-}
-
-.sidebar-title {
-  font-weight: 600;
-}
-
-/* HEADER ICON BUTTONS */
-.sidebar-header-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.sidebar-header-actions button {
-  background: transparent;
-  border: none;
-  color: #8b949e;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px;
+  justify-content: center;
   border-radius: 4px;
-  transition: 0.2s ease;
-}
-
-.sidebar-header-actions button:hover {
-  background: rgba(0, 255, 170, 0.1);
-  color: #00ffa6;
-}
-
-/* WORKSPACE NAME */
-.workspace-name {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  font-size: 14px;
-  color: #e6edf3;
-}
-
-.workspace-icon {
-  font-size: 16px;
-}
-
-/* TREE AREA */
-.sidebar-tree {
-  flex: 1;
-  padding: 5px 0;
-  overflow-y: auto;
-}
-
-/* FILE / FOLDER ITEM */
-.file-item,
-.folder-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: var(--explorer-text-muted);
   cursor: pointer;
+  padding: 0;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.explorer-header-btn:hover {
+  color: var(--explorer-text);
+  background-color: var(--explorer-surface-hover);
+}
+
+/* Dropdown Menu */
+.explorer-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  right: 10px;
+  width: 190px;
+  background-color: var(--explorer-surface);
+  border: 1px solid var(--explorer-border);
   border-radius: 8px;
-  margin: 2px 8px;
-  font-size: 14px;
-  transition: all 0.2s ease;
+  padding: 5px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  z-index: 120;
 }
 
-/* HOVER EFFECT */
-.file-item:hover,
-.folder-item:hover {
-  background: rgba(0, 255, 170, 0.08);
+.ws-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-size: 12.5px;
+  color: var(--explorer-text);
+  cursor: pointer;
+  transition: background 0.12s ease;
 }
 
-/* ACTIVE FILE (MAIN GREEN STYLE LIKE IMAGE) */
-.file-item.active {
-  background: linear-gradient(
-    90deg,
-    rgba(0, 255, 170, 0.2),
-    rgba(0, 255, 170, 0.05)
-  );
-  border: 1px solid rgba(0, 255, 170, 0.4);
-  color: #00ffa6;
+.ws-dropdown-item:hover {
+  background-color: var(--explorer-surface-hover);
 }
 
-/* FILE ICON */
-.file-icon {
-  color: #00ffa6;
-  font-size: 16px;
+/* ========================================================
+   FILE TREE CONTAINER
+   ======================================================== */
+.sidebar-tree-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 6px 16px 6px;
+  box-sizing: border-box;
 }
 
-/* FOLDER ICON */
-.folder-icon {
-  color: #facc15;
-  font-size: 16px;
+/* Root row right actions */
+.root-actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  opacity: 0.75;
 }
 
-/* SCROLLBAR (OPTIONAL BUT CLEAN) */
-.sidebar-tree::-webkit-scrollbar {
-  width: 5px;
+.root-actions .row-menu-btn {
+  width: 20px;
+  height: 20px;
+  opacity: 0.75;
 }
 
-.sidebar-tree::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 170, 0.2);
-  border-radius: 10px;
+.root-actions .row-menu-btn:hover {
+  opacity: 1;
+  background-color: var(--explorer-surface-hover);
 }

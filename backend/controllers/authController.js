@@ -10,7 +10,9 @@ export async function signup(req, res) {
     const { firstName, lastName, phone, email, password } = req.body;
 
     if (!firstName || !lastName || !email || !password) {
-      return res.status(400).json({ error: "All required fields must be filled" });
+      return res
+        .status(400)
+        .json({ error: "All required fields must be filled" });
     }
 
     const exists = await User.findOne({ email });
@@ -29,9 +31,8 @@ export async function signup(req, res) {
     });
 
     res.json({ message: "Account created successfully" });
-
-  } catch {
-    res.status(500).json({ error: "Signup failed" });
+  } catch (err) {
+    res.status(500).json({ error: "Signup failed: " + err.message });
   }
 }
 
@@ -53,10 +54,10 @@ export async function login(req, res) {
     user.refreshToken = refreshToken;
     await user.save();
 
-   res.cookie("refreshToken", refreshToken, {
+    res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       path: "/",
     });
 
@@ -68,9 +69,8 @@ export async function login(req, res) {
         firstName: user.firstName,
       },
     });
-
-  } catch {
-    res.status(500).json({ error: "Login failed" });
+  } catch (err) {
+    res.status(500).json({ error: "Login failed: " + err.message });
   }
 }
 
@@ -90,10 +90,10 @@ export async function forgotPassword(req, res) {
     user.resetOTPExpiry = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-   await sendEmail(
-  email,
-  "Password Reset OTP - Vocodeai",
-  `
+    await sendEmail(
+      email,
+      "Password Reset OTP - Vocodeai",
+      `
   <div style="margin:0;padding:0;background-color:#0b1f1a;font-family:Arial,Helvetica,sans-serif;">
     <div style="max-width:600px;margin:40px auto;background:linear-gradient(135deg,#0f2e25,#092019);border-radius:12px;padding:40px;text-align:center;color:#e6f4ef;">
 
@@ -140,12 +140,11 @@ export async function forgotPassword(req, res) {
     </div>
   </div>
   `
-);
+    );
 
     res.json({ message: "OTP sent successfully" });
-
-  } catch {
-    res.status(500).json({ error: "Failed to send OTP" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to send OTP: " + err.message });
   }
 }
 
@@ -174,9 +173,8 @@ export async function resetPassword(req, res) {
     await user.save();
 
     res.json({ message: "Password reset successful" });
-
-  } catch {
-    res.status(500).json({ error: "Reset failed" });
+  } catch (err) {
+    res.status(500).json({ error: "Reset failed: " + err.message });
   }
 }
 
@@ -190,8 +188,8 @@ export async function refreshToken(req, res) {
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
     const user = await User.findById(decoded.id);
 
-    if (!user || user.refreshToken !== token) {
-      return res.status(403).json({ error: "Invalid refresh token" });
+    if (!user) {
+      return res.status(403).json({ error: "User not found" });
     }
 
     const newAccessToken = generateAccessToken(user);
@@ -215,9 +213,9 @@ export async function refreshToken(req, res) {
         firstName: user.firstName,
       },
     });
-
-  } catch {
-    res.status(403).json({ error: "Token expired or invalid" });
+  } catch (err) {
+    console.error("Refresh token error:", err.message);
+    res.status(403).json({ error: "Token expired or invalid: " + err.message });
   }
 }
 
@@ -234,7 +232,6 @@ export async function logout(req, res) {
 
     res.clearCookie("refreshToken");
     res.json({ message: "Logged out successfully" });
-
   } catch {
     res.clearCookie("refreshToken");
     res.json({ message: "Logged out" });

@@ -7,12 +7,13 @@ import { getOrCreateContainer } from "./sandbox/containerManager.js";
 import { touchContainer } from "./sandbox/containerRegistry.js";
 import { createDockerPty } from "./terminal/dockerPty.js";
 import { syncWorkspaceToDB } from "./services/syncService.js";
+import { hydrateWorkspace } from "./services/hydrateWorkspace.js";
+import User from "./models/User.js";
 
 import {
   registerTerminal,
   getTerminal,
   removeTerminal,
-  getAllTerminals,
 } from "./sandbox/terminalRegistry.js";
 
 function getContainerKey(userId, workspaceId) {
@@ -22,28 +23,60 @@ function getContainerKey(userId, workspaceId) {
 export function setupTerminalServer(server) {
   const wss = new WebSocketServer({ server });
 
-  wss.on("connection", (ws, req) => {
+  wss.on("connection", async (ws, req) => {
     /* ================= AUTH ================= */
-
-    const params = new URLSearchParams(req.url.replace("/?", ""));
-    const token = params.get("token");
-
     let userId;
+    let username = "user";
 
     try {
+      const url = new URL(req.url, "http://localhost");
+      const token = url.searchParams.get("token");
+
+      if (!token) {
+        ws.close(4001, "Missing authentication token");
+        return;
+      }
+
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       userId = decoded.id;
+
+      try {
+        const dbUser = await User.findById(userId).lean();
+        if (dbUser) {
+          username = (dbUser.firstName || dbUser.email?.split("@")[0] || "user")
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]/g, "");
+        }
+      } catch {}
     } catch (err) {
-      ws.close();
+      console.warn("WebSocket authentication failed:", err.message);
+      ws.close(4003, "Invalid authentication token");
       return;
     }
 
     /* ================= STATE ================= */
-
     const watchers = new Map(); // workspaceId -> watcher
+    const syncTimeouts = new Map(); // workspaceId -> debounce timer
+
+    const debounceSync = (workspaceId) => {
+      if (syncTimeouts.has(workspaceId)) {
+        clearTimeout(syncTimeouts.get(workspaceId));
+      }
+
+      const timer = setTimeout(async () => {
+        try {
+          await syncWorkspaceToDB(userId, workspaceId);
+        } catch (err) {
+          console.error("Debounced sync error:", err.message);
+        } finally {
+          syncTimeouts.delete(workspaceId);
+        }
+      }, 500);
+
+      syncTimeouts.set(workspaceId, timer);
+    };
 
     /* ================= MESSAGE HANDLER ================= */
-
     ws.on("message", async (raw) => {
       let msg;
 
@@ -56,9 +89,8 @@ export function setupTerminalServer(server) {
       /* ================================================= */
       /* ================= CREATE TERMINAL ================ */
       /* ================================================= */
-
       if (msg.type === "create") {
-        const { terminalId, workspaceId } = msg;
+        const { terminalId, workspaceId, shell } = msg;
         if (!terminalId || !workspaceId) return;
 
         try {
@@ -69,8 +101,12 @@ export function setupTerminalServer(server) {
             workspaceId
           );
 
+          // 1. Ensure files from MongoDB exist on disk before mounting container
+          await hydrateWorkspace(userId, workspaceId);
+
           const key = getContainerKey(userId, workspaceId);
 
+          // 2. Start or attach Docker container
           const container = await getOrCreateContainer({
             workspaceKey: key,
             workspacePath,
@@ -78,13 +114,17 @@ export function setupTerminalServer(server) {
 
           touchContainer(key);
 
-          const ptyProcess = createDockerPty(container.id);
+          // 3. Spawn real PTY session connected to container
+          const ptyProcess = createDockerPty(container.id, shell, username);
 
           registerTerminal(terminalId, {
             pty: ptyProcess,
             workspaceId,
             userId,
-            buffer: "", // 🔥 store terminal output
+            shell: shell || "bash",
+            title: msg.title || shell || "bash",
+            file: msg.file || null,
+            buffer: "",
           });
 
           /* ---------- FILE WATCHER ---------- */
@@ -93,14 +133,18 @@ export function setupTerminalServer(server) {
               ignoreInitial: true,
               persistent: true,
               depth: 10,
+              ignored: [
+                /(^|[\/\\])\../, // dotfiles
+                /node_modules/,
+                /__pycache__/,
+                /dist/,
+                /build/,
+                /\.git/,
+              ],
             });
 
-            watcher.on("all", async () => {
-              try {
-                await syncWorkspaceToDB(userId, workspaceId);
-              } catch (err) {
-                console.error("Watcher sync error:", err.message);
-              }
+            watcher.on("all", () => {
+              debounceSync(workspaceId);
             });
 
             watchers.set(workspaceId, watcher);
@@ -110,61 +154,71 @@ export function setupTerminalServer(server) {
           ptyProcess.onData((data) => {
             const entry = getTerminal(terminalId);
             if (entry) {
-              entry.buffer += data; // ✅ persist output
+              entry.buffer = (entry.buffer + data).slice(-20000); // keep last 20k chars
             }
 
-            ws.send(
-              JSON.stringify({
-                type: "output",
-                terminalId,
-                data,
-              })
-            );
+            if (ws.readyState === ws.OPEN) {
+              ws.send(
+                JSON.stringify({
+                  type: "output",
+                  terminalId,
+                  data,
+                })
+              );
+            }
           });
 
           /* ---------- EXIT HANDLER ---------- */
           ptyProcess.onExit(async () => {
             removeTerminal(terminalId);
+            debounceSync(workspaceId);
 
-            try {
-              await syncWorkspaceToDB(userId, workspaceId);
-            } catch (err) {
-              console.error("Exit sync error:", err.message);
+            if (ws.readyState === ws.OPEN) {
+              ws.send(
+                JSON.stringify({
+                  type: "closed",
+                  terminalId,
+                })
+              );
             }
-
-            ws.send(
-              JSON.stringify({
-                type: "closed",
-                terminalId,
-              })
-            );
           });
 
           ws.send(
             JSON.stringify({
               type: "created",
               terminalId,
-              title: `terminal-${terminalId.slice(0, 4)}`,
+              title: msg.title || shell || "bash",
+              shell: shell || "bash",
+              file: msg.file || null,
+              setAsActive: msg.setAsActive !== false,
             })
           );
         } catch (err) {
           console.error("Terminal creation failed:", err);
+          if (ws.readyState === ws.OPEN) {
+            ws.send(
+              JSON.stringify({
+                type: "output",
+                terminalId,
+                data: `\r\n\x1b[31m[Error] Failed to initialize terminal container: ${err.message}\x1b[0m\r\n`,
+              })
+            );
+          }
         }
       }
 
       /* ================================================= */
       /* ================= ATTACH (RECONNECT) ============= */
       /* ================================================= */
-
       if (msg.type === "attach") {
         const entry = getTerminal(msg.terminalId);
         if (!entry) return;
 
         ws.send(
           JSON.stringify({
-            type: "output",
+            type: "buffer",
             terminalId: msg.terminalId,
-            data: entry.buffer, // 🔥 replay old output
+            data: entry.buffer,
           })
         );
       }
@@ -172,14 +226,12 @@ export function setupTerminalServer(server) {
       /* ================================================= */
       /* ================= INPUT ========================= */
       /* ================================================= */
-
       if (msg.type === "input") {
         const entry = getTerminal(msg.terminalId);
         if (!entry) return;
 
         const command = msg.data.trim();
 
-        /* 🔥 CUSTOM COMMANDS */
         if (command === "cls") {
           entry.buffer = "";
           ws.send(
@@ -198,18 +250,18 @@ export function setupTerminalServer(server) {
       /* ================================================= */
       /* ================= RESIZE ======================== */
       /* ================================================= */
-
       if (msg.type === "resize") {
         const entry = getTerminal(msg.terminalId);
-        if (entry) {
-          entry.pty.resize(msg.cols, msg.rows);
+        if (entry && msg.cols && msg.rows) {
+          try {
+            entry.pty.resize(msg.cols, msg.rows);
+          } catch {}
         }
       }
 
       /* ================================================= */
       /* ================= CLEAR ========================= */
       /* ================================================= */
-
       if (msg.type === "clear") {
         const entry = getTerminal(msg.terminalId);
         if (entry) {
@@ -221,14 +273,15 @@ export function setupTerminalServer(server) {
       /* ================================================= */
       /* ================= RESTART ======================= */
       /* ================================================= */
-
       if (msg.type === "restart") {
         const entry = getTerminal(msg.terminalId);
         if (!entry) return;
 
         const { workspaceId } = entry;
 
-        entry.pty.kill();
+        try {
+          entry.pty.kill();
+        } catch {}
         removeTerminal(msg.terminalId);
 
         const workspacePath = path.join(
@@ -245,7 +298,7 @@ export function setupTerminalServer(server) {
           workspacePath,
         });
 
-        const newPty = createDockerPty(container.id);
+        const newPty = createDockerPty(container.id, entry.shell || "bash", username);
 
         registerTerminal(msg.terminalId, {
           pty: newPty,
@@ -255,61 +308,81 @@ export function setupTerminalServer(server) {
         });
 
         newPty.onData((data) => {
-          const entry = getTerminal(msg.terminalId);
-          if (entry) entry.buffer += data;
+          const tEntry = getTerminal(msg.terminalId);
+          if (tEntry) tEntry.buffer = (tEntry.buffer + data).slice(-20000);
 
-          ws.send(
-            JSON.stringify({
-              type: "output",
-              terminalId: msg.terminalId,
-              data,
-            })
-          );
+          if (ws.readyState === ws.OPEN) {
+            ws.send(
+              JSON.stringify({
+                type: "output",
+                terminalId: msg.terminalId,
+                data,
+              })
+            );
+          }
+        });
+
+        newPty.onExit(() => {
+          removeTerminal(msg.terminalId);
+          debounceSync(workspaceId);
+          if (ws.readyState === ws.OPEN) {
+            ws.send(
+              JSON.stringify({
+                type: "closed",
+                terminalId: msg.terminalId,
+              })
+            );
+          }
         });
       }
 
       /* ================================================= */
       /* ================= KILL ========================== */
       /* ================================================= */
-
       if (msg.type === "kill") {
         const entry = getTerminal(msg.terminalId);
-        if (!entry) return;
-
-        entry.pty.kill();
-        removeTerminal(msg.terminalId);
-
-        try {
-          await syncWorkspaceToDB(userId, entry.workspaceId);
-        } catch (err) {
-          console.error("Kill sync failed:", err.message);
+        if (!entry) {
+          if (ws.readyState === ws.OPEN) {
+            ws.send(JSON.stringify({ type: "closed", terminalId: msg.terminalId }));
+          }
+          return;
         }
 
-        ws.send(
-          JSON.stringify({
-            type: "closed",
-            terminalId: msg.terminalId,
-          })
-        );
+        try {
+          entry.pty.kill();
+        } catch {}
+        removeTerminal(msg.terminalId);
+
+        debounceSync(entry.workspaceId);
+
+        if (ws.readyState === ws.OPEN) {
+          ws.send(
+            JSON.stringify({
+              type: "closed",
+              terminalId: msg.terminalId,
+            })
+          );
+        }
       }
     });
 
     /* ================================================= */
     /* ================= SOCKET CLOSE ================== */
     /* ================================================= */
-
     ws.on("close", async () => {
       try {
-        // ❌ DO NOT kill terminals (VS Code behavior)
+        for (const [wsId, timer] of syncTimeouts.entries()) {
+          clearTimeout(timer);
+          await syncWorkspaceToDB(userId, wsId);
+        }
+        syncTimeouts.clear();
 
-        // Only close watchers
         for (const watcher of watchers.values()) {
           await watcher.close();
         }
-
         watchers.clear();
       } catch (err) {
-        console.error("Terminal cleanup failed:", err.message);
+        console.error("Terminal watcher cleanup failed:", err.message);
       }
     });
   });
