@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { getFileIcon } from "../../utils/getFileIcon";
+import { sortTreeNodes } from "../../utils/buildTree";
 import "../../styles/explorer.css";
 import {
   ChevronRight,
@@ -424,7 +425,7 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
         {/* FOLDER CHILDREN WITH VERTICAL GUIDE LINES */}
         {open && node.children && (
           <div className="tree-sub-guides">
-            {node.children.map((child) => (
+            {sortTreeNodes(node.children).map((child) => (
               <TreeNode
                 key={child.name}
                 node={child}

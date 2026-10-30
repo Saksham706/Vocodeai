@@ -41,6 +41,13 @@ export function startCodeWorker() {
       }
     );
 
+    // Suppress unhandled connection errors from worker's duplicated Redis client
+    worker.on("error", (err) => {
+      if (err.code !== "ECONNREFUSED") {
+        console.warn("⚠️ [WORKER ERROR]:", err.message);
+      }
+    });
+
     worker.on("completed", (job) => {
       console.log(`[WORKER] Job ${job.id} completed`);
     });

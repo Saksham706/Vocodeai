@@ -12,6 +12,7 @@
   "license": "ISC",
   "description": "VocodeAI backend server with real-time docker container sandboxing and AI assistance",
   "dependencies": {
+    "archiver": "^8.0.0",
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.34.0",

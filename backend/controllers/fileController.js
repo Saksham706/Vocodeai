@@ -1,7 +1,24 @@
+import mongoose from "mongoose";
 import FileNode from "../models/FileNode.js";
 import RecycleBin from "../models/RecycleBin.js";
 import Workspace from "../models/Workspace.js";
 import * as fsService from "../services/fileService.js";
+import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
+
+/* Helper: Normalize file paths to avoid slash and traversal issues */
+export function normalizePath(p) {
+  return (p || "").replace(/^[\\\/]+/, "").replace(/\\/g, "/");
+}
+
+/* Helper: Query workspaceId supporting both string and ObjectId */
+export function buildWsQuery(workspaceId) {
+  const wsStr = String(workspaceId || "");
+  const queries = [{ workspaceId }, { workspaceId: wsStr }];
+  if (mongoose.Types.ObjectId.isValid(wsStr)) {
+    queries.push({ workspaceId: new mongoose.Types.ObjectId(wsStr) });
+  }
+  return { $or: queries };
+}
 
 /* ========== CREATE FILE / FOLDER ========== */
 export async function createNode(req, res) {
@@ -12,12 +29,13 @@ export async function createNode(req, res) {
       return res.status(400).json({ error: "workspaceId, path and type are required" });
     }
 
-    const cleanPath = path.replace(/^[\\\/]+/, "");
+    const cleanPath = normalizePath(path);
+    const wsQuery = buildWsQuery(workspaceId);
 
     await FileNode.findOneAndUpdate(
-      { workspaceId, path: cleanPath },
+      { ...wsQuery, path: cleanPath },
       {
-        workspaceId,
+        workspaceId: String(workspaceId),
         path: cleanPath,
         type,
         content: type === "file" ? "" : undefined,
@@ -47,19 +65,23 @@ export async function readFile(req, res) {
       return res.status(400).json({ error: "workspaceId and path are required" });
     }
 
-    const cleanPath = path.replace(/^[\\\/]+/, "");
+    const cleanPath = normalizePath(path);
+    const wsQuery = buildWsQuery(workspaceId);
 
-    const node = await FileNode.findOne({ workspaceId, path: cleanPath });
+    const node = await FileNode.findOne({ ...wsQuery, path: cleanPath });
     if (!node || node.type !== "file") {
       return res.status(404).json({ error: "File not found" });
     }
 
     let content = fsService.readFile(req.user.id, workspaceId, cleanPath);
-    if (!content && node.content) {
+    if ((content === "" || content === null || content === undefined) && node.content) {
       content = node.content;
+      try {
+        fsService.saveFile(req.user.id, workspaceId, cleanPath, content);
+      } catch {}
     }
 
-    res.json({ content });
+    res.json({ content: content || "" });
   } catch (err) {
     console.error("READ FILE ERROR:", err);
     res.status(500).json({ error: err.message });
@@ -75,11 +97,12 @@ export async function saveFile(req, res) {
       return res.status(400).json({ error: "workspaceId and path are required" });
     }
 
-    const cleanPath = path.replace(/^[\\\/]+/, "");
+    const cleanPath = normalizePath(path);
+    const wsQuery = buildWsQuery(workspaceId);
 
     await FileNode.findOneAndUpdate(
-      { workspaceId, path: cleanPath, type: "file" },
-      { content: content || "" },
+      { ...wsQuery, path: cleanPath, type: "file" },
+      { workspaceId: String(workspaceId), path: cleanPath, type: "file", content: content || "" },
       { upsert: true, new: true }
     );
 
@@ -197,6 +220,45 @@ export async function restoreRecycleBinItem(req, res) {
       return res.status(404).json({ error: "Item not found in recycle bin" });
     }
 
+    // ========== RESTORE FULL WORKSPACE / FOLDER ==========
+    if (item.type === "workspace") {
+      // 1. Re-create the Workspace in MongoDB
+      let ws = await Workspace.findById(item.workspaceId);
+      if (!ws) {
+        ws = await Workspace.create({
+          _id: item.workspaceId,
+          userId,
+          name: item.name || "Restored Workspace",
+          isPinned: false,
+        });
+      }
+
+      fsService.ensureWorkspace(userId, ws._id.toString());
+
+      // 2. Re-create all FileNode documents in MongoDB
+      if (Array.isArray(item.items) && item.items.length > 0) {
+        const nodesToInsert = item.items.map((it) => ({
+          workspaceId: ws._id.toString(),
+          path: it.path,
+          type: it.type || "file",
+          content: it.content || "",
+        }));
+        await FileNode.insertMany(nodesToInsert);
+        // Hydrate files on disk
+        await hydrateWorkspace(userId, ws._id.toString());
+      }
+
+      // 3. Remove entry from RecycleBin
+      await RecycleBin.deleteOne({ _id: id });
+
+      return res.json({
+        success: true,
+        restored: item.name,
+        isWorkspace: true,
+        workspaceId: ws._id,
+      });
+    }
+
     const wsId = String(item.workspaceId);
 
     // Helper: recreate parent directories in FileNode so the tree hierarchy stays intact
@@ -274,11 +336,22 @@ export async function restoreRecycleBinItem(req, res) {
 export async function permanentlyDeleteRecycleBinItem(req, res) {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = String(req.user.id || req.user._id);
 
     const deleted = await RecycleBin.findOneAndDelete({ _id: id, userId });
     if (!deleted) {
       return res.status(404).json({ error: "Item not found in recycle bin" });
+    }
+
+    if (deleted.type === "workspace") {
+      await Workspace.deleteOne({ _id: deleted.workspaceId, userId });
+      await FileNode.deleteMany({
+        $or: [
+          { workspaceId: deleted.workspaceId },
+          { workspaceId: String(deleted.workspaceId) },
+        ],
+      });
+      fsService.deleteWorkspace(userId, String(deleted.workspaceId));
     }
 
     res.json({ success: true, message: "Permanently deleted" });
@@ -291,7 +364,20 @@ export async function permanentlyDeleteRecycleBinItem(req, res) {
 /* ========== EMPTY RECYCLE BIN ========== */
 export async function emptyRecycleBin(req, res) {
   try {
-    const userId = req.user.id;
+    const userId = String(req.user.id || req.user._id);
+    const items = await RecycleBin.find({ userId }).lean();
+    for (const it of items) {
+      if (it.type === "workspace") {
+        await Workspace.deleteOne({ _id: it.workspaceId, userId });
+        await FileNode.deleteMany({
+          $or: [
+            { workspaceId: it.workspaceId },
+            { workspaceId: String(it.workspaceId) },
+          ],
+        });
+        fsService.deleteWorkspace(userId, String(it.workspaceId));
+      }
+    }
     await RecycleBin.deleteMany({ userId });
     res.json({ success: true, message: "Recycle bin emptied" });
   } catch (err) {
@@ -308,8 +394,10 @@ export async function loadTree(req, res) {
       return res.status(400).json({ error: "workspaceId is required" });
     }
 
+    const wsQuery = buildWsQuery(workspaceId);
+
     const nodes = await FileNode.find({
-      workspaceId,
+      ...wsQuery,
       path: {
         $not: {
           $regex: "\\.(class|out|o|obj|exe|pyc|so|dll)$|(^|/)a\\.out$",

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import TreeNode from "./TreeNode";
+import { sortTreeNodes } from "../../utils/buildTree";
 import "../../styles/explorer.css";
 import {
   ChevronDown,
@@ -286,7 +287,7 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
             </div>
           )}
 
-          {tree?.children?.map((child) => (
+          {sortTreeNodes(tree?.children).map((child) => (
             <TreeNode
               key={child.name}
               node={child}

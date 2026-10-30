@@ -5,6 +5,7 @@ import {
   Rocket,
   ArrowRight,
   Play,
+  BookOpen,
   Bot,
   Code2,
   Cloud,
@@ -178,8 +179,8 @@ export default function Landing() {
                 <button className="primary-coral-btn" onClick={handleEnter}>
                   Get Started <ArrowRight size={15} />
                 </button>
-                <button className="secondary-outline-btn" onClick={() => scrollToSection("features")}>
-                  <Play size={13} fill="currentColor" /> View Demo
+                <button className="secondary-outline-btn" onClick={() => navigate("/docs")}>
+                  <BookOpen size={14} /> View Docs
                 </button>
               </div>
 

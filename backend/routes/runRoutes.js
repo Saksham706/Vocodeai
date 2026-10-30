@@ -3,6 +3,7 @@ import path from "path";
 import { auth } from "../middleware/auth.js";
 import { detectProject } from "../projects/projectDetector.js";
 import { codeQueue } from "../queue/codeQueue.js";
+import { execInWorkspace } from "../sandbox/execService.js";
 import rateLimit from "express-rate-limit";
 import { getWorkspacesRoot } from "../config/paths.js";
 
@@ -50,33 +51,54 @@ router.post("/", runLimiter, auth, async (req, res) => {
       });
     }
 
-    const job = await codeQueue.add(
-      "run-project",
-      {
+    try {
+      const job = await codeQueue.add(
+        "run-project",
+        {
+          userId: req.user.id,
+          workspaceId,
+          workspacePath,
+          command: detected.command,
+          mode: detected.mode,
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      );
+
+      setTimeout(() => {
+        activeRuns.delete(runKey);
+      }, 5000);
+
+      res.json({
+        success: true,
+        jobId: job.id,
+        type: detected.type,
+        command: detected.command,
+        mode: detected.mode,
+        port: detected.port || null,
+      });
+    } catch (queueErr) {
+      console.warn("Queue add failed, running directly:", queueErr.message);
+      activeRuns.delete(runKey);
+      const directResult = await execInWorkspace({
         userId: req.user.id,
         workspaceId,
         workspacePath,
         command: detected.command,
+        detach: detected.mode === "server",
+      });
+      res.json({
+        success: true,
+        direct: true,
+        result: directResult,
+        type: detected.type,
+        command: detected.command,
         mode: detected.mode,
-      },
-      {
-        removeOnComplete: true,
-        removeOnFail: true,
-      }
-    );
-
-    setTimeout(() => {
-      activeRuns.delete(runKey);
-    }, 5000);
-
-    res.json({
-      success: true,
-      jobId: job.id,
-      type: detected.type,
-      command: detected.command,
-      mode: detected.mode,
-      port: detected.port || null,
-    });
+        port: detected.port || null,
+      });
+    }
   } catch (err) {
     console.error("RUN ROUTE ERROR:", err);
     res.status(500).json({

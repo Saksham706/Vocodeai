@@ -15,7 +15,10 @@ export async function hydrateWorkspace(userId, workspaceId) {
   });
 
   const nodes = await FileNode.find({
-    workspaceId,
+    $or: [
+      { workspaceId },
+      { workspaceId: String(workspaceId) },
+    ],
   }).lean();
 
   for (const node of nodes) {

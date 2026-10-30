@@ -5,14 +5,15 @@ import { getWorkspacesRoot } from "../config/paths.js";
 /* ================= HELPERS ================= */
 
 export function safeJoin(base, target) {
-  let cleanTarget = (target || "").replace(/^[\\\/]+/, "");
+  const baseStr = String(base || "");
+  let cleanTarget = String(target || "").replace(/^[\\\/]+/, "");
   if (
     cleanTarget.startsWith("workspace/") ||
     cleanTarget.startsWith("workspace\\")
   ) {
     cleanTarget = cleanTarget.replace(/^workspace[\\\/]+/, "");
   }
-  const resolvedBase = path.resolve(base);
+  const resolvedBase = path.resolve(baseStr);
   const targetPath = path.resolve(resolvedBase, cleanTarget);
   if (!targetPath.startsWith(resolvedBase)) {
     throw new Error("Invalid path traversal attempt");
@@ -100,17 +101,19 @@ export function deleteNode(userId, workspaceId, relativePath) {
 
 export function restoreNode(userId, workspaceId, item) {
   const wsPath = ensureWorkspace(userId, workspaceId);
+  const origPath = String(item.originalPath || "").replace(/^[\\\/]+/, "");
 
   if (item.type === "file") {
-    const fullPath = safeJoin(wsPath, item.originalPath);
+    const fullPath = safeJoin(wsPath, origPath);
     fs.mkdirSync(path.dirname(fullPath), { recursive: true });
     fs.writeFileSync(fullPath, item.content || "");
   } else if (item.type === "folder") {
-    const folderPath = safeJoin(wsPath, item.originalPath);
+    const folderPath = safeJoin(wsPath, origPath);
     fs.mkdirSync(folderPath, { recursive: true });
     if (Array.isArray(item.items)) {
       for (const sub of item.items) {
-        const subPath = safeJoin(wsPath, sub.path);
+        const subPathStr = String(sub.path || "").replace(/^[\\\/]+/, "");
+        const subPath = safeJoin(wsPath, subPathStr);
         if (sub.type === "folder") {
           fs.mkdirSync(subPath, { recursive: true });
         } else {

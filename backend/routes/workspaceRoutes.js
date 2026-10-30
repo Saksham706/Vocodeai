@@ -1,6 +1,6 @@
 import express from "express";
 import { auth } from "../middleware/auth.js";
-import Workspace from "../models/Workspace.js"; // ✅ REQUIRED
+import Workspace from "../models/Workspace.js";
 import {
   createWorkspace,
   listWorkspaces,
@@ -8,6 +8,8 @@ import {
   renameWorkspace,
   duplicateWorkspace,
   togglePin,
+  importWorkspace,
+  exportWorkspaces,
 } from "../controllers/workspaceController.js";
 import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
 
@@ -15,6 +17,8 @@ const router = express.Router();
 
 router.get("/", auth, listWorkspaces);
 router.post("/", auth, createWorkspace);
+router.post("/import", auth, importWorkspace);
+router.post("/export", auth, exportWorkspaces);
 router.delete("/:id", auth, deleteWorkspace);
 router.patch("/:id/rename", auth, renameWorkspace);
 router.post("/:id/duplicate", auth, duplicateWorkspace);

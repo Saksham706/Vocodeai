@@ -24,6 +24,28 @@ export function isIgnoredArtifact(path) {
   return false;
 }
 
+/**
+ * VS Code style sorting:
+ * 1. Folders ALWAYS at the top.
+ * 2. Files below folders.
+ * 3. Case-insensitive natural alphabetical sort within each category.
+ */
+export function sortTreeNodes(children) {
+  if (!Array.isArray(children)) return [];
+  return [...children].sort((a, b) => {
+    const aIsFolder = a?.type === "folder";
+    const bIsFolder = b?.type === "folder";
+
+    if (aIsFolder && !bIsFolder) return -1;
+    if (!aIsFolder && bIsFolder) return 1;
+
+    return (a?.name || "").localeCompare(b?.name || "", undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
+  });
+}
+
 export function buildTree(nodes) {
   const root = {
     name: "",
@@ -59,6 +81,17 @@ export function buildTree(nodes) {
       }
     });
   }
+
+  // Recursively enforce folders at top, then files
+  function sortRecursively(node) {
+    if (!node?.children || node.children.length === 0) return;
+    node.children = sortTreeNodes(node.children);
+    for (const child of node.children) {
+      sortRecursively(child);
+    }
+  }
+
+  sortRecursively(root);
 
   return root;
 }

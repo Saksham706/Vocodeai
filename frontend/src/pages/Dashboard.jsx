@@ -8,6 +8,8 @@ import {
   renameWorkspace,
   duplicateWorkspace,
   pinWorkspace,
+  importWorkspace,
+  exportWorkspaces,
 } from "../services/workspaceApi";
 import {
   getRecycleBin,
@@ -38,6 +40,14 @@ import {
   X,
   RotateCcw,
   Check,
+  Upload,
+  Download,
+  CheckSquare,
+  Square,
+  FolderArchive,
+  FolderUp,
+  FolderOpen,
+  FileText,
 } from "lucide-react";
 import DashboardBackground from "../components/DashboardBackground";
 import "../styles/dashboard.css";
@@ -94,15 +104,54 @@ export default function Dashboard() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
 
-  // Rename state
-  const [renamingId, setRenamingId] = useState(null);
-  const [renameValue, setRenameValue] = useState("");
+  // Workspace Context Actions State (Rename, Duplicate, Pin, Delete)
+  const [renameModalWs, setRenameModalWs] = useState(null);
+  const [renameInputVal, setRenameInputVal] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
+  const renameInputRef = useRef(null);
+
+  const [deleteModalWs, setDeleteModalWs] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 3500);
+  };
+
+  useEffect(() => {
+    if (renameModalWs) {
+      setTimeout(() => {
+        renameInputRef.current?.focus();
+        renameInputRef.current?.select();
+      }, 50);
+    }
+  }, [renameModalWs]);
 
   // Recycle Bin state
   const [recycleItems, setRecycleItems] = useState([]);
   const [recycleLoading, setRecycleLoading] = useState(false);
   const [recycleActionLoading, setRecycleActionLoading] = useState(null);
   const [recycleMessage, setRecycleMessage] = useState(null);
+  const [permDeleteModalItem, setPermDeleteModalItem] = useState(null);
+  const [showEmptyBinModal, setShowEmptyBinModal] = useState(false);
+
+  // Import Folder state
+  const folderInputRef = useRef(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importPendingFiles, setImportPendingFiles] = useState(null);
+  const [importFolderName, setImportFolderName] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  // Export Workspaces state
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [selectedExportIds, setSelectedExportIds] = useState(new Set());
+  const [exportFilter, setExportFilter] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
 
   const searchInputRef = useRef(null);
   const createInputRef = useRef(null);
@@ -161,57 +210,56 @@ export default function Dashboard() {
       setRecycleActionLoading(id);
       await restoreRecycleBinItem(accessToken, id);
       setRecycleItems((prev) => prev.filter((item) => item._id !== id));
+
+      // Reload workspaces so restored workspace/files appear immediately
+      const updatedList = await listWorkspaces(accessToken);
+      if (Array.isArray(updatedList)) {
+        setWorkspaces(updatedList);
+      }
+
       setRecycleMessage(`Restored "${name}" successfully`);
+      showToast(`Restored "${name}" successfully`);
       setTimeout(() => setRecycleMessage(null), 3500);
     } catch (err) {
       console.error("Restore failed:", err);
-      alert("Failed to restore item: " + err.message);
+      showToast("Failed to restore item: " + err.message, "error");
     } finally {
       setRecycleActionLoading(null);
     }
   };
 
-  const handlePermanentDeleteItem = async (id, name) => {
-    if (!accessToken) return;
-    if (
-      !window.confirm(
-        `Are you sure you want to permanently delete "${name}"? This cannot be undone.`
-      )
-    ) {
-      return;
-    }
+  const handleConfirmPermanentDelete = async () => {
+    if (!accessToken || !permDeleteModalItem) return;
+    const { id, name } = permDeleteModalItem;
     try {
       setRecycleActionLoading(id);
       await permanentlyDeleteRecycleBinItem(accessToken, id);
       setRecycleItems((prev) => prev.filter((item) => item._id !== id));
       setRecycleMessage(`Permanently deleted "${name}"`);
+      showToast(`Permanently deleted "${name}"`);
       setTimeout(() => setRecycleMessage(null), 3500);
+      setPermDeleteModalItem(null);
     } catch (err) {
       console.error("Permanent delete failed:", err);
-      alert("Failed to permanently delete item: " + err.message);
+      showToast("Failed to permanently delete: " + err.message, "error");
     } finally {
       setRecycleActionLoading(null);
     }
   };
 
-  const handleEmptyRecycleBin = async () => {
+  const handleConfirmEmptyRecycleBin = async () => {
     if (!accessToken || recycleItems.length === 0) return;
-    if (
-      !window.confirm(
-        "Are you sure you want to permanently delete all items in the Recycle Bin? This action cannot be undone."
-      )
-    ) {
-      return;
-    }
     try {
       setRecycleLoading(true);
       await emptyRecycleBin(accessToken);
       setRecycleItems([]);
       setRecycleMessage("Recycle bin emptied");
+      showToast("Recycle bin emptied");
       setTimeout(() => setRecycleMessage(null), 3500);
+      setShowEmptyBinModal(false);
     } catch (err) {
       console.error("Empty recycle bin failed:", err);
-      alert("Failed to empty recycle bin: " + err.message);
+      showToast("Failed to empty recycle bin: " + err.message, "error");
     } finally {
       setRecycleLoading(false);
     }
@@ -229,9 +277,18 @@ export default function Dashboard() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Sort workspaces: Pinned first, then by updatedAt / createdAt descending
+  const sortedWorkspaces = [...workspaces].sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+    const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+    return timeB - timeA;
+  });
+
   // Filter workspaces by search
-  const filteredWorkspaces = workspaces.filter((w) =>
-    w.name.toLowerCase().includes(search.toLowerCase())
+  const filteredWorkspaces = sortedWorkspaces.filter((w) =>
+    (w.name || "").toLowerCase().includes(search.toLowerCase())
   );
 
   // Close menus and creation box on outside click
@@ -253,6 +310,261 @@ export default function Dashboard() {
     return () => window.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
+  /* IMPORT WORKSPACE FROM LOCAL DESKTOP FOLDER */
+  const readFileAsText = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result || "");
+      reader.onerror = () => resolve("");
+      reader.readAsText(file);
+    });
+  };
+
+  const triggerFolderBrowser = () => {
+    if (folderInputRef.current) {
+      folderInputRef.current.value = "";
+      folderInputRef.current.click();
+    }
+  };
+
+  const handleDropFolder = async (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+
+    const items = e.dataTransfer.items;
+    if (!items || items.length === 0) return;
+
+    showToast("Scanning dropped folder...");
+
+    const scannedItems = [];
+    let detectedName = "";
+
+    async function scanEntry(entry, currentPath = "") {
+      if (
+        entry.name === "node_modules" ||
+        entry.name === ".git" ||
+        entry.name === ".DS_Store" ||
+        entry.name === ".vscode"
+      ) {
+        return;
+      }
+
+      if (entry.isDirectory) {
+        const dirReader = entry.createReader();
+        const readAllEntries = async () => {
+          let all = [];
+          let batch;
+          do {
+            batch = await new Promise((res) =>
+              dirReader.readEntries(res, () => res([]))
+            );
+            all = all.concat(batch);
+          } while (batch && batch.length > 0);
+          return all;
+        };
+
+        const children = await readAllEntries();
+        for (const child of children) {
+          const childPath = currentPath
+            ? `${currentPath}/${child.name}`
+            : child.name;
+          if (child.isDirectory) {
+            scannedItems.push({ path: childPath, type: "folder" });
+            await scanEntry(child, childPath);
+          } else if (child.isFile) {
+            const file = await new Promise((res) =>
+              child.file(res, () => res(null))
+            );
+            if (file) {
+              const text = await file.text();
+              scannedItems.push({
+                path: childPath,
+                type: "file",
+                content: text || "",
+              });
+            }
+          }
+        }
+      } else if (entry.isFile) {
+        const file = await new Promise((res) =>
+          entry.file(res, () => res(null))
+        );
+        if (file) {
+          const text = await file.text();
+          scannedItems.push({
+            path: entry.name,
+            type: "file",
+            content: text || "",
+          });
+        }
+      }
+    }
+
+    try {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+        if (entry) {
+          if (!detectedName && entry.isDirectory) {
+            detectedName = entry.name;
+          }
+          await scanEntry(entry, "");
+        }
+      }
+
+      if (scannedItems.length === 0) {
+        showToast("No valid project files found in dropped folder", "error");
+        return;
+      }
+
+      setImportFolderName(detectedName || "Imported Workspace");
+      setImportPendingFiles(scannedItems);
+      setShowImportModal(true);
+    } catch (dropErr) {
+      console.error("Drop folder error:", dropErr);
+      showToast("Failed to read dropped folder: " + dropErr.message, "error");
+    }
+  };
+
+  const handleFolderSelected = async (e) => {
+    const fileList = Array.from(e.target.files || []);
+    if (fileList.length === 0) return;
+
+    // Filter out node_modules and .git folders
+    const validFiles = fileList.filter((f) => {
+      const rel = (f.webkitRelativePath || f.name).replace(/\\/g, "/");
+      return (
+        !rel.includes("/node_modules/") &&
+        !rel.includes("/.git/") &&
+        !rel.includes("/.vscode/")
+      );
+    });
+
+    if (validFiles.length === 0) {
+      showToast("No valid project files found in selected folder", "error");
+      return;
+    }
+
+    const firstRel = validFiles[0].webkitRelativePath?.replace(/\\/g, "/") || "";
+    const topFolder = firstRel.split("/")[0] || "Imported Project";
+    const topPrefix = topFolder + "/";
+
+    const items = [];
+    const knownFolders = new Set();
+
+    for (const file of validFiles) {
+      let relPath = (file.webkitRelativePath || file.name).replace(/\\/g, "/");
+      if (relPath.startsWith(topPrefix)) {
+        relPath = relPath.slice(topPrefix.length);
+      }
+      if (!relPath) continue;
+
+      // Register parent folder paths
+      const parts = relPath.split("/").filter(Boolean);
+      let curr = "";
+      for (let i = 0; i < parts.length - 1; i++) {
+        curr = curr ? `${curr}/${parts[i]}` : parts[i];
+        if (!knownFolders.has(curr)) {
+          knownFolders.add(curr);
+          items.push({ path: curr, type: "folder" });
+        }
+      }
+
+      const content = await readFileAsText(file);
+      items.push({
+        path: relPath,
+        content: content || "",
+        type: "file",
+      });
+    }
+
+    setImportFolderName(topFolder);
+    setImportPendingFiles(items);
+    setShowImportModal(true);
+  };
+
+  const handleConfirmImport = async (e) => {
+    if (e) e.preventDefault();
+    if (!importPendingFiles || importPendingFiles.length === 0) return;
+
+    try {
+      setIsImporting(true);
+      const finalName = (importFolderName || "Imported Workspace").trim();
+
+      if (accessToken) {
+        const newWs = await importWorkspace(accessToken, {
+          name: finalName,
+          files: importPendingFiles,
+        });
+        setWorkspaces((prev) => [newWs, ...prev]);
+      } else {
+        const newWs = {
+          _id: `ws-${Date.now()}`,
+          name: finalName,
+          updatedAt: new Date().toISOString(),
+          isPinned: false,
+        };
+        setWorkspaces((prev) => [newWs, ...prev]);
+      }
+
+      const fileCount = importPendingFiles.filter((i) => i.type === "file").length;
+      const folderCount = importPendingFiles.filter((i) => i.type === "folder").length;
+      showToast(`Imported "${finalName}" (${fileCount} files, ${folderCount} folders)`);
+      setShowImportModal(false);
+      setImportPendingFiles(null);
+      setImportFolderName("");
+    } catch (err) {
+      console.error("Import failed:", err);
+      showToast("Failed to import workspace: " + err.message, "error");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  /* EXPORT WORKSPACES AS ZIP */
+  const openExportModal = () => {
+    setSelectedExportIds(new Set(workspaces.map((w) => w._id)));
+    setExportFilter("");
+    setShowExportModal(true);
+  };
+
+  const toggleSelectWorkspaceForExport = (id) => {
+    setSelectedExportIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllExport = () => {
+    if (selectedExportIds.size === workspaces.length) {
+      setSelectedExportIds(new Set());
+    } else {
+      setSelectedExportIds(new Set(workspaces.map((w) => w._id)));
+    }
+  };
+
+  const handleConfirmExport = async () => {
+    if (selectedExportIds.size === 0) return;
+    try {
+      setIsExporting(true);
+      const ids = Array.from(selectedExportIds);
+      if (accessToken) {
+        const res = await exportWorkspaces(accessToken, ids);
+        showToast(`Exported ${ids.length} workspace(s) as ZIP (${res.filename})`);
+      } else {
+        showToast("Export requires an active session", "error");
+      }
+      setShowExportModal(false);
+    } catch (err) {
+      console.error("Export failed:", err);
+      showToast("Export failed: " + err.message, "error");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   /* CREATE WORKSPACE */
   const handleCreateWorkspace = async () => {
     if (!newName.trim()) {
@@ -273,95 +585,167 @@ export default function Dashboard() {
         };
         setWorkspaces((prev) => [newWs, ...prev]);
       }
+      showToast(`Created workspace "${newName.trim()}"`);
       setNewName("");
       setShowCreate(false);
     } catch (err) {
       console.error("Create workspace failed:", err);
-    }
-  };
-
-  /* DELETE WORKSPACE */
-  const handleDelete = async (id) => {
-    try {
-      if (accessToken && !id.startsWith("demo-") && !id.startsWith("ws-")) {
-        await deleteWorkspace(accessToken, id);
-      }
-      setWorkspaces((prev) => prev.filter((w) => w._id !== id));
-      setMenuOpenId(null);
-    } catch (err) {
-      console.error("Delete failed:", err);
-    }
-  };
-
-  /* DUPLICATE WORKSPACE */
-  const handleDuplicate = async (id) => {
-    try {
-      if (accessToken && !id.startsWith("demo-") && !id.startsWith("ws-")) {
-        const copy = await duplicateWorkspace(accessToken, id);
-        setWorkspaces((prev) => [copy, ...prev]);
-      } else {
-        const source = workspaces.find((w) => w._id === id);
-        if (source) {
-          const duplicated = {
-            ...source,
-            _id: `ws-${Date.now()}`,
-            name: `${source.name} (Copy)`,
-            updatedAt: new Date().toISOString(),
-          };
-          setWorkspaces((prev) => [duplicated, ...prev]);
-        }
-      }
-      setMenuOpenId(null);
-    } catch (err) {
-      console.error("Duplicate failed:", err);
-    }
-  };
-
-  /* PIN WORKSPACE */
-  const handlePin = async (ws) => {
-    try {
-      if (accessToken && !ws._id.startsWith("demo-") && !ws._id.startsWith("ws-")) {
-        const updated = await pinWorkspace(accessToken, ws._id, !ws.isPinned);
-        setWorkspaces((prev) =>
-          prev.map((w) => (w._id === ws._id ? updated : w))
-        );
-      } else {
-        setWorkspaces((prev) =>
-          prev.map((w) =>
-            w._id === ws._id ? { ...w, isPinned: !w.isPinned } : w
-          )
-        );
-      }
-      setMenuOpenId(null);
-    } catch (err) {
-      console.error("Pin failed:", err);
+      showToast("Failed to create workspace", "error");
     }
   };
 
   /* RENAME WORKSPACE */
-  const submitRename = async (ws) => {
-    if (!renameValue.trim()) {
-      setRenamingId(null);
+  const openRenameModal = (ws) => {
+    setRenameModalWs(ws);
+    setRenameInputVal(ws.name || "");
+    setIsRenaming(false);
+  };
+
+  const closeRenameModal = () => {
+    setRenameModalWs(null);
+    setRenameInputVal("");
+    setIsRenaming(false);
+  };
+
+  const handleConfirmRename = async (e) => {
+    if (e) e.preventDefault();
+    if (!renameModalWs || !renameInputVal.trim()) return;
+
+    const trimmed = renameInputVal.trim();
+    if (trimmed === renameModalWs.name) {
+      closeRenameModal();
       return;
     }
 
     try {
-      if (accessToken && !ws._id.startsWith("demo-") && !ws._id.startsWith("ws-")) {
-        const updated = await renameWorkspace(accessToken, ws._id, renameValue.trim());
+      setIsRenaming(true);
+      if (
+        accessToken &&
+        !renameModalWs._id.startsWith("demo-") &&
+        !renameModalWs._id.startsWith("ws-")
+      ) {
+        const updated = await renameWorkspace(accessToken, renameModalWs._id, trimmed);
         setWorkspaces((prev) =>
-          prev.map((w) => (w._id === ws._id ? updated : w))
+          prev.map((w) =>
+            w._id === renameModalWs._id
+              ? { ...w, ...updated, name: trimmed, updatedAt: new Date().toISOString() }
+              : w
+          )
         );
       } else {
         setWorkspaces((prev) =>
           prev.map((w) =>
-            w._id === ws._id ? { ...w, name: renameValue.trim(), updatedAt: new Date().toISOString() } : w
+            w._id === renameModalWs._id
+              ? { ...w, name: trimmed, updatedAt: new Date().toISOString() }
+              : w
           )
         );
       }
+      showToast(`Renamed workspace to "${trimmed}"`);
+      closeRenameModal();
     } catch (err) {
       console.error("Rename failed:", err);
+      showToast("Failed to rename workspace: " + err.message, "error");
     } finally {
-      setRenamingId(null);
+      setIsRenaming(false);
+    }
+  };
+
+  /* DUPLICATE WORKSPACE */
+  const handleDuplicate = async (ws) => {
+    try {
+      setDuplicatingId(ws._id);
+      let copy;
+      if (
+        accessToken &&
+        !ws._id.startsWith("demo-") &&
+        !ws._id.startsWith("ws-")
+      ) {
+        copy = await duplicateWorkspace(accessToken, ws._id);
+      } else {
+        copy = {
+          ...ws,
+          _id: `ws-${Date.now()}`,
+          name: `${ws.name} (copy)`,
+          updatedAt: new Date().toISOString(),
+          isPinned: false,
+        };
+      }
+      setWorkspaces((prev) => [copy, ...prev]);
+      showToast(`Duplicated "${ws.name}"`);
+    } catch (err) {
+      console.error("Duplicate failed:", err);
+      showToast("Failed to duplicate workspace: " + err.message, "error");
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
+  /* PIN / UNPIN WORKSPACE */
+  const handlePin = async (ws) => {
+    const nextPinned = !ws.isPinned;
+    try {
+      if (
+        accessToken &&
+        !ws._id.startsWith("demo-") &&
+        !ws._id.startsWith("ws-")
+      ) {
+        const updated = await pinWorkspace(accessToken, ws._id, nextPinned);
+        setWorkspaces((prev) =>
+          prev.map((w) =>
+            w._id === ws._id ? { ...w, ...updated, isPinned: nextPinned } : w
+          )
+        );
+      } else {
+        setWorkspaces((prev) =>
+          prev.map((w) =>
+            w._id === ws._id ? { ...w, isPinned: nextPinned } : w
+          )
+        );
+      }
+      showToast(nextPinned ? `Pinned "${ws.name}" to top` : `Unpinned "${ws.name}"`);
+    } catch (err) {
+      console.error("Pin failed:", err);
+      showToast("Failed to update pin status", "error");
+    }
+  };
+
+  /* DELETE WORKSPACE */
+  const openDeleteModal = (ws) => {
+    setDeleteModalWs(ws);
+    setIsDeleting(false);
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModalWs(null);
+    setIsDeleting(false);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteModalWs) return;
+
+    try {
+      setIsDeleting(true);
+      const wsId = deleteModalWs._id;
+      const wsName = deleteModalWs.name;
+
+      if (
+        accessToken &&
+        !wsId.startsWith("demo-") &&
+        !wsId.startsWith("ws-")
+      ) {
+        await deleteWorkspace(accessToken, wsId);
+      }
+
+      setWorkspaces((prev) => prev.filter((w) => w._id !== wsId));
+      loadRecycleBin(); // Immediately update recycle bin list and sidebar badge
+      showToast(`Moved "${wsName}" to Recycle Bin`);
+      closeDeleteModal();
+    } catch (err) {
+      console.error("Delete failed:", err);
+      showToast("Failed to delete workspace: " + err.message, "error");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -570,6 +954,42 @@ export default function Dashboard() {
             {theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
           </button>
 
+          {/* Hidden File Input for Folder Import */}
+          <input
+            ref={folderInputRef}
+            type="file"
+            webkitdirectory="true"
+            directory="true"
+            multiple
+            style={{ display: "none" }}
+            onChange={handleFolderSelected}
+          />
+
+          {/* Import Folder Button */}
+          <button
+            className="btn-dash-action-secondary"
+            onClick={() => {
+              setImportPendingFiles(null);
+              setImportFolderName("");
+              setShowImportModal(true);
+            }}
+            title="Import a folder from desktop as a new workspace"
+          >
+            <Upload size={17} />
+            <span>Import</span>
+          </button>
+
+          {/* Export Workspaces Button */}
+          <button
+            className="btn-dash-action-secondary"
+            onClick={openExportModal}
+            title="Export workspace folders as ZIP"
+            disabled={workspaces.length === 0}
+          >
+            <Download size={17} />
+            <span>Export</span>
+          </button>
+
           {/* Primary "+ Create Workspace" Button */}
           <button
             ref={createBtnRef}
@@ -648,24 +1068,11 @@ export default function Dashboard() {
                       onClick={() => handleCardClick(ws._id)}
                     >
                       <div className="workspace-title-row">
-                        {renamingId === ws._id ? (
-                          <input
-                            className="workspace-rename-input"
-                            value={renameValue}
-                            autoFocus
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onBlur={() => submitRename(ws)}
-                            onKeyDown={(e) =>
-                              e.key === "Enter" && submitRename(ws)
-                            }
-                          />
-                        ) : (
-                          <span className="workspace-name">{ws.name}</span>
-                        )}
+                        <span className="workspace-name">{ws.name}</span>
                         {ws.isPinned && (
-                          <span className="workspace-pinned-star" title="Pinned">
-                            ⭐
+                          <span className="workspace-pinned-badge" title="Pinned to top">
+                            <Star size={11} className="star-filled-icon" />
+                            <span>Pinned</span>
                           </span>
                         )}
                       </div>
@@ -692,13 +1099,14 @@ export default function Dashboard() {
                       <div
                         className="workspace-dropdown-menu"
                         onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
                       >
                         <button
                           className="dropdown-action-item"
-                          onClick={() => {
-                            setRenamingId(ws._id);
-                            setRenameValue(ws.name);
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setMenuOpenId(null);
+                            openRenameModal(ws);
                           }}
                         >
                           <Pencil size={14} />
@@ -707,23 +1115,38 @@ export default function Dashboard() {
 
                         <button
                           className="dropdown-action-item"
-                          onClick={() => handleDuplicate(ws._id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpenId(null);
+                            handleDuplicate(ws);
+                          }}
+                          disabled={duplicatingId === ws._id}
                         >
                           <Copy size={14} />
-                          <span>Duplicate</span>
+                          <span>
+                            {duplicatingId === ws._id ? "Duplicating..." : "Duplicate"}
+                          </span>
                         </button>
 
                         <button
                           className="dropdown-action-item"
-                          onClick={() => handlePin(ws)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpenId(null);
+                            handlePin(ws);
+                          }}
                         >
-                          <Star size={14} />
+                          <Star size={14} className={ws.isPinned ? "star-pinned-icon" : ""} />
                           <span>{ws.isPinned ? "Unpin" : "Pin"}</span>
                         </button>
 
                         <button
                           className="dropdown-action-item danger"
-                          onClick={() => handleDelete(ws._id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpenId(null);
+                            openDeleteModal(ws);
+                          }}
                         >
                           <Trash2 size={14} />
                           <span>Delete</span>
@@ -843,7 +1266,7 @@ export default function Dashboard() {
               {recycleItems.length > 0 && (
                 <button
                   className="btn-empty-recycle"
-                  onClick={handleEmptyRecycleBin}
+                  onClick={() => setShowEmptyBinModal(true)}
                   disabled={recycleLoading}
                 >
                   <Trash2 size={16} />
@@ -885,16 +1308,25 @@ export default function Dashboard() {
                 {recycleItems.map((item) => (
                   <div key={item._id} className="recycle-item-card">
                     <div className="recycle-item-icon-box">
-                      {getFileIcon(item.name, item.type, false)}
+                      {item.type === "workspace" ? (
+                        <FolderClosed size={24} style={{ color: "#FF9B3D" }} />
+                      ) : (
+                        getFileIcon(item.name, item.type, false)
+                      )}
                     </div>
 
                     <div className="recycle-item-details">
                       <div className="recycle-item-title-row">
                         <span className="recycle-item-name">{item.name}</span>
                         <span className={`recycle-item-type-badge ${item.type}`}>
-                          {item.type}
+                          {item.type === "workspace" ? "WORKSPACE" : item.type.toUpperCase()}
                         </span>
-                        {item.workspaceName && (
+                        {item.items && item.items.length > 0 && item.type === "workspace" && (
+                          <span className="recycle-item-ws-tag">
+                            {item.items.length} {item.items.length === 1 ? "file" : "files"}
+                          </span>
+                        )}
+                        {item.workspaceName && item.type !== "workspace" && (
                           <span className="recycle-item-ws-tag">
                             {item.workspaceName}
                           </span>
@@ -902,7 +1334,8 @@ export default function Dashboard() {
                       </div>
                       <div className="recycle-item-meta">
                         <span className="recycle-item-path" title={item.originalPath}>
-                          Original path: <code>{item.originalPath}</code>
+                          {item.type === "workspace" ? "Workspace folder: " : "Original path: "}
+                          <code>{item.originalPath}</code>
                         </span>
                         <span className="recycle-item-dot">•</span>
                         <span className="recycle-item-time">
@@ -926,7 +1359,9 @@ export default function Dashboard() {
 
                       <button
                         className="btn-recycle-delete-perm"
-                        onClick={() => handlePermanentDeleteItem(item._id, item.name)}
+                        onClick={() =>
+                          setPermDeleteModalItem({ id: item._id, name: item.name, type: item.type })
+                        }
                         disabled={recycleActionLoading === item._id}
                         title="Delete permanently"
                       >
@@ -939,6 +1374,649 @@ export default function Dashboard() {
               </div>
             )}
           </section>
+        )}
+
+        {/* =========================================================
+           RENAME WORKSPACE MODAL
+           ========================================================= */}
+        {renameModalWs && (
+          <div
+            className="dash-modal-overlay"
+            onClick={closeRenameModal}
+            onKeyDown={(e) => e.key === "Escape" && closeRenameModal()}
+          >
+            <div
+              className="dash-modal-card"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="dash-modal-header">
+                <div className="dash-modal-title-wrap">
+                  <div className="dash-modal-icon">
+                    <Pencil size={17} />
+                  </div>
+                  <h3>Rename Workspace</h3>
+                </div>
+                <button
+                  className="dash-modal-close-btn"
+                  onClick={closeRenameModal}
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleConfirmRename}>
+                <div className="dash-modal-body">
+                  <label className="dash-modal-label" htmlFor="dash-ws-rename-input">
+                    Workspace Name
+                  </label>
+                  <input
+                    id="dash-ws-rename-input"
+                    ref={renameInputRef}
+                    type="text"
+                    className="dash-modal-input"
+                    placeholder="Enter workspace name"
+                    value={renameInputVal}
+                    onChange={(e) => setRenameInputVal(e.target.value)}
+                    disabled={isRenaming}
+                    maxLength={60}
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div className="dash-modal-footer">
+                  <button
+                    type="button"
+                    className="dash-modal-btn-cancel"
+                    onClick={closeRenameModal}
+                    disabled={isRenaming}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="dash-modal-btn-primary"
+                    disabled={isRenaming || !renameInputVal.trim()}
+                  >
+                    {isRenaming ? (
+                      <>
+                        <RotateCcw size={14} className="spin-icon" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={14} />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================
+           DELETE WORKSPACE CONFIRMATION MODAL
+           ========================================================= */}
+        {deleteModalWs && (
+          <div
+            className="dash-modal-overlay"
+            onClick={closeDeleteModal}
+            onKeyDown={(e) => e.key === "Escape" && closeDeleteModal()}
+          >
+            <div
+              className="dash-modal-card"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="dash-modal-header">
+                <div className="dash-modal-title-wrap">
+                  <div className="dash-modal-icon danger">
+                    <Trash2 size={17} />
+                  </div>
+                  <h3>Move to Recycle Bin</h3>
+                </div>
+                <button
+                  className="dash-modal-close-btn"
+                  onClick={closeDeleteModal}
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="dash-modal-body">
+                <p className="dash-modal-desc">
+                  Are you sure you want to delete{" "}
+                  <strong style={{ color: "var(--text-primary)" }}>
+                    "{deleteModalWs.name}"
+                  </strong>
+                  ? It will be safely moved to the <strong>Recycle Bin</strong>, where you can restore it anytime or permanently remove it.
+                </p>
+              </div>
+
+              <div className="dash-modal-footer">
+                <button
+                  type="button"
+                  className="dash-modal-btn-cancel"
+                  onClick={closeDeleteModal}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="dash-modal-btn-danger"
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <>
+                      <RotateCcw size={14} className="spin-icon" />
+                      <span>Moving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={14} />
+                      <span>Move to Recycle Bin</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================
+           PERMANENT DELETE CONFIRMATION MODAL (RECYCLE BIN)
+           ========================================================= */}
+        {permDeleteModalItem && (
+          <div
+            className="dash-modal-overlay"
+            onClick={() => setPermDeleteModalItem(null)}
+            onKeyDown={(e) => e.key === "Escape" && setPermDeleteModalItem(null)}
+          >
+            <div
+              className="dash-modal-card"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="dash-modal-header">
+                <div className="dash-modal-title-wrap">
+                  <div className="dash-modal-icon danger">
+                    <Trash2 size={17} />
+                  </div>
+                  <h3>Permanently Delete {permDeleteModalItem.type === "workspace" ? "Workspace" : "Item"}</h3>
+                </div>
+                <button
+                  className="dash-modal-close-btn"
+                  onClick={() => setPermDeleteModalItem(null)}
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="dash-modal-body">
+                <p className="dash-modal-desc">
+                  Are you sure you want to permanently delete{" "}
+                  <strong style={{ color: "var(--text-primary)" }}>
+                    "{permDeleteModalItem.name}"
+                  </strong>
+                  ? This action is permanent and cannot be undone.
+                </p>
+              </div>
+
+              <div className="dash-modal-footer">
+                <button
+                  type="button"
+                  className="dash-modal-btn-cancel"
+                  onClick={() => setPermDeleteModalItem(null)}
+                  disabled={recycleActionLoading === permDeleteModalItem.id}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="dash-modal-btn-danger"
+                  onClick={handleConfirmPermanentDelete}
+                  disabled={recycleActionLoading === permDeleteModalItem.id}
+                >
+                  {recycleActionLoading === permDeleteModalItem.id ? (
+                    <>
+                      <RotateCcw size={14} className="spin-icon" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={14} />
+                      <span>Delete Permanently</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================
+           EMPTY RECYCLE BIN CONFIRMATION MODAL
+           ========================================================= */}
+        {showEmptyBinModal && (
+          <div
+            className="dash-modal-overlay"
+            onClick={() => setShowEmptyBinModal(false)}
+            onKeyDown={(e) => e.key === "Escape" && setShowEmptyBinModal(false)}
+          >
+            <div
+              className="dash-modal-card"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="dash-modal-header">
+                <div className="dash-modal-title-wrap">
+                  <div className="dash-modal-icon danger">
+                    <Trash2 size={17} />
+                  </div>
+                  <h3>Empty Recycle Bin</h3>
+                </div>
+                <button
+                  className="dash-modal-close-btn"
+                  onClick={() => setShowEmptyBinModal(false)}
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="dash-modal-body">
+                <p className="dash-modal-desc">
+                  Are you sure you want to permanently delete all <strong>{recycleItems.length}</strong> items in the Recycle Bin? All deleted files and folders will be purged forever.
+                </p>
+              </div>
+
+              <div className="dash-modal-footer">
+                <button
+                  type="button"
+                  className="dash-modal-btn-cancel"
+                  onClick={() => setShowEmptyBinModal(false)}
+                  disabled={recycleLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="dash-modal-btn-danger"
+                  onClick={handleConfirmEmptyRecycleBin}
+                  disabled={recycleLoading}
+                >
+                  {recycleLoading ? (
+                    <>
+                      <RotateCcw size={14} className="spin-icon" />
+                      <span>Emptying...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={14} />
+                      <span>Empty Bin</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================
+           IMPORT WORKSPACE POP-UP MODAL
+           ========================================================= */}
+        {showImportModal && (
+          <div
+            className="dash-modal-overlay"
+            onClick={() => !isImporting && setShowImportModal(false)}
+            onKeyDown={(e) =>
+              e.key === "Escape" && !isImporting && setShowImportModal(false)
+            }
+          >
+            <div
+              className="dash-modal-card dash-modal-import"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="dash-modal-header">
+                <div className="dash-modal-title-wrap">
+                  <div className="dash-modal-icon">
+                    <Upload size={17} />
+                  </div>
+                  <h3>Import Workspace</h3>
+                </div>
+                <button
+                  className="dash-modal-close-btn"
+                  onClick={() => !isImporting && setShowImportModal(false)}
+                  aria-label="Close"
+                  disabled={isImporting}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {!importPendingFiles ? (
+                /* Step 1: Drag & Drop Zone or Select Folder */
+                <div className="dash-modal-body">
+                  <div
+                    className={`import-dropzone ${isDragOver ? "drag-active" : ""}`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragOver(true);
+                    }}
+                    onDragLeave={() => setIsDragOver(false)}
+                    onDrop={handleDropFolder}
+                    onClick={triggerFolderBrowser}
+                  >
+                    <div className="import-dropzone-icon">
+                      <FolderUp size={34} />
+                    </div>
+                    <div className="import-dropzone-title">
+                      Drop your project folder here
+                    </div>
+                    <div className="import-dropzone-sub">
+                      or click to browse a folder from your desktop
+                    </div>
+                    <button
+                      type="button"
+                      className="import-browse-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        triggerFolderBrowser();
+                      }}
+                    >
+                      <FolderOpen size={16} />
+                      <span>Browse Folder</span>
+                    </button>
+                    <div className="import-dropzone-hint">
+                      Preserves your full folder tree, empty directories, and code.
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Step 2: Preview & Confirm Import */
+                <form onSubmit={handleConfirmImport}>
+                  <div className="dash-modal-body">
+                    <div className="import-preview-card-wrap">
+                      <div className="import-preview-top">
+                        <label
+                          className="dash-modal-label"
+                          htmlFor="import-ws-name"
+                          style={{ margin: 0 }}
+                        >
+                          Workspace Name
+                        </label>
+                        <button
+                          type="button"
+                          className="import-change-btn"
+                          onClick={() => {
+                            setImportPendingFiles(null);
+                            setImportFolderName("");
+                          }}
+                          disabled={isImporting}
+                        >
+                          Change Folder
+                        </button>
+                      </div>
+                      <input
+                        id="import-ws-name"
+                        type="text"
+                        className="dash-modal-input"
+                        placeholder="Enter workspace name"
+                        value={importFolderName}
+                        onChange={(e) => setImportFolderName(e.target.value)}
+                        disabled={isImporting}
+                        required
+                        autoFocus
+                      />
+
+                      <div className="import-preview-box">
+                        <div className="import-preview-icon">
+                          <FolderClosed size={24} />
+                        </div>
+                        <div className="import-preview-details">
+                          <span className="import-preview-name">
+                            {importFolderName || "Project Folder"}
+                          </span>
+                          <span className="import-preview-count">
+                            {
+                              importPendingFiles.filter((i) => i.type === "file")
+                                .length
+                            }{" "}
+                            file(s) and{" "}
+                            {
+                              importPendingFiles.filter(
+                                (i) => i.type === "folder"
+                              ).length
+                            }{" "}
+                            folder(s) ready to import
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* File Structure Preview (Folders first, then files) */}
+                      <div className="import-tree-preview-box">
+                        {[...importPendingFiles]
+                          .sort((a, b) => {
+                            if (a.type === "folder" && b.type !== "folder") return -1;
+                            if (a.type !== "folder" && b.type === "folder") return 1;
+                            return (a.path || "").localeCompare(
+                              b.path || "",
+                              undefined,
+                              {
+                                numeric: true,
+                                sensitivity: "base",
+                              }
+                            );
+                          })
+                          .slice(0, 12)
+                          .map((item, idx) => (
+                            <div
+                              key={idx}
+                              className={`import-tree-row ${
+                                item.type === "folder" ? "is-folder" : ""
+                              }`}
+                            >
+                              {item.type === "folder" ? (
+                                <FolderClosed size={12} color="#F59E0B" />
+                              ) : (
+                                <FileText size={12} color="#38BDF8" />
+                              )}
+                              <span>
+                                {item.path}
+                                {item.type === "folder" ? "/" : ""}
+                              </span>
+                            </div>
+                          ))}
+                        {importPendingFiles.length > 12 && (
+                          <div className="import-tree-more">
+                            ...and {importPendingFiles.length - 12} more items
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="dash-modal-footer">
+                    <button
+                      type="button"
+                      className="dash-modal-btn-cancel"
+                      onClick={() => setShowImportModal(false)}
+                      disabled={isImporting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="dash-modal-btn-primary"
+                      disabled={isImporting || !importFolderName.trim()}
+                    >
+                      {isImporting ? (
+                        <>
+                          <RotateCcw size={14} className="spin-icon" />
+                          <span>Importing files...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={14} />
+                          <span>Import Workspace</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================
+           EXPORT WORKSPACES AS ZIP MODAL
+           ========================================================= */}
+        {showExportModal && (
+          <div
+            className="dash-modal-overlay"
+            onClick={() => !isExporting && setShowExportModal(false)}
+            onKeyDown={(e) => e.key === "Escape" && !isExporting && setShowExportModal(false)}
+          >
+            <div
+              className="export-modal-card"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="dash-modal-header">
+                <div className="dash-modal-title-wrap">
+                  <div className="dash-modal-icon">
+                    <FolderArchive size={17} />
+                  </div>
+                  <h3>Export Workspaces to ZIP</h3>
+                </div>
+                <button
+                  className="dash-modal-close-btn"
+                  onClick={() => !isExporting && setShowExportModal(false)}
+                  aria-label="Close"
+                  disabled={isExporting}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="dash-modal-body">
+                <p className="dash-modal-desc" style={{ marginBottom: "14px" }}>
+                  Select the workspace folders you would like to package and export. A ZIP file will be generated and downloaded to your computer.
+                </p>
+
+                <div className="export-modal-controls">
+                  <input
+                    type="text"
+                    className="export-search-input"
+                    placeholder="Filter workspaces..."
+                    value={exportFilter}
+                    onChange={(e) => setExportFilter(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="export-select-all-btn"
+                    onClick={toggleSelectAllExport}
+                  >
+                    {selectedExportIds.size === workspaces.length ? "Deselect All" : "Select All"}
+                  </button>
+                </div>
+
+                <div className="export-workspaces-list">
+                  {workspaces
+                    .filter((w) =>
+                      (w.name || "").toLowerCase().includes(exportFilter.toLowerCase())
+                    )
+                    .map((ws) => {
+                      const isSelected = selectedExportIds.has(ws._id);
+                      return (
+                        <div
+                          key={ws._id}
+                          className={`export-workspace-row ${isSelected ? "selected" : ""}`}
+                          onClick={() => toggleSelectWorkspaceForExport(ws._id)}
+                        >
+                          <input
+                            type="checkbox"
+                            className="export-checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <div className="export-row-icon">
+                            <FolderClosed size={16} />
+                          </div>
+                          <div className="export-row-info">
+                            <div className="export-row-title-line">
+                              <span className="export-row-name">{ws.name}</span>
+                              {ws.isPinned && <span className="workspace-pinned-star">⭐</span>}
+                            </div>
+                            <span className="export-row-meta">
+                              {formatRelativeTime(ws.updatedAt || ws.createdAt)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              <div className="dash-modal-footer">
+                <div className="export-footer-info" style={{ marginRight: "auto" }}>
+                  {selectedExportIds.size} of {workspaces.length} selected
+                </div>
+                <button
+                  type="button"
+                  className="dash-modal-btn-cancel"
+                  onClick={() => setShowExportModal(false)}
+                  disabled={isExporting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="dash-modal-btn-primary"
+                  onClick={handleConfirmExport}
+                  disabled={isExporting || selectedExportIds.size === 0}
+                >
+                  {isExporting ? (
+                    <>
+                      <RotateCcw size={14} className="spin-icon" />
+                      <span>Creating ZIP...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download size={14} />
+                      <span>Export as ZIP</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================
+           DASHBOARD FLOATING TOAST FEEDBACK
+           ========================================================= */}
+        {toast && (
+          <div className="dash-toast-banner">
+            <Sparkles size={16} style={{ color: "var(--accent-primary)" }} />
+            <span>{toast.message}</span>
+          </div>
         )}
       </main>
     </div>

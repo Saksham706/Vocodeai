@@ -101,3 +101,57 @@ export async function getWorkspace(token, id) {
   if (!res.ok) throw new Error("Workspace not found");
   return res.json();
 }
+
+/* IMPORT WORKSPACE (FOLDER FROM DESKTOP) */
+export async function importWorkspace(token, { name, files }) {
+  const res = await fetch(`${BASE}/import`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(token),
+    },
+    body: JSON.stringify({ name, files }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to import workspace");
+  }
+
+  return res.json();
+}
+
+/* EXPORT WORKSPACES (AS ZIP) */
+export async function exportWorkspaces(token, workspaceIds) {
+  const res = await fetch(`${BASE}/export`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(token),
+    },
+    body: JSON.stringify({ workspaceIds }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to export workspaces");
+  }
+
+  const blob = await res.blob();
+  let filename = "vocodeai-workspaces.zip";
+  const disposition = res.headers.get("Content-Disposition");
+  if (disposition && disposition.includes("filename=")) {
+    const match = disposition.match(/filename="?([^"]+)"?/);
+    if (match && match[1]) filename = match[1];
+  }
+
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+  return { success: true, filename };
+}

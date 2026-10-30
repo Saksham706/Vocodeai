@@ -7,7 +7,7 @@ const recycleBinSchema = new mongoose.Schema(
     workspaceName: { type: String, default: "Workspace" },
     name: { type: String, required: true },
     originalPath: { type: String, required: true },
-    type: { type: String, enum: ["file", "folder"], default: "file" },
+    type: { type: String, enum: ["file", "folder", "workspace"], default: "file" },
     content: { type: String, default: "" },
     items: [
       {

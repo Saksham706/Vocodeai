@@ -33,18 +33,29 @@ router.post("/", auth, async (req, res) => {
       return res.json(result);
     }
 
-    const job = await codeQueue.add("run-code", {
-      userId: req.user.id,
-      workspaceId,
-      workspacePath,
-      command,
-      mode: "single",
-    });
+    try {
+      const job = await codeQueue.add("run-code", {
+        userId: req.user.id,
+        workspaceId,
+        workspacePath,
+        command,
+        mode: "single",
+      });
 
-    res.json({
-      jobId: job.id,
-      status: "queued",
-    });
+      return res.json({
+        jobId: job.id,
+        status: "queued",
+      });
+    } catch (queueErr) {
+      console.warn("BullMQ queue add failed, falling back to direct execution:", queueErr.message);
+      const result = await execInWorkspace({
+        userId: req.user.id,
+        workspaceId,
+        workspacePath,
+        command,
+      });
+      return res.json(result);
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

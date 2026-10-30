@@ -5,18 +5,22 @@ import { codeQueue } from "../queue/codeQueue.js";
 const router = express.Router();
 
 router.get("/:id", auth, async (req, res) => {
-  const job = await codeQueue.getJob(req.params.id);
+  try {
+    const job = await codeQueue.getJob(req.params.id);
 
-  if (!job) {
-    return res.status(404).json({ error: "Job not found" });
+    if (!job) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    const state = await job.getState();
+
+    res.json({
+      state,
+      result: job.returnvalue || null,
+    });
+  } catch (err) {
+    res.status(503).json({ error: "Queue service unavailable: " + err.message });
   }
-
-  const state = await job.getState();
-
-  res.json({
-    state,
-    result: job.returnvalue || null,
-  });
 });
 
 export default router;
