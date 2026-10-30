@@ -54,11 +54,50 @@ export function createFolder(userId, workspaceId, relativePath) {
 
 /* ================= READ ================= */
 
+const BINARY_EXTENSIONS = new Set([
+  "png", "jpg", "jpeg", "gif", "webp", "ico", "bmp", "svg",
+  "docx", "doc", "xlsx", "xls", "pptx", "ppt", "pdf",
+  "zip", "tar", "gz", "7z", "rar",
+  "mp3", "wav", "mp4", "webm"
+]);
+
+const MIME_MAP = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+  ico: "image/x-icon",
+  bmp: "image/bmp",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  doc: "application/msword",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  xls: "application/vnd.ms-excel",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ppt: "application/vnd.ms-powerpoint",
+  pdf: "application/pdf",
+  zip: "application/zip",
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  mp4: "video/mp4",
+  webm: "video/webm",
+};
+
 export function readFile(userId, workspaceId, relativePath) {
   const wsPath = ensureWorkspace(userId, workspaceId);
   const fullPath = safeJoin(wsPath, relativePath);
 
-  return fs.existsSync(fullPath) ? fs.readFileSync(fullPath, "utf-8") : "";
+  if (!fs.existsSync(fullPath)) return "";
+
+  const ext = (relativePath || "").split(".").pop()?.toLowerCase();
+  if (BINARY_EXTENSIONS.has(ext)) {
+    const mime = MIME_MAP[ext] || "application/octet-stream";
+    const buf = fs.readFileSync(fullPath);
+    return `data:${mime};base64,${buf.toString("base64")}`;
+  }
+
+  return fs.readFileSync(fullPath, "utf-8");
 }
 
 /* ================= SAVE ================= */
@@ -68,7 +107,13 @@ export function saveFile(userId, workspaceId, relativePath, content) {
   const fullPath = safeJoin(wsPath, relativePath);
 
   fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-  fs.writeFileSync(fullPath, content);
+
+  if (typeof content === "string" && content.startsWith("data:") && content.includes(";base64,")) {
+    const base64Data = content.replace(/^data:.*?;base64,/, "");
+    fs.writeFileSync(fullPath, Buffer.from(base64Data, "base64"));
+  } else {
+    fs.writeFileSync(fullPath, content);
+  }
   return fullPath;
 }
 

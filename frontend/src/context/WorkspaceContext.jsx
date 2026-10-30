@@ -793,7 +793,10 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
           sendWS({ type: "input", terminalId, data: cmdString });
         }
       } else if (data.error) {
-        alert(data.error);
+        console.warn("Run project error:", data.error);
+        if (terminalMapRef.current[activeTerminal]) {
+          terminalMapRef.current[activeTerminal].write(`\r\n\x1b[31m[ERROR]: ${data.error}\x1b[0m\r\n`);
+        }
       }
     } catch (err) {
       console.error("Run project failed:", err);

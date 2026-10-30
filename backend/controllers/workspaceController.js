@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import os from "os";
 import { ZipArchive } from "archiver";
 import Workspace from "../models/Workspace.js";
 import FileNode from "../models/FileNode.js";
@@ -10,6 +11,7 @@ import {
 } from "../services/fileService.js";
 import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
 import { getWorkspacesRoot } from "../config/paths.js";
+import { scanLocalDirectory } from "../utils/scanLocalFolder.js";
 
 /* CREATE */
 export async function createWorkspace(req, res) {
@@ -306,12 +308,17 @@ export async function exportWorkspaces(req, res) {
     // Format archive name
     let filename = "vocodeai-workspaces.zip";
     if (workspaces.length === 1) {
-      const safeName = workspaces[0].name.replace(/[^a-zA-Z0-9_\-\s]/g, "").trim() || "workspace";
+      const wsName = workspaces[0].name.trim();
+      const safeName = wsName.replace(/[<>:"/\\|?*]/g, "_") || "workspace";
       filename = `${safeName}.zip`;
     }
 
     res.setHeader("Content-Type", "application/zip");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${filename.replace(/"/g, '')}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+    );
+    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
 
     const archive = new ZipArchive({
       zlib: { level: 9 },
@@ -329,11 +336,8 @@ export async function exportWorkspaces(req, res) {
     for (const ws of workspaces) {
       const wsDir = path.join(getWorkspacesRoot(), String(req.user.id), String(ws._id));
       if (fs.existsSync(wsDir)) {
-        if (workspaces.length === 1) {
-          archive.directory(wsDir, false);
-        } else {
-          archive.directory(wsDir, ws.name);
-        }
+        // Always place files under the workspace's folder name so exported zip extracts cleanly
+        archive.directory(wsDir, ws.name);
       }
     }
 
@@ -343,5 +347,53 @@ export async function exportWorkspaces(req, res) {
     if (!res.headersSent) {
       res.status(500).json({ error: "Failed to export workspaces: " + err.message });
     }
+  }
+}
+
+/* SCAN LOCAL FOLDER BY PATH */
+export async function scanLocalFolder(req, res) {
+  try {
+    const targetPath = (req.body.folderPath || "").trim();
+    if (!targetPath) {
+      return res.status(400).json({ error: "folderPath is required" });
+    }
+    const result = scanLocalDirectory(targetPath);
+    res.json({
+      success: true,
+      folderName: result.folderName,
+      fullPath: result.fullPath,
+      totalFiles: result.totalFiles,
+      totalFolders: result.totalFolders,
+      items: result.items,
+    });
+  } catch (err) {
+    console.error("SCAN LOCAL FOLDER ERROR:", err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/* GET COMMON FOLDERS SUGGESTIONS */
+export async function getCommonFolders(req, res) {
+  try {
+    const suggestions = [];
+    const home = os.homedir();
+    const commonPaths = [
+      { name: "C++_DSA", path: "D:\\C++_DSA" },
+      { name: "TownYaar", path: "D:\\TownYaar" },
+      { name: "Desktop", path: path.join(home, "Desktop") },
+      { name: "Documents", path: path.join(home, "Documents") },
+      { name: "Downloads", path: path.join(home, "Downloads") },
+      { name: "D: Drive", path: "D:\\" },
+    ];
+
+    for (const item of commonPaths) {
+      if (fs.existsSync(item.path)) {
+        suggestions.push(item);
+      }
+    }
+
+    res.json({ suggestions });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 }

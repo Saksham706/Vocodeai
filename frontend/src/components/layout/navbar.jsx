@@ -77,6 +77,7 @@ export default function Navbar({
   };
 
   const [activeMenu, setActiveMenu] = useState(null);
+  const [showAboutModal, setShowAboutModal] = useState(false);
   const menuBarRef = useRef(null);
 
   // Close menu dropdown on outside click
@@ -412,7 +413,7 @@ export default function Navbar({
                         className="ide-menu-entry"
                         onClick={() => {
                           closeMenu();
-                          alert("Vocodeai IDE v1.0.0");
+                          setShowAboutModal(true);
                         }}
                       >
                         <span>About Vocodeai IDE</span>
@@ -549,6 +550,41 @@ export default function Navbar({
           </button>
         </div>
       </div>
+
+      {/* About Modal */}
+      {showAboutModal && (
+        <div
+          className="dash-modal-overlay"
+          onClick={() => setShowAboutModal(false)}
+          style={{ zIndex: 9999 }}
+        >
+          <div
+            className="dash-modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "420px", textAlign: "center", padding: "28px 24px" }}
+          >
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "14px" }}>
+              <img src="/javalogo.png" alt="VocodeAI" style={{ width: "52px", height: "52px", borderRadius: "12px" }} />
+            </div>
+            <h3 style={{ fontSize: "18px", fontWeight: "700", margin: "0 0 6px 0", color: "var(--text-primary)" }}>
+              VocodeAI Cloud IDE
+            </h3>
+            <span style={{ fontSize: "12px", color: "var(--accent-primary)", fontWeight: "600", padding: "2px 8px", background: "rgba(255,155,61,0.12)", borderRadius: "6px" }}>
+              v1.2.0 Production
+            </span>
+            <p style={{ fontSize: "13px", color: "var(--text-muted)", margin: "16px 0 24px 0", lineHeight: "1.6" }}>
+              Autonomous AI-Powered Cloud IDE with Multimodal Vision, Docker execution, and Office document viewers.
+            </p>
+            <button
+              className="dash-modal-btn-primary"
+              onClick={() => setShowAboutModal(false)}
+              style={{ width: "100%", justifyContent: "center" }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

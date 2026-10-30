@@ -10,6 +10,8 @@ import {
   togglePin,
   importWorkspace,
   exportWorkspaces,
+  scanLocalFolder,
+  getCommonFolders,
 } from "../controllers/workspaceController.js";
 import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
 
@@ -19,6 +21,8 @@ router.get("/", auth, listWorkspaces);
 router.post("/", auth, createWorkspace);
 router.post("/import", auth, importWorkspace);
 router.post("/export", auth, exportWorkspaces);
+router.post("/scan-local-folder", auth, scanLocalFolder);
+router.get("/common-folders", auth, getCommonFolders);
 router.delete("/:id", auth, deleteWorkspace);
 router.patch("/:id/rename", auth, renameWorkspace);
 router.post("/:id/duplicate", auth, duplicateWorkspace);

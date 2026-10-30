@@ -10,6 +10,8 @@ import {
   pinWorkspace,
   importWorkspace,
   exportWorkspaces,
+  scanLocalFolder,
+  getCommonFolders,
 } from "../services/workspaceApi";
 import {
   getRecycleBin,
@@ -146,6 +148,10 @@ export default function Dashboard() {
   const [importFolderName, setImportFolderName] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showCenterUploadAlert, setShowCenterUploadAlert] = useState(false);
+  const [localPathInput, setLocalPathInput] = useState("");
+  const [isScanningLocal, setIsScanningLocal] = useState(false);
+  const [commonFolders, setCommonFolders] = useState([]);
 
   // Export Workspaces state
   const [showExportModal, setShowExportModal] = useState(false);
@@ -176,6 +182,14 @@ export default function Dashboard() {
         ]);
       }
     });
+
+    getCommonFolders(accessToken)
+      .then((data) => {
+        if (data && Array.isArray(data.suggestions)) {
+          setCommonFolders(data.suggestions);
+        }
+      })
+      .catch(() => {});
   }, [accessToken]);
 
   // Load Recycle Bin
@@ -311,19 +325,119 @@ export default function Dashboard() {
   }, []);
 
   /* IMPORT WORKSPACE FROM LOCAL DESKTOP FOLDER */
-  const readFileAsText = (file) => {
+  const BINARY_EXTENSIONS = new Set([
+    "png", "jpg", "jpeg", "gif", "webp", "ico", "bmp", "svg",
+    "docx", "doc", "xlsx", "xls", "pptx", "ppt", "pdf",
+    "zip", "tar", "gz", "7z", "rar",
+    "mp3", "wav", "mp4", "webm", "mov"
+  ]);
+
+  const isBinaryFilePath = (p) => {
+    const ext = (p || "").split(".").pop()?.toLowerCase();
+    return BINARY_EXTENSIONS.has(ext);
+  };
+
+  const readFilePayload = (file) => {
     return new Promise((resolve) => {
+      const isBin = isBinaryFilePath(file.name || file.webkitRelativePath);
       const reader = new FileReader();
       reader.onload = (e) => resolve(e.target?.result || "");
       reader.onerror = () => resolve("");
-      reader.readAsText(file);
+      if (isBin) {
+        reader.readAsDataURL(file);
+      } else {
+        reader.readAsText(file);
+      }
     });
   };
 
-  const triggerFolderBrowser = () => {
+  const triggerFolderBrowser = async () => {
+    if (window.showDirectoryPicker) {
+      try {
+        const dirHandle = await window.showDirectoryPicker({ mode: "read" });
+        showToast("Scanning selected folder...");
+        const items = [];
+        const knownFolders = new Set();
+
+        async function scanDirectoryHandle(handle, currentPath = "") {
+          for await (const entry of handle.values()) {
+            if (
+              entry.name === "node_modules" ||
+              entry.name === ".git" ||
+              entry.name === ".vscode" ||
+              entry.name === ".idea" ||
+              entry.name === "dist" ||
+              entry.name === "build" ||
+              entry.name === ".DS_Store"
+            ) continue;
+
+            const relPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+            if (entry.kind === "directory") {
+              if (!knownFolders.has(relPath)) {
+                knownFolders.add(relPath);
+                items.push({ path: relPath, type: "folder" });
+              }
+              await scanDirectoryHandle(entry, relPath);
+            } else if (entry.kind === "file") {
+              const file = await entry.getFile();
+              const content = await readFilePayload(file);
+              items.push({
+                path: relPath,
+                type: "file",
+                content: content || "",
+              });
+            }
+          }
+        }
+
+        await scanDirectoryHandle(dirHandle, "");
+        if (items.length === 0) {
+          showToast("No valid project files found in selected folder", "error");
+          return;
+        }
+
+        setImportFolderName(dirHandle.name || "Imported Project");
+        setImportPendingFiles(items);
+        setShowImportModal(false);
+        setShowCenterUploadAlert(true);
+        return;
+      } catch (pickerErr) {
+        if (pickerErr.name === "AbortError") {
+          return;
+        }
+        console.warn("showDirectoryPicker fallback:", pickerErr);
+      }
+    }
+
     if (folderInputRef.current) {
       folderInputRef.current.value = "";
       folderInputRef.current.click();
+    }
+  };
+
+  const handleScanDirectPath = async (targetPath) => {
+    const pathToScan = (targetPath || localPathInput || "").trim();
+    if (!pathToScan) {
+      showToast("Please enter a valid folder path (e.g. D:\\C++_DSA)", "error");
+      return;
+    }
+    try {
+      setIsScanningLocal(true);
+      showToast(`Scanning "${pathToScan}"...`);
+      const result = await scanLocalFolder(accessToken, pathToScan);
+      if (result.canceled || !result.items || result.items.length === 0) {
+        showToast("No valid project files found at " + pathToScan, "error");
+        return;
+      }
+      setImportFolderName(result.folderName || "Imported Project");
+      setImportPendingFiles(result.items);
+      setShowImportModal(false);
+      setShowCenterUploadAlert(true);
+    } catch (err) {
+      console.error("Scan path error:", err);
+      showToast("Failed to read folder path: " + err.message, "error");
+    } finally {
+      setIsScanningLocal(false);
     }
   };
 
@@ -376,7 +490,7 @@ export default function Dashboard() {
               child.file(res, () => res(null))
             );
             if (file) {
-              const text = await file.text();
+              const text = await readFilePayload(file);
               scannedItems.push({
                 path: childPath,
                 type: "file",
@@ -390,7 +504,7 @@ export default function Dashboard() {
           entry.file(res, () => res(null))
         );
         if (file) {
-          const text = await file.text();
+          const text = await readFilePayload(file);
           scannedItems.push({
             path: entry.name,
             type: "file",
@@ -419,7 +533,8 @@ export default function Dashboard() {
 
       setImportFolderName(detectedName || "Imported Workspace");
       setImportPendingFiles(scannedItems);
-      setShowImportModal(true);
+      setShowImportModal(false);
+      setShowCenterUploadAlert(true);
     } catch (dropErr) {
       console.error("Drop folder error:", dropErr);
       showToast("Failed to read dropped folder: " + dropErr.message, "error");
@@ -470,7 +585,7 @@ export default function Dashboard() {
         }
       }
 
-      const content = await readFileAsText(file);
+      const content = await readFilePayload(file);
       items.push({
         path: relPath,
         content: content || "",
@@ -480,7 +595,8 @@ export default function Dashboard() {
 
     setImportFolderName(topFolder);
     setImportPendingFiles(items);
-    setShowImportModal(true);
+    setShowImportModal(false);
+    setShowCenterUploadAlert(true);
   };
 
   const handleConfirmImport = async (e) => {
@@ -511,6 +627,7 @@ export default function Dashboard() {
       const folderCount = importPendingFiles.filter((i) => i.type === "folder").length;
       showToast(`Imported "${finalName}" (${fileCount} files, ${folderCount} folders)`);
       setShowImportModal(false);
+      setShowCenterUploadAlert(false);
       setImportPendingFiles(null);
       setImportFolderName("");
     } catch (err) {
@@ -518,6 +635,18 @@ export default function Dashboard() {
       showToast("Failed to import workspace: " + err.message, "error");
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  /* EXPORT SINGLE WORKSPACE DIRECTLY */
+  const handleExportSingleWorkspace = async (ws) => {
+    try {
+      showToast(`Exporting "${ws.name}"...`);
+      const res = await exportWorkspaces(accessToken, [ws._id], ws.name);
+      showToast(`Exported "${ws.name}" as ${res.filename}`);
+    } catch (err) {
+      console.error("Export error:", err);
+      showToast("Export failed: " + err.message, "error");
     }
   };
 
@@ -550,8 +679,13 @@ export default function Dashboard() {
     try {
       setIsExporting(true);
       const ids = Array.from(selectedExportIds);
+      let defaultName = null;
+      if (ids.length === 1) {
+        const found = workspaces.find((w) => w._id === ids[0]);
+        if (found) defaultName = found.name;
+      }
       if (accessToken) {
-        const res = await exportWorkspaces(accessToken, ids);
+        const res = await exportWorkspaces(accessToken, ids, defaultName);
         showToast(`Exported ${ids.length} workspace(s) as ZIP (${res.filename})`);
       } else {
         showToast("Export requires an active session", "error");
@@ -1138,6 +1272,18 @@ export default function Dashboard() {
                         >
                           <Star size={14} className={ws.isPinned ? "star-pinned-icon" : ""} />
                           <span>{ws.isPinned ? "Unpin" : "Pin"}</span>
+                        </button>
+
+                        <button
+                          className="dropdown-action-item"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpenId(null);
+                            handleExportSingleWorkspace(ws);
+                          }}
+                        >
+                          <Download size={14} />
+                          <span>Export</span>
                         </button>
 
                         <button
@@ -1744,6 +1890,49 @@ export default function Dashboard() {
                       Preserves your full folder tree, empty directories, and code.
                     </div>
                   </div>
+
+                  {/* Direct Path Input & Quick Folder Chips */}
+                  <div className="import-direct-path-wrap">
+                    <span className="import-path-label">Or enter folder path:</span>
+                    <div className="import-path-input-row">
+                      <input
+                        type="text"
+                        className="import-path-input"
+                        placeholder="e.g. D:\C++_DSA or D:\output"
+                        value={localPathInput}
+                        onChange={(e) => setLocalPathInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleScanDirectPath()}
+                        disabled={isScanningLocal}
+                      />
+                      <button
+                        type="button"
+                        className="import-path-scan-btn"
+                        onClick={() => handleScanDirectPath()}
+                        disabled={isScanningLocal || !localPathInput.trim()}
+                      >
+                        {isScanningLocal ? "Scanning..." : "Scan Folder"}
+                      </button>
+                    </div>
+
+                    {commonFolders.length > 0 && (
+                      <div className="import-chips-list">
+                        <span className="import-chips-label">Quick select:</span>
+                        {commonFolders.map((cf, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            className="import-folder-chip"
+                            onClick={() => handleScanDirectPath(cf.path)}
+                            disabled={isScanningLocal}
+                            title={cf.path}
+                          >
+                            <FolderClosed size={12} />
+                            <span>{cf.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 /* Step 2: Preview & Confirm Import */
@@ -1878,6 +2067,104 @@ export default function Dashboard() {
                   </div>
                 </form>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================
+           CENTERED UPLOAD CONFIRMATION POP-UP MODAL
+           ========================================================= */}
+        {showCenterUploadAlert && importPendingFiles && (
+          <div
+            className="center-upload-dialog-overlay"
+            onClick={() => !isImporting && setShowCenterUploadAlert(false)}
+            onKeyDown={(e) =>
+              e.key === "Escape" && !isImporting && setShowCenterUploadAlert(false)
+            }
+          >
+            <div
+              className="center-upload-dialog-card"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+            >
+              <h3 className="center-upload-title">
+                Upload{" "}
+                {importPendingFiles.filter((i) => i.type === "file").length === 1
+                  ? "one file"
+                  : `${importPendingFiles
+                      .filter((i) => i.type === "file")
+                      .length.toLocaleString()} files`}{" "}
+                to this site?
+              </h3>
+
+              <p className="center-upload-message">
+                This will upload all files from "{importFolderName}". Only do this if you trust the site.
+              </p>
+
+              <div className="center-upload-details">
+                <div className="center-upload-input-group">
+                  <label htmlFor="center-ws-name">Workspace Name</label>
+                  <input
+                    id="center-ws-name"
+                    type="text"
+                    className="center-upload-input"
+                    value={importFolderName}
+                    onChange={(e) => setImportFolderName(e.target.value)}
+                    disabled={isImporting}
+                    placeholder="Workspace name"
+                  />
+                </div>
+                <div className="center-upload-stats">
+                  <span>
+                    📁{" "}
+                    {
+                      importPendingFiles.filter((i) => i.type === "folder")
+                        .length
+                    }{" "}
+                    folders
+                  </span>
+                  <span className="dot-sep">•</span>
+                  <span>
+                    📄{" "}
+                    {
+                      importPendingFiles.filter((i) => i.type === "file")
+                        .length
+                    }{" "}
+                    files
+                  </span>
+                </div>
+              </div>
+
+              <div className="center-upload-actions">
+                <button
+                  type="button"
+                  className="center-upload-btn-upload"
+                  onClick={handleConfirmImport}
+                  disabled={isImporting}
+                >
+                  {isImporting ? (
+                    <>
+                      <RotateCcw
+                        size={14}
+                        className="spin-icon"
+                        style={{ display: "inline-block", marginRight: "6px" }}
+                      />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    "Upload"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="center-upload-btn-cancel"
+                  onClick={() => setShowCenterUploadAlert(false)}
+                  disabled={isImporting}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}

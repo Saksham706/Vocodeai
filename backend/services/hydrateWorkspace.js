@@ -6,8 +6,8 @@ import { getWorkspacesRoot } from "../config/paths.js";
 export async function hydrateWorkspace(userId, workspaceId) {
   const workspacePath = path.join(
     getWorkspacesRoot(),
-    userId,
-    workspaceId
+    String(userId),
+    String(workspaceId)
   );
 
   await fs.mkdir(workspacePath, {
@@ -22,7 +22,9 @@ export async function hydrateWorkspace(userId, workspaceId) {
   }).lean();
 
   for (const node of nodes) {
-    const cleanPath = (node.path || "").replace(/^[\\\/]+/, "");
+    const cleanPath = (node.path || "").replace(/^[\\\/]+/, "").replace(/\\/g, "/");
+    if (!cleanPath) continue;
+
     const fullPath = path.join(workspacePath, cleanPath);
 
     if (node.type === "folder") {
@@ -34,7 +36,13 @@ export async function hydrateWorkspace(userId, workspaceId) {
     if (node.type === "file") {
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
 
-      await fs.writeFile(fullPath, node.content || "", "utf-8");
+      const content = node.content || "";
+      if (typeof content === "string" && content.startsWith("data:") && content.includes(";base64,")) {
+        const base64Data = content.replace(/^data:.*?;base64,/, "");
+        await fs.writeFile(fullPath, Buffer.from(base64Data, "base64"));
+      } else {
+        await fs.writeFile(fullPath, content, "utf-8");
+      }
     }
   }
 }

@@ -3,7 +3,18 @@ import Editor from "@monaco-editor/react";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { LANGUAGE_META } from "../../config/languages";
 import { Code2, Plus } from "lucide-react";
+import ImageViewer from "./ImageViewer";
+import MarkdownViewer from "./MarkdownViewer";
+import DocxViewer from "./DocxViewer";
+import ExcelViewer from "./ExcelViewer";
+import PdfViewer from "./PdfViewer";
 import "../../styles/editor.css";
+
+const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "ico", "bmp", "svg"]);
+const MARKDOWN_EXTENSIONS = new Set(["md", "markdown"]);
+const DOCX_EXTENSIONS = new Set(["docx", "doc"]);
+const EXCEL_EXTENSIONS = new Set(["xlsx", "xls", "csv", "tsv"]);
+const PDF_EXTENSIONS = new Set(["pdf"]);
 
 export default function CodeEditor({ file }) {
   const { activeFile, fileContents, updateContent, setCreateRequest, refreshPreview } = useWorkspace();
@@ -72,6 +83,41 @@ export default function CodeEditor({ file }) {
   }
 
   const ext = currentFile.split(".").pop()?.toLowerCase();
+  const fileName = currentFile.split("/").pop();
+
+  // 1. IMAGE VIEWER
+  if (IMAGE_EXTENSIONS.has(ext)) {
+    return <ImageViewer src={content} fileName={fileName} />;
+  }
+
+  // 2. MARKDOWN VIEWER (Edit + Live Preview + Split View)
+  if (MARKDOWN_EXTENSIONS.has(ext)) {
+    return (
+      <MarkdownViewer
+        content={content}
+        fileName={fileName}
+        editorTheme={editorTheme}
+        onChange={(val) => updateContent(currentFile, val)}
+      />
+    );
+  }
+
+  // 3. WORD DOCUMENT VIEWER (.docx, .doc)
+  if (DOCX_EXTENSIONS.has(ext)) {
+    return <DocxViewer content={content} fileName={fileName} />;
+  }
+
+  // 4. EXCEL SPREADSHEET VIEWER (.xlsx, .xls, .csv, .tsv)
+  if (EXCEL_EXTENSIONS.has(ext)) {
+    return <ExcelViewer content={content} fileName={fileName} />;
+  }
+
+  // 5. PDF VIEWER (.pdf)
+  if (PDF_EXTENSIONS.has(ext)) {
+    return <PdfViewer content={content} fileName={fileName} />;
+  }
+
+  // 6. DEFAULT MONACO CODE & TEXT EDITOR
   const meta = ext ? LANGUAGE_META[ext] || {} : {};
 
   return (

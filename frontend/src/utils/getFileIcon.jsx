@@ -261,6 +261,117 @@ export const getFileIcon = (name, type, open = false) => {
         </span>
       );
 
+    case "md":
+    case "markdown":
+      return (
+        <span
+          style={{
+            backgroundColor: "#0284C7",
+            color: "#ffffff",
+            borderRadius: "3px",
+            fontSize: "9px",
+            fontWeight: 900,
+            padding: "1px 3px",
+            lineHeight: 1,
+            display: "inline-flex",
+            alignItems: "center",
+          }}
+          title="Markdown"
+        >
+          M↓
+        </span>
+      );
+
+    case "docx":
+    case "doc":
+      return (
+        <span
+          style={{
+            backgroundColor: "#2B579A",
+            color: "#ffffff",
+            borderRadius: "3px",
+            fontSize: "10px",
+            fontWeight: 900,
+            padding: "1px 4px",
+            lineHeight: 1,
+            display: "inline-flex",
+            alignItems: "center",
+          }}
+          title="Word Document"
+        >
+          W
+        </span>
+      );
+
+    case "xlsx":
+    case "xls":
+    case "csv":
+    case "tsv":
+      return (
+        <span
+          style={{
+            backgroundColor: "#107C41",
+            color: "#ffffff",
+            borderRadius: "3px",
+            fontSize: "10px",
+            fontWeight: 900,
+            padding: "1px 4px",
+            lineHeight: 1,
+            display: "inline-flex",
+            alignItems: "center",
+          }}
+          title="Excel Spreadsheet"
+        >
+          X
+        </span>
+      );
+
+    case "pdf":
+      return (
+        <span
+          style={{
+            backgroundColor: "#DC2626",
+            color: "#ffffff",
+            borderRadius: "3px",
+            fontSize: "8.5px",
+            fontWeight: 900,
+            padding: "1px 3px",
+            lineHeight: 1,
+            display: "inline-flex",
+            alignItems: "center",
+          }}
+          title="PDF Document"
+        >
+          PDF
+        </span>
+      );
+
+    case "png":
+    case "jpg":
+    case "jpeg":
+    case "gif":
+    case "webp":
+    case "ico":
+    case "bmp":
+      return (
+        <span
+          style={{
+            backgroundColor: "#9333EA",
+            color: "#ffffff",
+            borderRadius: "3px",
+            fontSize: "9px",
+            fontWeight: 900,
+            padding: "1px 3px",
+            lineHeight: 1,
+            display: "inline-flex",
+            alignItems: "center",
+          }}
+          title="Image File"
+        >
+          IMG
+        </span>
+      );
+
     default:
       return <FileText size={15} style={{ color: "var(--explorer-text-muted)" }} />;
   }

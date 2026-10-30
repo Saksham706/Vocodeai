@@ -151,16 +151,20 @@ export async function deleteNode(req, res) {
     const userId = String(req.user.id || req.user._id);
     const wsId = String(workspaceId);
 
-    const clean = path.replace(/^[\\\/]+/, "");
+    const clean = normalizePath(path);
     const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const wsQuery = buildWsQuery(wsId);
 
     // Fetch existing nodes matching exact path or directory contents
     const targetNodes = await FileNode.find({
-      workspaceId: wsId,
+      ...wsQuery,
       path: { $regex: `^${escaped}(/|$)` },
     }).lean();
 
-    const ws = await Workspace.findById(wsId).lean();
+    let ws = null;
+    try {
+      ws = await Workspace.findById(wsId).lean();
+    } catch {}
     const wsName = ws?.name || "Workspace";
 
     const name = clean.split("/").pop() || clean;
@@ -184,7 +188,7 @@ export async function deleteNode(req, res) {
     });
 
     await FileNode.deleteMany({
-      workspaceId: wsId,
+      ...wsQuery,
       path: { $regex: `^${escaped}(/|$)` },
     });
 

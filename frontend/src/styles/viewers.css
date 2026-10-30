@@ -1,0 +1,599 @@
+/* =========================================================
+   VOCODEAI DOCUMENT & MEDIA VIEWERS (VS CODE STYLE)
+   ========================================================= */
+
+.custom-viewer-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+  user-select: text;
+}
+
+.custom-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 42px;
+  min-height: 42px;
+  padding: 0 16px;
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  z-index: 5;
+}
+
+.viewer-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.viewer-toolbar-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.viewer-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--surface-tertiary);
+  color: var(--text-muted);
+  border: 1px solid var(--border-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.viewer-badge-dim {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.viewer-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.viewer-tool-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  padding: 5px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.viewer-tool-btn:hover {
+  background: var(--surface-tertiary);
+  border-color: var(--border-primary);
+  color: var(--text-primary);
+}
+
+.viewer-zoom-label {
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--text-muted);
+  min-width: 42px;
+  text-align: center;
+}
+
+.viewer-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-primary);
+  margin: 0 4px;
+}
+
+.viewer-loading-box,
+.viewer-error-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+  padding: 30px;
+}
+
+.viewer-error-box h4 {
+  font-size: 16px;
+  color: #EF4444;
+  margin: 0;
+}
+
+.btn-fallback-dl {
+  display: inline-flex;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  margin-top: 10px;
+}
+
+/* =========================================================
+   1. IMAGE VIEWER
+   ========================================================= */
+
+.image-stage-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 24px;
+  background: #090d12;
+}
+
+[data-theme="light"] .image-stage-area {
+  background: #f1f5f9;
+}
+
+.image-checkerboard-canvas {
+  background-image: linear-gradient(45deg, #161b22 25%, transparent 25%),
+    linear-gradient(-45deg, #161b22 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #161b22 75%),
+    linear-gradient(-45deg, transparent 75%, #161b22 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  background-color: #0d1117;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-theme="light"] .image-checkerboard-canvas {
+  background-image: linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+    linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+    linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+  background-color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.viewer-rendered-img {
+  max-width: 85vw;
+  max-height: 75vh;
+  object-fit: contain;
+  transition: transform 0.15s ease-out;
+  display: block;
+}
+
+/* =========================================================
+   2. MARKDOWN VIEWER
+   ========================================================= */
+
+.md-mode-switch {
+  display: flex;
+  align-items: center;
+  background: var(--surface-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.md-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.md-mode-btn.active {
+  background: var(--surface-primary);
+  color: #38BDF8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.md-body-container {
+  flex: 1;
+  display: flex;
+  height: calc(100% - 42px);
+  overflow: hidden;
+}
+
+.md-body-container.mode-edit .md-editor-pane {
+  width: 100%;
+}
+
+.md-body-container.mode-preview .md-preview-pane {
+  width: 100%;
+}
+
+.md-body-container.mode-split .md-editor-pane {
+  width: 50%;
+  border-right: 1px solid var(--border-primary);
+}
+
+.md-body-container.mode-split .md-preview-pane {
+  width: 50%;
+}
+
+.md-preview-pane {
+  height: 100%;
+  overflow-y: auto;
+  padding: 24px 36px;
+  background: var(--surface-primary);
+}
+
+.markdown-rendered-body {
+  max-width: 860px;
+  margin: 0 auto;
+  line-height: 1.7;
+  color: var(--text-primary);
+  font-size: 14.5px;
+}
+
+.markdown-rendered-body h1,
+.markdown-rendered-body h2,
+.markdown-rendered-body h3,
+.markdown-rendered-body h4 {
+  color: var(--text-primary);
+  font-weight: 700;
+  margin-top: 24px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-primary);
+  padding-bottom: 6px;
+}
+
+.markdown-rendered-body p {
+  margin-bottom: 14px;
+}
+
+.markdown-rendered-body code {
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-primary);
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: #FF9B3D;
+}
+
+.markdown-rendered-body pre {
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 14px 18px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.markdown-rendered-body pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+}
+
+.markdown-rendered-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 18px 0;
+}
+
+.markdown-rendered-body th,
+.markdown-rendered-body td {
+  border: 1px solid var(--border-primary);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.markdown-rendered-body th {
+  background: var(--surface-secondary);
+  font-weight: 700;
+}
+
+.markdown-rendered-body blockquote {
+  border-left: 4px solid #FF9B3D;
+  padding: 6px 16px;
+  margin: 14px 0;
+  color: var(--text-muted);
+  background: var(--surface-secondary);
+  border-radius: 0 8px 8px 0;
+}
+
+/* =========================================================
+   3. WORD DOCX VIEWER
+   ========================================================= */
+
+.word-logo-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: #2b579a;
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.word-badge {
+  background: rgba(43, 87, 154, 0.15);
+  color: #60a5fa;
+  border-color: rgba(43, 87, 154, 0.3);
+}
+
+.docx-stage-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 20px;
+  background: #0f141c;
+  display: flex;
+  justify-content: center;
+}
+
+[data-theme="light"] .docx-stage-area {
+  background: #f1f5f9;
+}
+
+.docx-paper-page {
+  width: 100%;
+  max-width: 860px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 50px 60px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  min-height: 800px;
+}
+
+[data-theme="light"] .docx-paper-page {
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.docx-content-body {
+  font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+  line-height: 1.65;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.docx-content-body h1,
+.docx-content-body h2,
+.docx-content-body h3 {
+  color: #2b579a;
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+[data-theme="dark"] .docx-content-body h1,
+[data-theme="dark"] .docx-content-body h2,
+[data-theme="dark"] .docx-content-body h3 {
+  color: #93c5fd;
+}
+
+.docx-content-body p {
+  margin-bottom: 12px;
+}
+
+.docx-content-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.docx-content-body th,
+.docx-content-body td {
+  border: 1px solid var(--border-primary);
+  padding: 8px 12px;
+}
+
+/* =========================================================
+   4. EXCEL XLSX VIEWER
+   ========================================================= */
+
+.excel-logo-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: #107c41;
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.excel-badge {
+  background: rgba(16, 124, 65, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 124, 65, 0.3);
+}
+
+.excel-search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+
+.excel-search-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  width: 140px;
+}
+
+.excel-grid-area {
+  flex: 1;
+  overflow: auto;
+  background: var(--surface-primary);
+}
+
+.excel-table-scroll-wrapper {
+  overflow: auto;
+  height: 100%;
+}
+
+.excel-sheet-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  font-family: Segoe UI, -apple-system, BlinkMacSystemFont, sans-serif;
+  min-width: 100%;
+}
+
+.excel-corner-cell,
+.excel-col-header,
+.excel-row-num {
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: center;
+  user-select: none;
+  border: 1px solid var(--border-primary);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.excel-row-num {
+  left: 0;
+  z-index: 3;
+  width: 44px;
+  min-width: 44px;
+  font-size: 11px;
+}
+
+.excel-corner-cell {
+  left: 0;
+  z-index: 4;
+}
+
+.excel-col-header {
+  padding: 5px 12px;
+  min-width: 90px;
+  font-size: 11.5px;
+}
+
+.excel-cell {
+  border: 1px solid var(--border-primary);
+  padding: 6px 12px;
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+.excel-cell:hover {
+  background: var(--surface-secondary);
+}
+
+.excel-sheets-bar {
+  height: 34px;
+  background: var(--surface-secondary);
+  border-top: 1px solid var(--border-primary);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  overflow-x: auto;
+}
+
+.excel-sheet-tabs-list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.excel-sheet-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.excel-sheet-tab:hover {
+  color: var(--text-primary);
+}
+
+.excel-sheet-tab.active {
+  background: var(--surface-primary);
+  border-color: var(--border-primary);
+  color: #107c41;
+  font-weight: 700;
+}
+
+/* =========================================================
+   5. PDF VIEWER
+   ========================================================= */
+
+.pdf-logo-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: #d93838;
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdf-badge {
+  background: rgba(217, 56, 56, 0.15);
+  color: #f87171;
+  border-color: rgba(217, 56, 56, 0.3);
+}
+
+.pdf-stage-area {
+  flex: 1;
+  width: 100%;
+  height: calc(100% - 42px);
+  background: #1e293b;
+}
+
+.pdf-embedded-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
