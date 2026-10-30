@@ -1186,7 +1186,11 @@ export default function Dashboard() {
             {filteredWorkspaces.length > 0 ? (
               <div className="workspaces-grid">
                 {filteredWorkspaces.map((ws) => (
-                  <div key={ws._id} className="workspace-card-item">
+                  <div
+                    key={ws._id}
+                    className={`workspace-card-item ${menuOpenId === ws._id ? "has-open-menu" : ""}`}
+                    style={{ zIndex: menuOpenId === ws._id ? 100 : 1 }}
+                  >
                     {/* Folder Icon Tile (72x72) */}
                     <div
                       className="workspace-folder-tile"

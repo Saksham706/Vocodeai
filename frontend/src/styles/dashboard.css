@@ -724,7 +724,7 @@
 }
 
 .workspace-card-item.has-open-menu {
-  z-index: 50 !important;
+  z-index: 100 !important;
 }
 
 /* Card Dropdown Menu */
@@ -741,7 +741,7 @@
   flex-direction: column;
   gap: 2px;
   min-width: 140px;
-  z-index: 100;
+  z-index: 200 !important;
   animation: fadeIn 0.15s ease;
 }
 
