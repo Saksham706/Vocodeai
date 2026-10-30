@@ -47,7 +47,14 @@ export async function deleteWorkspace(token, id) {
     headers: authHeaders(token),
   });
 
-  if (!res.ok) throw new Error("Failed to delete workspace");
+  if (!res.ok) {
+    let errorMsg = "Failed to delete workspace";
+    try {
+      const data = await res.json();
+      if (data.error) errorMsg = data.error;
+    } catch {}
+    throw new Error(errorMsg);
+  }
   return res.json();
 }
 

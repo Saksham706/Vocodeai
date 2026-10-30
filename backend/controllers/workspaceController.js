@@ -8,6 +8,8 @@ import RecycleBin from "../models/RecycleBin.js";
 import {
   ensureWorkspace,
   deleteWorkspace as deleteWorkspaceFS,
+  moveToTrash,
+  restoreFromTrash,
 } from "../services/fileService.js";
 import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
 import { getWorkspacesRoot } from "../config/paths.js";
@@ -63,7 +65,32 @@ export async function deleteWorkspace(req, res) {
       ],
     }).lean();
 
-    // 2. Archive to RecycleBin so user can restore it from dashboard
+    // 2. Move filesystem files to .trash directory for safety and fast restore
+    moveToTrash(req.user.id, workspace._id.toString());
+
+    // 3. Prepare items safely so we NEVER exceed MongoDB BSON limit (16MB)
+    let accumulatedSize = 0;
+    const MAX_BSON_ITEMS_SIZE = 8 * 1024 * 1024; // 8MB limit for items payload
+
+    const safeItems = nodes.map((n) => {
+      const content = n.content || "";
+      const contentLen = Buffer.byteLength(content, "utf8");
+      if (accumulatedSize + contentLen < MAX_BSON_ITEMS_SIZE) {
+        accumulatedSize += contentLen;
+        return {
+          path: n.path,
+          type: n.type || "file",
+          content: content,
+        };
+      }
+      return {
+        path: n.path,
+        type: n.type || "file",
+        content: "",
+      };
+    });
+
+    // 4. Archive to RecycleBin so user can restore it from dashboard
     await RecycleBin.create({
       userId: req.user.id,
       workspaceId: workspace._id,
@@ -71,30 +98,23 @@ export async function deleteWorkspace(req, res) {
       name: workspace.name,
       originalPath: workspace.name,
       type: "workspace",
-      items: nodes.map((n) => ({
-        path: n.path,
-        type: n.type || "file",
-        content: n.content || "",
-      })),
+      items: safeItems,
       deletedAt: new Date(),
     });
 
-    // 3. Remove active workspace record
+    // 5. Remove active workspace record
     await Workspace.deleteOne({
       _id: workspace._id,
       userId: req.user.id,
     });
 
-    // 4. Remove active FileNode collection entries
+    // 6. Remove active FileNode collection entries
     await FileNode.deleteMany({
       $or: [
         { workspaceId: workspace._id },
         { workspaceId: workspace._id.toString() },
       ],
     });
-
-    // 5. Clean up active workspace filesystem directory
-    deleteWorkspaceFS(req.user.id, workspace._id.toString());
 
     res.json({
       success: true,
@@ -103,7 +123,7 @@ export async function deleteWorkspace(req, res) {
     });
   } catch (err) {
     console.error("DELETE WORKSPACE ERROR:", err);
-    res.status(500).json({ error: "Failed to delete workspace" });
+    res.status(500).json({ error: "Failed to delete workspace: " + err.message });
   }
 }
 

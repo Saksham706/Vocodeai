@@ -171,6 +171,31 @@ export async function deleteNode(req, res) {
     const primary = targetNodes.find((n) => n.path === clean) || targetNodes[0];
     const isFolder = targetNodes.length > 1 || (targetNodes.length === 1 && targetNodes[0].type === "folder");
 
+    // Safely cap content size for RecycleBin so we never exceed MongoDB 16MB document limit
+    let accumulatedSize = 0;
+    const MAX_BSON_ITEMS_SIZE = 8 * 1024 * 1024; // 8MB
+
+    const safeItems = targetNodes.map((n) => {
+      const content = n.content || "";
+      const contentLen = Buffer.byteLength(content, "utf8");
+      if (accumulatedSize + contentLen < MAX_BSON_ITEMS_SIZE) {
+        accumulatedSize += contentLen;
+        return {
+          path: n.path,
+          type: n.type,
+          content: content,
+        };
+      }
+      return {
+        path: n.path,
+        type: n.type,
+        content: "",
+      };
+    });
+
+    const primaryContent = primary?.content || "";
+    const primarySafeContent = Buffer.byteLength(primaryContent, "utf8") < MAX_BSON_ITEMS_SIZE ? primaryContent : "";
+
     await RecycleBin.create({
       userId,
       workspaceId: wsId,
@@ -178,12 +203,8 @@ export async function deleteNode(req, res) {
       name,
       originalPath: clean,
       type: primary?.type || (isFolder ? "folder" : "file"),
-      content: primary?.content || "",
-      items: targetNodes.map((n) => ({
-        path: n.path,
-        type: n.type,
-        content: n.content || "",
-      })),
+      content: primarySafeContent,
+      items: safeItems,
       deletedAt: new Date(),
     });
 
@@ -237,16 +258,25 @@ export async function restoreRecycleBinItem(req, res) {
         });
       }
 
+      fsService.restoreFromTrash(userId, ws._id.toString());
       fsService.ensureWorkspace(userId, ws._id.toString());
 
       // 2. Re-create all FileNode documents in MongoDB
       if (Array.isArray(item.items) && item.items.length > 0) {
-        const nodesToInsert = item.items.map((it) => ({
-          workspaceId: ws._id.toString(),
-          path: it.path,
-          type: it.type || "file",
-          content: it.content || "",
-        }));
+        const nodesToInsert = item.items.map((it) => {
+          let content = it.content || "";
+          if (!content && it.type === "file") {
+            try {
+              content = fsService.readFile(userId, ws._id.toString(), it.path) || "";
+            } catch {}
+          }
+          return {
+            workspaceId: ws._id.toString(),
+            path: it.path,
+            type: it.type || "file",
+            content,
+          };
+        });
         await FileNode.insertMany(nodesToInsert);
         // Hydrate files on disk
         await hydrateWorkspace(userId, ws._id.toString());

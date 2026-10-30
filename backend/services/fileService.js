@@ -170,14 +170,83 @@ export function restoreNode(userId, workspaceId, item) {
   }
 }
 
-/* ================= DELETE WORKSPACE ================= */
+/* ================= DELETE & TRASH WORKSPACE ================= */
+
+export function moveToTrash(userId, workspaceId) {
+  const uId = String(userId || "");
+  const wId = String(workspaceId || "");
+  const wsPath = path.join(getWorkspacesRoot(), uId, wId);
+  const trashDir = path.join(getWorkspacesRoot(), uId, ".trash");
+  const trashPath = path.join(trashDir, wId);
+
+  try {
+    if (!fs.existsSync(trashDir)) {
+      fs.mkdirSync(trashDir, { recursive: true });
+    }
+    if (fs.existsSync(wsPath)) {
+      if (fs.existsSync(trashPath)) {
+        fs.rmSync(trashPath, { recursive: true, force: true });
+      }
+      fs.renameSync(wsPath, trashPath);
+    }
+  } catch (err) {
+    console.warn("moveToTrash error, attempting copy & remove:", err.message);
+    try {
+      if (fs.existsSync(wsPath)) {
+        fs.cpSync(wsPath, trashPath, { recursive: true });
+        fs.rmSync(wsPath, { recursive: true, force: true });
+      }
+    } catch (fallbackErr) {
+      console.warn("moveToTrash fallback failed:", fallbackErr.message);
+    }
+  }
+}
+
+export function restoreFromTrash(userId, workspaceId) {
+  const uId = String(userId || "");
+  const wId = String(workspaceId || "");
+  const wsPath = path.join(getWorkspacesRoot(), uId, wId);
+  const trashPath = path.join(getWorkspacesRoot(), uId, ".trash", wId);
+
+  try {
+    if (fs.existsSync(trashPath)) {
+      if (fs.existsSync(wsPath)) {
+        fs.rmSync(wsPath, { recursive: true, force: true });
+      }
+      fs.renameSync(trashPath, wsPath);
+    }
+  } catch (err) {
+    console.warn("restoreFromTrash error, attempting copy & remove:", err.message);
+    try {
+      if (fs.existsSync(trashPath)) {
+        fs.cpSync(trashPath, wsPath, { recursive: true });
+        fs.rmSync(trashPath, { recursive: true, force: true });
+      }
+    } catch (fallbackErr) {
+      console.warn("restoreFromTrash fallback failed:", fallbackErr.message);
+    }
+  }
+}
 
 export function deleteWorkspace(userId, workspaceId) {
   const uId = String(userId || "");
   const wId = String(workspaceId || "");
   const wsPath = path.join(getWorkspacesRoot(), uId, wId);
+  const trashPath = path.join(getWorkspacesRoot(), uId, ".trash", wId);
 
-  if (fs.existsSync(wsPath)) {
-    fs.rmSync(wsPath, { recursive: true, force: true });
+  try {
+    if (fs.existsSync(wsPath)) {
+      fs.rmSync(wsPath, { recursive: true, force: true });
+    }
+  } catch (err) {
+    console.warn("deleteWorkspace active dir error:", err.message);
+  }
+
+  try {
+    if (fs.existsSync(trashPath)) {
+      fs.rmSync(trashPath, { recursive: true, force: true });
+    }
+  } catch (err) {
+    console.warn("deleteWorkspace trash dir error:", err.message);
   }
 }
