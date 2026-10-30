@@ -222,18 +222,31 @@ export async function refreshToken(req, res) {
 /* ================= LOGOUT ================= */
 
 export async function logout(req, res) {
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    path: "/",
+  };
+
   try {
-    const token = req.cookies.refreshToken;
+    const token = req.cookies?.refreshToken;
 
     if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
-      await User.findByIdAndUpdate(decoded.id, { refreshToken: null });
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+        if (decoded?.id) {
+          await User.findByIdAndUpdate(decoded.id, { refreshToken: null });
+        }
+      } catch (err) {
+        console.warn("Logout token verification warning:", err.message);
+      }
     }
 
-    res.clearCookie("refreshToken");
-    res.json({ message: "Logged out successfully" });
-  } catch {
-    res.clearCookie("refreshToken");
-    res.json({ message: "Logged out" });
+    res.clearCookie("refreshToken", cookieOptions);
+    return res.json({ message: "Logged out successfully" });
+  } catch (err) {
+    res.clearCookie("refreshToken", cookieOptions);
+    return res.json({ message: "Logged out" });
   }
 }

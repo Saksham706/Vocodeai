@@ -10,10 +10,8 @@ import { getWorkspace } from "../services/workspaceApi";
 import ActivityBar from "../components/layout/ActivityBar";
 import Sidebar from "../components/layout/Sidebar";
 import Navbar from "../components/layout/navbar";
-import EditorTabs from "../components/editor/EditorTabs";
-import CodeEditor from "../components/editor/CodeEditor";
-import TerminalTabs from "../components/terminal/TerminalTabs";
-import TerminalPanel from "../components/terminal/TerminalPanel";
+import WorkspaceEditorSection from "../components/editor/WorkspaceEditorSection";
+import WorkspaceTerminalSection from "../components/terminal/WorkspaceTerminalSection";
 import LivePreview from "../components/preview/LivePreview";
 import AIChat from "../components/ai/AIChat";
 import WelcomeDashboard from "../components/dashboard/WelcomeDashboard";
@@ -359,51 +357,12 @@ function WorkspaceLayout() {
         {/* ===== CENTRAL COLUMN: CODE EDITOR / WELCOME DASHBOARD & INTEGRATED TERMINAL ===== */}
         <div className="ide-center">
           {activeFile ? (
-            /* Editor Section */
-            <div className="ide-editor-section">
-              <EditorTabs />
-
-              <div className="ide-editor-view">
-                {isSplitEditor && splitEditorFile ? (
-                  <div className="editor-split-view">
-                    <div className="editor-split-pane primary-pane">
-                      <div className="editor-pane-header">
-                        <span className="editor-pane-filename">
-                          {activeFile.split("/").pop()}
-                        </span>
-                      </div>
-                      <div className="editor-pane-content">
-                        <CodeEditor file={activeFile} />
-                      </div>
-                    </div>
-
-                    <div className="editor-split-divider" />
-
-                    <div className="editor-split-pane secondary-pane">
-                      <div className="editor-pane-header">
-                        <span className="editor-pane-filename">
-                          {splitEditorFile.split("/").pop()}
-                        </span>
-                        <button
-                          type="button"
-                          className="editor-pane-close"
-                          onClick={closeSplitEditor}
-                          title="Close Split Editor"
-                          aria-label="Close Split Editor"
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
-                      <div className="editor-pane-content">
-                        <CodeEditor file={splitEditorFile} />
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <CodeEditor />
-                )}
-              </div>
-            </div>
+            <WorkspaceEditorSection
+              activeFile={activeFile}
+              isSplitEditor={isSplitEditor}
+              splitEditorFile={splitEditorFile}
+              closeSplitEditor={closeSplitEditor}
+            />
           ) : (
             /* Welcome Dashboard when no file is active */
             <div className="ide-welcome-section">
@@ -432,244 +391,41 @@ function WorkspaceLayout() {
 
           {/* ===== INTEGRATED BOTTOM TERMINAL ===== */}
           {showTerminal && (
-            <div
-              className={`ide-terminal-section ${isTermMaximized ? "maximized" : ""}`}
-              style={{ height: isTermMaximized ? "75%" : terminalHeight }}
-            >
-              <div
-                className="ide-terminal-resizer"
-                onMouseDown={startTerminalResize}
-                title="Drag to resize terminal"
-              />
-
-              <TerminalTabs
-                activeTab={activeTermTab}
-                setActiveTab={setActiveTermTab}
-                onNewTerminal={() => handleAddSession("bash")}
-                onSplitTerminal={handleSplitTerminal}
-                isSplit={isSplitActive}
-                onClearTerminal={handleClearTerminal}
-                onToggleMaximize={() => setIsTermMaximized((prev) => !prev)}
-                isMaximized={isTermMaximized}
-                onClosePanel={() => setShowTerminal(false)}
-                sessions={sessions}
-                activeSessionId={activeSessionId}
-                onSelectSession={handleSelectSession}
-                onCloseSession={handleCloseSession}
-                onAddSession={handleAddSession}
-                problemCount={problems ? problems.length : 0}
-              />
-
-              <div className="ide-terminal-body">
-                {activeTermTab === "terminal" && (
-                  isSplitActive ? (
-                    <div className="terminal-split-view">
-                      <div
-                        className={`terminal-split-pane ${activeTerminal === primaryTermId ? "focused" : ""}`}
-                        onClick={() => setActiveTerminal(primaryTermId)}
-                      >
-                        <div className="terminal-pane-header">
-                          <span className="terminal-pane-title">
-                            {sessions.find((s) => s.id === primaryTermId)?.label || "bash"}
-                          </span>
-                          <button
-                            type="button"
-                            className="terminal-pane-close"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCloseSplit(primaryTermId);
-                            }}
-                            title="Close Terminal"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                        <div className="terminal-pane-content">
-                          <TerminalPanel
-                            key={primaryTermId}
-                            terminalId={primaryTermId}
-                            theme={theme}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="terminal-split-divider" />
-
-                      <div
-                        className={`terminal-split-pane ${activeTerminal === secondaryTermId ? "focused" : ""}`}
-                        onClick={() => setActiveTerminal(secondaryTermId)}
-                      >
-                        <div className="terminal-pane-header">
-                          <span className="terminal-pane-title">
-                            {sessions.find((s) => s.id === secondaryTermId)?.label || "bash (split)"}
-                          </span>
-                          <button
-                            type="button"
-                            className="terminal-pane-close"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCloseSplit(secondaryTermId);
-                            }}
-                            title="Close Split Terminal"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                        <div className="terminal-pane-content">
-                          <TerminalPanel
-                            key={secondaryTermId}
-                            terminalId={secondaryTermId}
-                            theme={theme}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ) : activeTerminal ? (
-                    <TerminalPanel
-                      key={activeTerminal}
-                      terminalId={activeTerminal}
-                      theme={theme}
-                    />
-                  ) : (
-                    <div className="term-shell-session">
-                      <div className="term-block">
-                        <div className="term-line">
-                          <span className="term-prompt-user">saksham@vocodeai:</span>
-                          <span className="term-prompt-path">~$</span>
-                          <span className="term-cursor">█</span>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                )}
-
-                {activeTermTab === "output" && (
-                  <div className="term-functional-panel">
-                    <div className="term-panel-header">
-                      <div className="term-panel-title">
-                        <span>Workspace Execution &amp; Build Output</span>
-                      </div>
-                      <div className="term-panel-actions">
-                        <button
-                          type="button"
-                          className="term-panel-btn"
-                          onClick={() => setOutputLogs([])}
-                        >
-                          Clear Output
-                        </button>
-                      </div>
-                    </div>
-                    <div className="term-panel-scrollable">
-                      {outputLogs && outputLogs.length > 0 ? (
-                        outputLogs.map((log) => (
-                          <div key={log.id} className="term-log-row">
-                            <span className="term-log-time">[{log.time}]</span>
-                            <span className={`term-log-text ${log.type || "info"}`}>
-                              {log.text}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="term-dim-line">No recent execution logs.</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {activeTermTab === "problems" && (
-                  <div className="term-functional-panel">
-                    <div className="term-panel-header">
-                      <div className="term-panel-title">
-                        <span>
-                          {problems && problems.length > 0
-                            ? `${problems.length} problem${problems.length > 1 ? "s" : ""} detected`
-                            : "No problems detected"}
-                        </span>
-                      </div>
-                      {problems && problems.length > 0 && (
-                        <div className="term-panel-actions">
-                          <button
-                            type="button"
-                            className="term-panel-btn"
-                            onClick={() => setProblems([])}
-                          >
-                            Clear Problems
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    <div className="term-panel-scrollable">
-                      {problems && problems.length > 0 ? (
-                        <div className="term-problems-list">
-                          {problems.map((prob) => (
-                            <div
-                              key={prob.id}
-                              className="term-problem-item"
-                              onClick={() => handleProblemClick(prob)}
-                              title="Click to jump to file"
-                            >
-                              <span
-                                className={`term-problem-severity ${prob.severity || "error"}`}
-                              >
-                                {prob.severity || "error"}
-                              </span>
-                              <div className="term-problem-details">
-                                <span className="term-problem-msg">{prob.message}</span>
-                                <span className="term-problem-location">
-                                  {prob.file} [{prob.line}:{prob.col}]
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="term-dim-line">
-                          No syntax or compilation problems detected in the workspace.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {activeTermTab === "debug" && (
-                  <div className="term-functional-panel">
-                    <div className="term-panel-header">
-                      <div className="term-panel-title">
-                        <span>Interactive Debug Console</span>
-                      </div>
-                      <div className="term-panel-actions">
-                        <button
-                          type="button"
-                          className="term-panel-btn"
-                          onClick={() => setDebugLogs([])}
-                        >
-                          Clear Console
-                        </button>
-                      </div>
-                    </div>
-                    <div className="term-panel-scrollable">
-                      {debugLogs.map((log) => (
-                        <div key={log.id} className="term-log-row">
-                          <span className={`term-log-text ${log.type}`}>
-                            {log.text}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <form onSubmit={handleDebugSubmit} className="term-debug-input-row">
-                      <span className="term-debug-glyph">&gt;</span>
-                      <input
-                        type="text"
-                        className="term-debug-input"
-                        placeholder="Evaluate expression or command..."
-                        value={debugInput}
-                        onChange={(e) => setDebugInput(e.target.value)}
-                      />
-                    </form>
-                  </div>
-                )}
-              </div>
-            </div>
+            <WorkspaceTerminalSection
+              terminalHeight={terminalHeight}
+              startTerminalResize={startTerminalResize}
+              isTermMaximized={isTermMaximized}
+              setIsTermMaximized={setIsTermMaximized}
+              setShowTerminal={setShowTerminal}
+              activeTermTab={activeTermTab}
+              setActiveTermTab={setActiveTermTab}
+              onNewTerminal={() => handleAddSession("bash")}
+              onSplitTerminal={handleSplitTerminal}
+              isSplitActive={isSplitActive}
+              onClearTerminal={handleClearTerminal}
+              sessions={sessions}
+              activeSessionId={activeSessionId}
+              onSelectSession={handleSelectSession}
+              onCloseSession={handleCloseSession}
+              onAddSession={handleAddSession}
+              problemCount={problems ? problems.length : 0}
+              problems={problems}
+              setProblems={setProblems}
+              handleProblemClick={handleProblemClick}
+              outputLogs={outputLogs}
+              setOutputLogs={setOutputLogs}
+              debugLogs={debugLogs}
+              setDebugLogs={setDebugLogs}
+              debugInput={debugInput}
+              setDebugInput={setDebugInput}
+              handleDebugSubmit={handleDebugSubmit}
+              primaryTermId={primaryTermId}
+              secondaryTermId={secondaryTermId}
+              activeTerminal={activeTerminal}
+              setActiveTerminal={setActiveTerminal}
+              handleCloseSplit={handleCloseSplit}
+              theme={theme}
+            />
           )}
         </div>
 

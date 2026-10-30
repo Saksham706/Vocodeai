@@ -72,12 +72,15 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     try {
       await api.post("/auth/logout");
-    } catch {}
-
-    setAccessToken(null);
-    setUser(null);
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("user");
+    } catch (err) {
+      console.warn("Logout error:", err);
+    } finally {
+      setAccessToken(null);
+      setUser(null);
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("user");
+      sessionStorage.clear();
+    }
   }, []);
 
   return (

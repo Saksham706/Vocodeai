@@ -19,63 +19,23 @@ import {
   permanentlyDeleteRecycleBinItem,
   emptyRecycleBin,
 } from "../services/fileApi";
-import { getFileIcon } from "../utils/getFileIcon";
-import {
-  LayoutDashboard,
-  Layers3,
-  SquareTerminal,
-  Sparkles,
-  Settings,
-  Search,
-  Plus,
-  FolderClosed,
-  MoreVertical,
-  ChevronRight,
-  Sun,
-  Moon,
-  Pencil,
-  Copy,
-  Star,
-  Trash2,
-  LogOut,
-  Menu,
-  X,
-  RotateCcw,
-  Check,
-  Upload,
-  Download,
-  CheckSquare,
-  Square,
-  FolderArchive,
-  FolderUp,
-  FolderOpen,
-  FileText,
-} from "lucide-react";
+import { Sparkles } from "lucide-react";
 import DashboardBackground from "../components/DashboardBackground";
+import DashboardSidebar from "../components/dashboard/DashboardSidebar";
+import DashboardHeader from "../components/dashboard/DashboardHeader";
+import WorkspaceCardGrid from "../components/dashboard/WorkspaceCardGrid";
+import DashboardPlaceholderTab from "../components/dashboard/DashboardPlaceholderTab";
+import RecycleBinView from "../components/dashboard/RecycleBinView";
+import RenameWorkspaceModal from "../components/dashboard/RenameWorkspaceModal";
+import DeleteWorkspaceModal from "../components/dashboard/DeleteWorkspaceModal";
+import {
+  PermanentDeleteModal,
+  EmptyRecycleBinModal,
+} from "../components/dashboard/RecycleBinModals";
+import ImportWorkspaceModal from "../components/dashboard/ImportWorkspaceModal";
+import UploadConfirmModal from "../components/dashboard/UploadConfirmModal";
+import ExportWorkspacesModal from "../components/dashboard/ExportWorkspacesModal";
 import "../styles/dashboard.css";
-
-/* Helper for relative timestamp formatting (e.g., "Updated 2 minutes ago") */
-function formatRelativeTime(dateString) {
-  if (!dateString) return "Updated 2 minutes ago";
-  try {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffMins < 1) return "Updated just now";
-    if (diffMins === 1) return "Updated 1 minute ago";
-    if (diffMins < 60) return `Updated ${diffMins} minutes ago`;
-    if (diffHours === 1) return "Updated 1 hour ago";
-    if (diffHours < 24) return `Updated ${diffHours} hours ago`;
-    if (diffDays === 1) return "Updated yesterday";
-    return `Updated ${diffDays} days ago`;
-  } catch {
-    return "Updated 2 minutes ago";
-  }
-}
 
 export default function Dashboard() {
   const { accessToken, user, logout } = useAuth();
@@ -887,1422 +847,177 @@ export default function Dashboard() {
     navigate(`/workspace/${id}`);
   };
 
-  const userName =
-    user?.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : user?.name || "User";
-  const userEmail = user?.email || "user@example.com";
-  const userInitial = userName.charAt(0).toUpperCase() || "U";
-
   return (
     <div className={`dashboard-layout ${theme}`}>
-      {/* Mobile Top Navbar with Hamburger */}
-      <div className="mobile-dashboard-header">
-        <div className="sidebar-brand" onClick={() => navigate("/")}>
-          <img
-            src={theme === "light" ? "/vcode-light.png" : "/vcode.png"}
-            alt="Vocodeai"
-            className="sidebar-logo-img"
-          />
-        </div>
-        <button
-          className="mobile-hamburger-btn"
-          onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-          aria-label="Toggle Navigation"
-        >
-          {mobileSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
-      </div>
+      {/* Sidebar Navigation */}
+      <DashboardSidebar
+        theme={theme}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        recycleCount={recycleItems.length}
+        user={user}
+        logout={logout}
+        profileMenuOpen={profileMenuOpen}
+        setProfileMenuOpen={setProfileMenuOpen}
+        mobileSidebarOpen={mobileSidebarOpen}
+        setMobileSidebarOpen={setMobileSidebarOpen}
+        navigate={navigate}
+      />
 
-      {/* Backdrop for mobile drawer */}
-      {mobileSidebarOpen && (
-        <div
-          className="sidebar-backdrop"
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-      )}
-
-      {/* =========================================================
-         LEFT SIDEBAR
-         ========================================================= */}
-      <aside className={`dashboard-sidebar ${mobileSidebarOpen ? "mobile-open" : ""}`}>
-        {/* Brand Logo */}
-        <div
-          className="sidebar-brand"
-          onClick={() => {
-            setMobileSidebarOpen(false);
-            navigate("/");
-          }}
-          title="Go to Vocodeai Home"
-        >
-          <img
-            src={theme === "light" ? "/vcode-light.png" : "/vcode.png"}
-            alt="Vocodeai Logo"
-            className="sidebar-logo-img"
-          />
-        </div>
-
-        {/* Navigation Items */}
-        <nav className="sidebar-nav">
-          <button
-            className={`sidebar-nav-item ${activeTab === "workspaces" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("workspaces");
-              setMobileSidebarOpen(false);
-            }}
-          >
-            <LayoutDashboard className="nav-icon" />
-            <span>Workspaces</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === "templates" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("templates");
-              setMobileSidebarOpen(false);
-            }}
-          >
-            <Layers3 className="nav-icon" />
-            <span>Templates</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === "terminal" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("terminal");
-              setMobileSidebarOpen(false);
-            }}
-          >
-            <SquareTerminal className="nav-icon" />
-            <span>Cloud Terminal</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === "assistant" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("assistant");
-              setMobileSidebarOpen(false);
-            }}
-          >
-            <Sparkles className="nav-icon" />
-            <span>AI Assistant</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === "settings" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("settings");
-              setMobileSidebarOpen(false);
-            }}
-          >
-            <Settings className="nav-icon" />
-            <span>Settings</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === "recycle-bin" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("recycle-bin");
-              setMobileSidebarOpen(false);
-            }}
-          >
-            <Trash2 className="nav-icon" />
-            <span>Recycle Bin</span>
-            {recycleItems.length > 0 && (
-              <span className="sidebar-recycle-badge">{recycleItems.length}</span>
-            )}
-          </button>
-        </nav>
-
-        {/* User Profile Card (Bottom of Sidebar) */}
-        <div
-          className="sidebar-user-card"
-          onClick={(e) => {
-            e.stopPropagation();
-            setProfileMenuOpen(!profileMenuOpen);
-          }}
-        >
-          <div className="user-avatar">{userInitial}</div>
-          <div className="user-info">
-            <span className="user-name">{userName}</span>
-            <span className="user-email">{userEmail}</span>
-          </div>
-          <ChevronRight className="user-chevron" />
-
-          {/* Profile Popover Menu */}
-          {profileMenuOpen && (
-            <div className="user-popover" onClick={(e) => e.stopPropagation()}>
-              <button
-                className="popover-item"
-                onClick={() => {
-                  setProfileMenuOpen(false);
-                  setActiveTab("settings");
-                }}
-              >
-                <Settings size={15} />
-                <span>Account Settings</span>
-              </button>
-              <button
-                className="popover-item danger"
-                onClick={() => {
-                  logout();
-                  navigate("/login");
-                }}
-              >
-                <LogOut size={15} />
-                <span>Sign Out</span>
-              </button>
-            </div>
-          )}
-        </div>
-      </aside>
-
-      {/* =========================================================
-         MAIN CONTENT AREA
-         ========================================================= */}
+      {/* Main Content Area */}
       <main className="dashboard-main">
         {/* Decorative Background Curves & Glow */}
         <DashboardBackground theme={theme} />
 
         {/* Top Toolbar */}
-        <header className="dashboard-topbar">
-          {/* Search Workspace Field */}
-          <div className="search-wrapper">
-            <Search size={18} className="search-icon" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              className="search-input-field"
-              placeholder="Search workspace..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <span className="search-shortcut-badge">⌘ K</span>
-          </div>
+        <DashboardHeader
+          search={search}
+          setSearch={setSearch}
+          searchInputRef={searchInputRef}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          folderInputRef={folderInputRef}
+          handleFolderSelected={handleFolderSelected}
+          onOpenImport={() => {
+            setImportPendingFiles(null);
+            setImportFolderName("");
+            setShowImportModal(true);
+          }}
+          onOpenExport={openExportModal}
+          workspacesCount={workspaces.length}
+          createBtnRef={createBtnRef}
+          setShowCreate={setShowCreate}
+          createInputRef={createInputRef}
+        />
 
-          {/* Theme Toggle Button */}
-          <button
-            className="dash-theme-toggle"
-            onClick={toggleTheme}
-            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            aria-label="Toggle dark and light mode"
-          >
-            {theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
-          </button>
-
-          {/* Hidden File Input for Folder Import */}
-          <input
-            ref={folderInputRef}
-            type="file"
-            webkitdirectory="true"
-            directory="true"
-            multiple
-            style={{ display: "none" }}
-            onChange={handleFolderSelected}
-          />
-
-          {/* Import Folder Button */}
-          <button
-            className="btn-dash-action-secondary"
-            onClick={() => {
-              setImportPendingFiles(null);
-              setImportFolderName("");
-              setShowImportModal(true);
-            }}
-            title="Import a folder from desktop as a new workspace"
-          >
-            <Upload size={17} />
-            <span>Import</span>
-          </button>
-
-          {/* Export Workspaces Button */}
-          <button
-            className="btn-dash-action-secondary"
-            onClick={openExportModal}
-            title="Export workspace folders as ZIP"
-            disabled={workspaces.length === 0}
-          >
-            <Download size={17} />
-            <span>Export</span>
-          </button>
-
-          {/* Primary "+ Create Workspace" Button */}
-          <button
-            ref={createBtnRef}
-            className="btn-create-workspace-primary"
-            onClick={() => {
-              setShowCreate((prev) => {
-                const next = !prev;
-                if (next) {
-                  setTimeout(() => createInputRef.current?.focus(), 50);
-                }
-                return next;
-              });
-            }}
-          >
-            <Plus size={18} />
-            <span>Create Workspace</span>
-          </button>
-        </header>
-
-        {/* ================= WORKSPACES TAB VIEW ================= */}
+        {/* WORKSPACES TAB VIEW */}
         {activeTab === "workspaces" && (
-          <section className="workspaces-container">
-            {/* Header Row: Heading on the left, Creation Controls on the right without layout shift */}
-            <div className="dashboard-header-row">
-              <div className="dashboard-heading-section">
-                <h1 className="dash-main-title">
-                  Your <span className="dash-heading-accent">Workspaces</span>
-                </h1>
-                <p className="dash-main-subtitle">
-                  Create, manage, and build with AI — all in one place.
-                </p>
-              </div>
-
-              {showCreate && (
-                <div className="workspace-create-inline-row" ref={createContainerRef}>
-                  <input
-                    ref={createInputRef}
-                    type="text"
-                    className="create-name-input"
-                    placeholder="Workspace name"
-                    value={newName}
-                    autoFocus
-                    onChange={(e) => setNewName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleCreateWorkspace();
-                      if (e.key === "Escape") setShowCreate(false);
-                    }}
-                  />
-                  <button
-                    className="btn-create-inline"
-                    onClick={handleCreateWorkspace}
-                  >
-                    Create
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Workspace Card Grid */}
-            {filteredWorkspaces.length > 0 ? (
-              <div className="workspaces-grid">
-                {filteredWorkspaces.map((ws) => (
-                  <div
-                    key={ws._id}
-                    className={`workspace-card-item ${menuOpenId === ws._id ? "has-open-menu" : ""}`}
-                    style={{ zIndex: menuOpenId === ws._id ? 100 : 1 }}
-                  >
-                    {/* Folder Icon Tile (72x72) */}
-                    <div
-                      className="workspace-folder-tile"
-                      onClick={() => handleCardClick(ws._id)}
-                      title={`Open ${ws.name}`}
-                    >
-                      <FolderClosed className="workspace-folder-svg" />
-                    </div>
-
-                    {/* Workspace Details */}
-                    <div
-                      className="workspace-info"
-                      onClick={() => handleCardClick(ws._id)}
-                    >
-                      <div className="workspace-title-row">
-                        <span className="workspace-name">{ws.name}</span>
-                        {ws.isPinned && (
-                          <span className="workspace-pinned-badge" title="Pinned to top">
-                            <Star size={11} className="star-filled-icon" />
-                            <span>Pinned</span>
-                          </span>
-                        )}
-                      </div>
-                      <span className="workspace-meta">
-                        {formatRelativeTime(ws.updatedAt || ws.createdAt)}
-                      </span>
-                    </div>
-
-                    {/* Three-Dot Overflow Trigger */}
-                    <button
-                      className="workspace-menu-trigger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMenuOpenId(menuOpenId === ws._id ? null : ws._id);
-                      }}
-                      title="Workspace options"
-                      aria-label="Workspace options"
-                    >
-                      <MoreVertical size={19} />
-                    </button>
-
-                    {/* Overflow Context Dropdown */}
-                    {menuOpenId === ws._id && (
-                      <div
-                        className="workspace-dropdown-menu"
-                        onClick={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          className="dropdown-action-item"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuOpenId(null);
-                            openRenameModal(ws);
-                          }}
-                        >
-                          <Pencil size={14} />
-                          <span>Rename</span>
-                        </button>
-
-                        <button
-                          className="dropdown-action-item"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuOpenId(null);
-                            handleDuplicate(ws);
-                          }}
-                          disabled={duplicatingId === ws._id}
-                        >
-                          <Copy size={14} />
-                          <span>
-                            {duplicatingId === ws._id ? "Duplicating..." : "Duplicate"}
-                          </span>
-                        </button>
-
-                        <button
-                          className="dropdown-action-item"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuOpenId(null);
-                            handlePin(ws);
-                          }}
-                        >
-                          <Star size={14} className={ws.isPinned ? "star-pinned-icon" : ""} />
-                          <span>{ws.isPinned ? "Unpin" : "Pin"}</span>
-                        </button>
-
-                        <button
-                          className="dropdown-action-item"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuOpenId(null);
-                            handleExportSingleWorkspace(ws);
-                          }}
-                        >
-                          <Download size={14} />
-                          <span>Export</span>
-                        </button>
-
-                        <button
-                          className="dropdown-action-item danger"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuOpenId(null);
-                            openDeleteModal(ws);
-                          }}
-                        >
-                          <Trash2 size={14} />
-                          <span>Delete</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              /* Empty State */
-              <div className="workspaces-empty-state">
-                <div className="empty-state-icon-tile">
-                  <FolderClosed size={36} />
-                </div>
-                <h3 className="empty-state-title">
-                  {search ? "No workspaces found" : "No workspaces yet"}
-                </h3>
-                <p className="empty-state-desc">
-                  {search
-                    ? `No workspaces matched "${search}". Try searching for another name.`
-                    : "Create your first workspace to start building with Vocodeai."}
-                </p>
-                <button
-                  className="btn-create-workspace-primary"
-                  onClick={() => {
-                    setShowCreate(true);
-                    setTimeout(() => createInputRef.current?.focus(), 50);
-                  }}
-                >
-                  <Plus size={18} />
-                  <span>Create Workspace</span>
-                </button>
-              </div>
-            )}
-          </section>
+          <WorkspaceCardGrid
+            filteredWorkspaces={filteredWorkspaces}
+            handleCardClick={handleCardClick}
+            menuOpenId={menuOpenId}
+            setMenuOpenId={setMenuOpenId}
+            openRenameModal={openRenameModal}
+            handleDuplicate={handleDuplicate}
+            duplicatingId={duplicatingId}
+            handlePin={handlePin}
+            handleExportSingleWorkspace={handleExportSingleWorkspace}
+            openDeleteModal={openDeleteModal}
+            search={search}
+            showCreate={showCreate}
+            setShowCreate={setShowCreate}
+            createContainerRef={createContainerRef}
+            createInputRef={createInputRef}
+            newName={newName}
+            setNewName={setNewName}
+            handleCreateWorkspace={handleCreateWorkspace}
+          />
         )}
 
-        {/* ================= PLACEHOLDER TAB VIEWS ================= */}
-        {activeTab === "templates" && (
-          <div className="dashboard-placeholder-panel">
-            <span className="placeholder-badge">Templates</span>
-            <h2 className="placeholder-title">Pre-configured Project Starters</h2>
-            <p className="placeholder-text">
-              Quickly spin up full-stack Node.js, Python, React, and Go environments with optimized AI scaffolding and integrated runtime configurations.
-            </p>
-            <button
-              className="btn-create-workspace-primary"
-              onClick={() => setActiveTab("workspaces")}
-            >
-              Back to Workspaces
-            </button>
-          </div>
+        {/* PLACEHOLDER TAB VIEWS */}
+        {["templates", "terminal", "assistant", "settings"].includes(activeTab) && (
+          <DashboardPlaceholderTab
+            activeTab={activeTab}
+            onBack={() => setActiveTab("workspaces")}
+          />
         )}
 
-        {activeTab === "terminal" && (
-          <div className="dashboard-placeholder-panel">
-            <span className="placeholder-badge">Cloud Terminal</span>
-            <h2 className="placeholder-title">Direct Cloud Execution Shell</h2>
-            <p className="placeholder-text">
-              Run scripts, execute Docker containers, install packages, and manage your cloud environment directly with native voice commands and integrated AI streaming.
-            </p>
-            <button
-              className="btn-create-workspace-primary"
-              onClick={() => setActiveTab("workspaces")}
-            >
-              Back to Workspaces
-            </button>
-          </div>
-        )}
-
-        {activeTab === "assistant" && (
-          <div className="dashboard-placeholder-panel">
-            <span className="placeholder-badge">AI Assistant</span>
-            <h2 className="placeholder-title">Autonomous Pair Programmer</h2>
-            <p className="placeholder-text">
-              Collaborate in real time with our conversational code generation model. Refactor complex algorithms, fix runtime exceptions, and inspect ASTs hands-free.
-            </p>
-            <button
-              className="btn-create-workspace-primary"
-              onClick={() => setActiveTab("workspaces")}
-            >
-              Back to Workspaces
-            </button>
-          </div>
-        )}
-
-        {activeTab === "settings" && (
-          <div className="dashboard-placeholder-panel">
-            <span className="placeholder-badge">Settings</span>
-            <h2 className="placeholder-title">Workspace & Account Preferences</h2>
-            <p className="placeholder-text">
-              Manage your API keys, model hyperparameters, editor keybindings (Vim / VS Code), billing subscriptions, and custom cloud runner nodes.
-            </p>
-            <button
-              className="btn-create-workspace-primary"
-              onClick={() => setActiveTab("workspaces")}
-            >
-              Back to Workspaces
-            </button>
-          </div>
-        )}
-
-        {/* ================= RECYCLE BIN TAB VIEW ================= */}
+        {/* RECYCLE BIN TAB VIEW */}
         {activeTab === "recycle-bin" && (
-          <section className="recycle-bin-container">
-            <div className="recycle-bin-header">
-              <div>
-                <h1 className="dash-main-title">
-                  Recycle <span className="dash-heading-accent">Bin</span>
-                </h1>
-                <p className="dash-main-subtitle">
-                  Restore deleted files and folders back to your workspace or permanently remove them.
-                </p>
-              </div>
-
-              {recycleItems.length > 0 && (
-                <button
-                  className="btn-empty-recycle"
-                  onClick={() => setShowEmptyBinModal(true)}
-                  disabled={recycleLoading}
-                >
-                  <Trash2 size={16} />
-                  <span>Empty Recycle Bin</span>
-                </button>
-              )}
-            </div>
-
-            {recycleMessage && (
-              <div className="recycle-toast-banner">
-                <Check size={16} className="recycle-toast-icon" />
-                <span>{recycleMessage}</span>
-              </div>
-            )}
-
-            {recycleLoading ? (
-              <div className="recycle-bin-loading">
-                <div className="recycle-spinner" />
-                <p>Loading deleted items...</p>
-              </div>
-            ) : recycleItems.length === 0 ? (
-              <div className="recycle-empty-state">
-                <div className="recycle-empty-icon-wrap">
-                  <Trash2 size={42} />
-                </div>
-                <h3>Recycle Bin is Empty</h3>
-                <p>
-                  Files and folders you delete in the workspace explorer will appear here before being permanently removed.
-                </p>
-                <button
-                  className="btn-create-workspace-primary"
-                  onClick={() => setActiveTab("workspaces")}
-                >
-                  Back to Workspaces
-                </button>
-              </div>
-            ) : (
-              <div className="recycle-items-list">
-                {recycleItems.map((item) => (
-                  <div key={item._id} className="recycle-item-card">
-                    <div className="recycle-item-icon-box">
-                      {item.type === "workspace" ? (
-                        <FolderClosed size={24} style={{ color: "#FF9B3D" }} />
-                      ) : (
-                        getFileIcon(item.name, item.type, false)
-                      )}
-                    </div>
-
-                    <div className="recycle-item-details">
-                      <div className="recycle-item-title-row">
-                        <span className="recycle-item-name">{item.name}</span>
-                        <span className={`recycle-item-type-badge ${item.type}`}>
-                          {item.type === "workspace" ? "WORKSPACE" : item.type.toUpperCase()}
-                        </span>
-                        {item.items && item.items.length > 0 && item.type === "workspace" && (
-                          <span className="recycle-item-ws-tag">
-                            {item.items.length} {item.items.length === 1 ? "file" : "files"}
-                          </span>
-                        )}
-                        {item.workspaceName && item.type !== "workspace" && (
-                          <span className="recycle-item-ws-tag">
-                            {item.workspaceName}
-                          </span>
-                        )}
-                      </div>
-                      <div className="recycle-item-meta">
-                        <span className="recycle-item-path" title={item.originalPath}>
-                          {item.type === "workspace" ? "Workspace folder: " : "Original path: "}
-                          <code>{item.originalPath}</code>
-                        </span>
-                        <span className="recycle-item-dot">•</span>
-                        <span className="recycle-item-time">
-                          {formatRelativeTime(item.deletedAt)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="recycle-item-actions">
-                      <button
-                        className="btn-recycle-restore"
-                        onClick={() => handleRestoreItem(item._id, item.name)}
-                        disabled={recycleActionLoading === item._id}
-                        title="Restore to workspace"
-                      >
-                        <RotateCcw size={15} />
-                        <span>
-                          {recycleActionLoading === item._id ? "Restoring..." : "Restore"}
-                        </span>
-                      </button>
-
-                      <button
-                        className="btn-recycle-delete-perm"
-                        onClick={() =>
-                          setPermDeleteModalItem({ id: item._id, name: item.name, type: item.type })
-                        }
-                        disabled={recycleActionLoading === item._id}
-                        title="Delete permanently"
-                      >
-                        <Trash2 size={15} />
-                        <span>Delete</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+          <RecycleBinView
+            recycleItems={recycleItems}
+            recycleLoading={recycleLoading}
+            recycleActionLoading={recycleActionLoading}
+            recycleMessage={recycleMessage}
+            handleRestoreItem={handleRestoreItem}
+            setPermDeleteModalItem={setPermDeleteModalItem}
+            setShowEmptyBinModal={setShowEmptyBinModal}
+            setActiveTab={setActiveTab}
+          />
         )}
 
-        {/* =========================================================
-           RENAME WORKSPACE MODAL
-           ========================================================= */}
-        {renameModalWs && (
-          <div
-            className="dash-modal-overlay"
-            onClick={closeRenameModal}
-            onKeyDown={(e) => e.key === "Escape" && closeRenameModal()}
-          >
-            <div
-              className="dash-modal-card"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-            >
-              <div className="dash-modal-header">
-                <div className="dash-modal-title-wrap">
-                  <div className="dash-modal-icon">
-                    <Pencil size={17} />
-                  </div>
-                  <h3>Rename Workspace</h3>
-                </div>
-                <button
-                  className="dash-modal-close-btn"
-                  onClick={closeRenameModal}
-                  aria-label="Close"
-                >
-                  <X size={18} />
-                </button>
-              </div>
+        {/* RENAME WORKSPACE MODAL */}
+        <RenameWorkspaceModal
+          renameModalWs={renameModalWs}
+          closeRenameModal={closeRenameModal}
+          handleConfirmRename={handleConfirmRename}
+          renameInputRef={renameInputRef}
+          renameInputVal={renameInputVal}
+          setRenameInputVal={setRenameInputVal}
+          isRenaming={isRenaming}
+        />
 
-              <form onSubmit={handleConfirmRename}>
-                <div className="dash-modal-body">
-                  <label className="dash-modal-label" htmlFor="dash-ws-rename-input">
-                    Workspace Name
-                  </label>
-                  <input
-                    id="dash-ws-rename-input"
-                    ref={renameInputRef}
-                    type="text"
-                    className="dash-modal-input"
-                    placeholder="Enter workspace name"
-                    value={renameInputVal}
-                    onChange={(e) => setRenameInputVal(e.target.value)}
-                    disabled={isRenaming}
-                    maxLength={60}
-                    autoComplete="off"
-                  />
-                </div>
+        {/* DELETE WORKSPACE CONFIRMATION MODAL */}
+        <DeleteWorkspaceModal
+          deleteModalWs={deleteModalWs}
+          closeDeleteModal={closeDeleteModal}
+          handleConfirmDelete={handleConfirmDelete}
+          isDeleting={isDeleting}
+        />
 
-                <div className="dash-modal-footer">
-                  <button
-                    type="button"
-                    className="dash-modal-btn-cancel"
-                    onClick={closeRenameModal}
-                    disabled={isRenaming}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="dash-modal-btn-primary"
-                    disabled={isRenaming || !renameInputVal.trim()}
-                  >
-                    {isRenaming ? (
-                      <>
-                        <RotateCcw size={14} className="spin-icon" />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check size={14} />
-                        <span>Save Changes</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        {/* RECYCLE BIN MODALS */}
+        <PermanentDeleteModal
+          permDeleteModalItem={permDeleteModalItem}
+          setPermDeleteModalItem={setPermDeleteModalItem}
+          handleConfirmPermanentDelete={handleConfirmPermanentDelete}
+          recycleActionLoading={recycleActionLoading}
+        />
 
-        {/* =========================================================
-           DELETE WORKSPACE CONFIRMATION MODAL
-           ========================================================= */}
-        {deleteModalWs && (
-          <div
-            className="dash-modal-overlay"
-            onClick={closeDeleteModal}
-            onKeyDown={(e) => e.key === "Escape" && closeDeleteModal()}
-          >
-            <div
-              className="dash-modal-card"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-            >
-              <div className="dash-modal-header">
-                <div className="dash-modal-title-wrap">
-                  <div className="dash-modal-icon danger">
-                    <Trash2 size={17} />
-                  </div>
-                  <h3>Move to Recycle Bin</h3>
-                </div>
-                <button
-                  className="dash-modal-close-btn"
-                  onClick={closeDeleteModal}
-                  aria-label="Close"
-                >
-                  <X size={18} />
-                </button>
-              </div>
+        <EmptyRecycleBinModal
+          showEmptyBinModal={showEmptyBinModal}
+          setShowEmptyBinModal={setShowEmptyBinModal}
+          handleConfirmEmptyRecycleBin={handleConfirmEmptyRecycleBin}
+          recycleLoading={recycleLoading}
+          itemCount={recycleItems.length}
+        />
 
-              <div className="dash-modal-body">
-                <p className="dash-modal-desc">
-                  Are you sure you want to delete{" "}
-                  <strong style={{ color: "var(--text-primary)" }}>
-                    "{deleteModalWs.name}"
-                  </strong>
-                  ? It will be safely moved to the <strong>Recycle Bin</strong>, where you can restore it anytime or permanently remove it.
-                </p>
-              </div>
+        {/* IMPORT WORKSPACE POP-UP MODAL */}
+        <ImportWorkspaceModal
+          showImportModal={showImportModal}
+          setShowImportModal={setShowImportModal}
+          isImporting={isImporting}
+          importPendingFiles={importPendingFiles}
+          setImportPendingFiles={setImportPendingFiles}
+          importFolderName={importFolderName}
+          setImportFolderName={setImportFolderName}
+          isDragOver={isDragOver}
+          setIsDragOver={setIsDragOver}
+          handleDropFolder={handleDropFolder}
+          triggerFolderBrowser={triggerFolderBrowser}
+          localPathInput={localPathInput}
+          setLocalPathInput={setLocalPathInput}
+          handleScanDirectPath={handleScanDirectPath}
+          isScanningLocal={isScanningLocal}
+          commonFolders={commonFolders}
+          handleConfirmImport={handleConfirmImport}
+        />
 
-              <div className="dash-modal-footer">
-                <button
-                  type="button"
-                  className="dash-modal-btn-cancel"
-                  onClick={closeDeleteModal}
-                  disabled={isDeleting}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="dash-modal-btn-danger"
-                  onClick={handleConfirmDelete}
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? (
-                    <>
-                      <RotateCcw size={14} className="spin-icon" />
-                      <span>Moving...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 size={14} />
-                      <span>Move to Recycle Bin</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* CENTERED UPLOAD CONFIRMATION POP-UP MODAL */}
+        <UploadConfirmModal
+          showCenterUploadAlert={showCenterUploadAlert}
+          setShowCenterUploadAlert={setShowCenterUploadAlert}
+          importPendingFiles={importPendingFiles}
+          importFolderName={importFolderName}
+          setImportFolderName={setImportFolderName}
+          isImporting={isImporting}
+          handleConfirmImport={handleConfirmImport}
+        />
 
-        {/* =========================================================
-           PERMANENT DELETE CONFIRMATION MODAL (RECYCLE BIN)
-           ========================================================= */}
-        {permDeleteModalItem && (
-          <div
-            className="dash-modal-overlay"
-            onClick={() => setPermDeleteModalItem(null)}
-            onKeyDown={(e) => e.key === "Escape" && setPermDeleteModalItem(null)}
-          >
-            <div
-              className="dash-modal-card"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-            >
-              <div className="dash-modal-header">
-                <div className="dash-modal-title-wrap">
-                  <div className="dash-modal-icon danger">
-                    <Trash2 size={17} />
-                  </div>
-                  <h3>Permanently Delete {permDeleteModalItem.type === "workspace" ? "Workspace" : "Item"}</h3>
-                </div>
-                <button
-                  className="dash-modal-close-btn"
-                  onClick={() => setPermDeleteModalItem(null)}
-                  aria-label="Close"
-                >
-                  <X size={18} />
-                </button>
-              </div>
+        {/* EXPORT WORKSPACES AS ZIP MODAL */}
+        <ExportWorkspacesModal
+          showExportModal={showExportModal}
+          setShowExportModal={setShowExportModal}
+          isExporting={isExporting}
+          exportFilter={exportFilter}
+          setExportFilter={setExportFilter}
+          toggleSelectAllExport={toggleSelectAllExport}
+          selectedExportIds={selectedExportIds}
+          workspaces={workspaces}
+          toggleSelectWorkspaceForExport={toggleSelectWorkspaceForExport}
+          handleConfirmExport={handleConfirmExport}
+        />
 
-              <div className="dash-modal-body">
-                <p className="dash-modal-desc">
-                  Are you sure you want to permanently delete{" "}
-                  <strong style={{ color: "var(--text-primary)" }}>
-                    "{permDeleteModalItem.name}"
-                  </strong>
-                  ? This action is permanent and cannot be undone.
-                </p>
-              </div>
-
-              <div className="dash-modal-footer">
-                <button
-                  type="button"
-                  className="dash-modal-btn-cancel"
-                  onClick={() => setPermDeleteModalItem(null)}
-                  disabled={recycleActionLoading === permDeleteModalItem.id}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="dash-modal-btn-danger"
-                  onClick={handleConfirmPermanentDelete}
-                  disabled={recycleActionLoading === permDeleteModalItem.id}
-                >
-                  {recycleActionLoading === permDeleteModalItem.id ? (
-                    <>
-                      <RotateCcw size={14} className="spin-icon" />
-                      <span>Deleting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 size={14} />
-                      <span>Delete Permanently</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================
-           EMPTY RECYCLE BIN CONFIRMATION MODAL
-           ========================================================= */}
-        {showEmptyBinModal && (
-          <div
-            className="dash-modal-overlay"
-            onClick={() => setShowEmptyBinModal(false)}
-            onKeyDown={(e) => e.key === "Escape" && setShowEmptyBinModal(false)}
-          >
-            <div
-              className="dash-modal-card"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-            >
-              <div className="dash-modal-header">
-                <div className="dash-modal-title-wrap">
-                  <div className="dash-modal-icon danger">
-                    <Trash2 size={17} />
-                  </div>
-                  <h3>Empty Recycle Bin</h3>
-                </div>
-                <button
-                  className="dash-modal-close-btn"
-                  onClick={() => setShowEmptyBinModal(false)}
-                  aria-label="Close"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="dash-modal-body">
-                <p className="dash-modal-desc">
-                  Are you sure you want to permanently delete all <strong>{recycleItems.length}</strong> items in the Recycle Bin? All deleted files and folders will be purged forever.
-                </p>
-              </div>
-
-              <div className="dash-modal-footer">
-                <button
-                  type="button"
-                  className="dash-modal-btn-cancel"
-                  onClick={() => setShowEmptyBinModal(false)}
-                  disabled={recycleLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="dash-modal-btn-danger"
-                  onClick={handleConfirmEmptyRecycleBin}
-                  disabled={recycleLoading}
-                >
-                  {recycleLoading ? (
-                    <>
-                      <RotateCcw size={14} className="spin-icon" />
-                      <span>Emptying...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 size={14} />
-                      <span>Empty Bin</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================
-           IMPORT WORKSPACE POP-UP MODAL
-           ========================================================= */}
-        {showImportModal && (
-          <div
-            className="dash-modal-overlay"
-            onClick={() => !isImporting && setShowImportModal(false)}
-            onKeyDown={(e) =>
-              e.key === "Escape" && !isImporting && setShowImportModal(false)
-            }
-          >
-            <div
-              className="dash-modal-card dash-modal-import"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-            >
-              <div className="dash-modal-header">
-                <div className="dash-modal-title-wrap">
-                  <div className="dash-modal-icon">
-                    <Upload size={17} />
-                  </div>
-                  <h3>Import Workspace</h3>
-                </div>
-                <button
-                  className="dash-modal-close-btn"
-                  onClick={() => !isImporting && setShowImportModal(false)}
-                  aria-label="Close"
-                  disabled={isImporting}
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              {!importPendingFiles ? (
-                /* Step 1: Drag & Drop Zone or Select Folder */
-                <div className="dash-modal-body">
-                  <div
-                    className={`import-dropzone ${isDragOver ? "drag-active" : ""}`}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setIsDragOver(true);
-                    }}
-                    onDragLeave={() => setIsDragOver(false)}
-                    onDrop={handleDropFolder}
-                    onClick={triggerFolderBrowser}
-                  >
-                    <div className="import-dropzone-icon">
-                      <FolderUp size={34} />
-                    </div>
-                    <div className="import-dropzone-title">
-                      Drop your project folder here
-                    </div>
-                    <div className="import-dropzone-sub">
-                      or click to browse a folder from your desktop
-                    </div>
-                    <button
-                      type="button"
-                      className="import-browse-action-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        triggerFolderBrowser();
-                      }}
-                    >
-                      <FolderOpen size={16} />
-                      <span>Browse Folder</span>
-                    </button>
-                    <div className="import-dropzone-hint">
-                      Preserves your full folder tree, empty directories, and code.
-                    </div>
-                  </div>
-
-                  {/* Direct Path Input & Quick Folder Chips */}
-                  <div className="import-direct-path-wrap">
-                    <span className="import-path-label">Or enter folder path:</span>
-                    <div className="import-path-input-row">
-                      <input
-                        type="text"
-                        className="import-path-input"
-                        placeholder="e.g. D:\C++_DSA or D:\output"
-                        value={localPathInput}
-                        onChange={(e) => setLocalPathInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleScanDirectPath()}
-                        disabled={isScanningLocal}
-                      />
-                      <button
-                        type="button"
-                        className="import-path-scan-btn"
-                        onClick={() => handleScanDirectPath()}
-                        disabled={isScanningLocal || !localPathInput.trim()}
-                      >
-                        {isScanningLocal ? "Scanning..." : "Scan Folder"}
-                      </button>
-                    </div>
-
-                    {commonFolders.length > 0 && (
-                      <div className="import-chips-list">
-                        <span className="import-chips-label">Quick select:</span>
-                        {commonFolders.map((cf, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            className="import-folder-chip"
-                            onClick={() => handleScanDirectPath(cf.path)}
-                            disabled={isScanningLocal}
-                            title={cf.path}
-                          >
-                            <FolderClosed size={12} />
-                            <span>{cf.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                /* Step 2: Preview & Confirm Import */
-                <form onSubmit={handleConfirmImport}>
-                  <div className="dash-modal-body">
-                    <div className="import-preview-card-wrap">
-                      <div className="import-preview-top">
-                        <label
-                          className="dash-modal-label"
-                          htmlFor="import-ws-name"
-                          style={{ margin: 0 }}
-                        >
-                          Workspace Name
-                        </label>
-                        <button
-                          type="button"
-                          className="import-change-btn"
-                          onClick={() => {
-                            setImportPendingFiles(null);
-                            setImportFolderName("");
-                          }}
-                          disabled={isImporting}
-                        >
-                          Change Folder
-                        </button>
-                      </div>
-                      <input
-                        id="import-ws-name"
-                        type="text"
-                        className="dash-modal-input"
-                        placeholder="Enter workspace name"
-                        value={importFolderName}
-                        onChange={(e) => setImportFolderName(e.target.value)}
-                        disabled={isImporting}
-                        required
-                        autoFocus
-                      />
-
-                      <div className="import-preview-box">
-                        <div className="import-preview-icon">
-                          <FolderClosed size={24} />
-                        </div>
-                        <div className="import-preview-details">
-                          <span className="import-preview-name">
-                            {importFolderName || "Project Folder"}
-                          </span>
-                          <span className="import-preview-count">
-                            {
-                              importPendingFiles.filter((i) => i.type === "file")
-                                .length
-                            }{" "}
-                            file(s) and{" "}
-                            {
-                              importPendingFiles.filter(
-                                (i) => i.type === "folder"
-                              ).length
-                            }{" "}
-                            folder(s) ready to import
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* File Structure Preview (Folders first, then files) */}
-                      <div className="import-tree-preview-box">
-                        {[...importPendingFiles]
-                          .sort((a, b) => {
-                            if (a.type === "folder" && b.type !== "folder") return -1;
-                            if (a.type !== "folder" && b.type === "folder") return 1;
-                            return (a.path || "").localeCompare(
-                              b.path || "",
-                              undefined,
-                              {
-                                numeric: true,
-                                sensitivity: "base",
-                              }
-                            );
-                          })
-                          .slice(0, 12)
-                          .map((item, idx) => (
-                            <div
-                              key={idx}
-                              className={`import-tree-row ${
-                                item.type === "folder" ? "is-folder" : ""
-                              }`}
-                            >
-                              {item.type === "folder" ? (
-                                <FolderClosed size={12} color="#F59E0B" />
-                              ) : (
-                                <FileText size={12} color="#38BDF8" />
-                              )}
-                              <span>
-                                {item.path}
-                                {item.type === "folder" ? "/" : ""}
-                              </span>
-                            </div>
-                          ))}
-                        {importPendingFiles.length > 12 && (
-                          <div className="import-tree-more">
-                            ...and {importPendingFiles.length - 12} more items
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="dash-modal-footer">
-                    <button
-                      type="button"
-                      className="dash-modal-btn-cancel"
-                      onClick={() => setShowImportModal(false)}
-                      disabled={isImporting}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="dash-modal-btn-primary"
-                      disabled={isImporting || !importFolderName.trim()}
-                    >
-                      {isImporting ? (
-                        <>
-                          <RotateCcw size={14} className="spin-icon" />
-                          <span>Importing files...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload size={14} />
-                          <span>Import Workspace</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================
-           CENTERED UPLOAD CONFIRMATION POP-UP MODAL
-           ========================================================= */}
-        {showCenterUploadAlert && importPendingFiles && (
-          <div
-            className="center-upload-dialog-overlay"
-            onClick={() => !isImporting && setShowCenterUploadAlert(false)}
-            onKeyDown={(e) =>
-              e.key === "Escape" && !isImporting && setShowCenterUploadAlert(false)
-            }
-          >
-            <div
-              className="center-upload-dialog-card"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-            >
-              <h3 className="center-upload-title">
-                Upload{" "}
-                {importPendingFiles.filter((i) => i.type === "file").length === 1
-                  ? "one file"
-                  : `${importPendingFiles
-                      .filter((i) => i.type === "file")
-                      .length.toLocaleString()} files`}{" "}
-                to this site?
-              </h3>
-
-              <p className="center-upload-message">
-                This will upload all files from "{importFolderName}". Only do this if you trust the site.
-              </p>
-
-              <div className="center-upload-details">
-                <div className="center-upload-input-group">
-                  <label htmlFor="center-ws-name">Workspace Name</label>
-                  <input
-                    id="center-ws-name"
-                    type="text"
-                    className="center-upload-input"
-                    value={importFolderName}
-                    onChange={(e) => setImportFolderName(e.target.value)}
-                    disabled={isImporting}
-                    placeholder="Workspace name"
-                  />
-                </div>
-                <div className="center-upload-stats">
-                  <span>
-                    📁{" "}
-                    {
-                      importPendingFiles.filter((i) => i.type === "folder")
-                        .length
-                    }{" "}
-                    folders
-                  </span>
-                  <span className="dot-sep">•</span>
-                  <span>
-                    📄{" "}
-                    {
-                      importPendingFiles.filter((i) => i.type === "file")
-                        .length
-                    }{" "}
-                    files
-                  </span>
-                </div>
-              </div>
-
-              <div className="center-upload-actions">
-                <button
-                  type="button"
-                  className="center-upload-btn-upload"
-                  onClick={handleConfirmImport}
-                  disabled={isImporting}
-                >
-                  {isImporting ? (
-                    <>
-                      <RotateCcw
-                        size={14}
-                        className="spin-icon"
-                        style={{ display: "inline-block", marginRight: "6px" }}
-                      />
-                      <span>Uploading...</span>
-                    </>
-                  ) : (
-                    "Upload"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="center-upload-btn-cancel"
-                  onClick={() => setShowCenterUploadAlert(false)}
-                  disabled={isImporting}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================
-           EXPORT WORKSPACES AS ZIP MODAL
-           ========================================================= */}
-        {showExportModal && (
-          <div
-            className="dash-modal-overlay"
-            onClick={() => !isExporting && setShowExportModal(false)}
-            onKeyDown={(e) => e.key === "Escape" && !isExporting && setShowExportModal(false)}
-          >
-            <div
-              className="export-modal-card"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-            >
-              <div className="dash-modal-header">
-                <div className="dash-modal-title-wrap">
-                  <div className="dash-modal-icon">
-                    <FolderArchive size={17} />
-                  </div>
-                  <h3>Export Workspaces to ZIP</h3>
-                </div>
-                <button
-                  className="dash-modal-close-btn"
-                  onClick={() => !isExporting && setShowExportModal(false)}
-                  aria-label="Close"
-                  disabled={isExporting}
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="dash-modal-body">
-                <p className="dash-modal-desc" style={{ marginBottom: "14px" }}>
-                  Select the workspace folders you would like to package and export. A ZIP file will be generated and downloaded to your computer.
-                </p>
-
-                <div className="export-modal-controls">
-                  <input
-                    type="text"
-                    className="export-search-input"
-                    placeholder="Filter workspaces..."
-                    value={exportFilter}
-                    onChange={(e) => setExportFilter(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="export-select-all-btn"
-                    onClick={toggleSelectAllExport}
-                  >
-                    {selectedExportIds.size === workspaces.length ? "Deselect All" : "Select All"}
-                  </button>
-                </div>
-
-                <div className="export-workspaces-list">
-                  {workspaces
-                    .filter((w) =>
-                      (w.name || "").toLowerCase().includes(exportFilter.toLowerCase())
-                    )
-                    .map((ws) => {
-                      const isSelected = selectedExportIds.has(ws._id);
-                      return (
-                        <div
-                          key={ws._id}
-                          className={`export-workspace-row ${isSelected ? "selected" : ""}`}
-                          onClick={() => toggleSelectWorkspaceForExport(ws._id)}
-                        >
-                          <input
-                            type="checkbox"
-                            className="export-checkbox"
-                            checked={isSelected}
-                            onChange={() => {}}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <div className="export-row-icon">
-                            <FolderClosed size={16} />
-                          </div>
-                          <div className="export-row-info">
-                            <div className="export-row-title-line">
-                              <span className="export-row-name">{ws.name}</span>
-                              {ws.isPinned && <span className="workspace-pinned-star">⭐</span>}
-                            </div>
-                            <span className="export-row-meta">
-                              {formatRelativeTime(ws.updatedAt || ws.createdAt)}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-
-              <div className="dash-modal-footer">
-                <div className="export-footer-info" style={{ marginRight: "auto" }}>
-                  {selectedExportIds.size} of {workspaces.length} selected
-                </div>
-                <button
-                  type="button"
-                  className="dash-modal-btn-cancel"
-                  onClick={() => setShowExportModal(false)}
-                  disabled={isExporting}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="dash-modal-btn-primary"
-                  onClick={handleConfirmExport}
-                  disabled={isExporting || selectedExportIds.size === 0}
-                >
-                  {isExporting ? (
-                    <>
-                      <RotateCcw size={14} className="spin-icon" />
-                      <span>Creating ZIP...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download size={14} />
-                      <span>Export as ZIP</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================
-           DASHBOARD FLOATING TOAST FEEDBACK
-           ========================================================= */}
+        {/* DASHBOARD FLOATING TOAST FEEDBACK */}
         {toast && (
           <div className="dash-toast-banner">
             <Sparkles size={16} style={{ color: "var(--accent-primary)" }} />
@@ -2313,3 +1028,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

@@ -597,12 +597,14 @@
   box-shadow: var(--shadow-card);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
   box-sizing: border-box;
+  z-index: 1;
 }
 
 .workspace-card-item:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-hover);
   border-color: var(--border-secondary);
+  z-index: 5;
 }
 
 /* Folder Icon Tile (72x72) */
@@ -724,7 +726,7 @@
 }
 
 .workspace-card-item.has-open-menu {
-  z-index: 100 !important;
+  z-index: 1000 !important;
 }
 
 /* Card Dropdown Menu */
@@ -741,7 +743,7 @@
   flex-direction: column;
   gap: 2px;
   min-width: 140px;
-  z-index: 200 !important;
+  z-index: 1001 !important;
   animation: fadeIn 0.15s ease;
 }
 
