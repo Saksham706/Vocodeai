@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { LANGUAGE_META } from "../../config/languages";
+import { DEFAULT_SETTINGS } from "../../config/defaultSettings";
+import { getEffectiveSettings } from "../../utils/settingsStorage";
 import { Code2, Plus } from "lucide-react";
 import ImageViewer from "./ImageViewer";
 import MarkdownViewer from "./MarkdownViewer";
@@ -25,6 +27,19 @@ export default function CodeEditor({ file }) {
   currentFileRef.current = currentFile;
 
   // Sync theme with data-theme on html or localStorage
+  const [editorSettings, setEditorSettings] = useState(() => {
+    return getEffectiveSettings()?.editor || DEFAULT_SETTINGS.editor;
+  });
+
+  useEffect(() => {
+    const handleSettingsChange = (e) => {
+      const eff = e.detail?.settings?.editor || getEffectiveSettings()?.editor;
+      if (eff) setEditorSettings(eff);
+    };
+    window.addEventListener("vocode-settings-changed", handleSettingsChange);
+    return () => window.removeEventListener("vocode-settings-changed", handleSettingsChange);
+  }, []);
+
   const [editorTheme, setEditorTheme] = useState(() => {
     return localStorage.getItem("vocode_theme") === "light" ? "light" : "vs-dark";
   });
@@ -130,15 +145,28 @@ export default function CodeEditor({ file }) {
         value={fileContents[currentFile] ?? ""}
         height="100%"
         options={{
-          fontSize: 14,
-          fontFamily: "'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace",
-          fontLigatures: true,
-          minimap: { enabled: true, renderCharacters: false, scale: 1 },
+          fontSize: editorSettings.fontSize || 14,
+          fontFamily: editorSettings.fontFamily || "'Fira Code', 'JetBrains Mono', Consolas, monospace",
+          lineHeight: editorSettings.lineHeight || 22,
+          fontLigatures: editorSettings.fontLigatures ?? true,
+          tabSize: editorSettings.tabSize || 2,
+          insertSpaces: editorSettings.insertSpaces ?? true,
+          wordWrap: editorSettings.wordWrap || "on",
+          minimap: {
+            enabled: editorSettings.minimap?.enabled ?? true,
+            renderCharacters: false,
+            scale: editorSettings.minimap?.scale || 1,
+          },
+          lineNumbers: editorSettings.lineNumbers || "on",
+          cursorStyle: editorSettings.cursorStyle || "line",
+          cursorBlinking: editorSettings.cursorBlinking || "smooth",
+          autoClosingBrackets: editorSettings.autoClosingBrackets ? "always" : "never",
+          autoClosingQuotes: editorSettings.autoClosingQuotes ? "always" : "never",
+          bracketPairColorization: { enabled: editorSettings.bracketPairColorization ?? true },
+          renderWhitespace: editorSettings.renderWhitespace || "selection",
+          smoothScrolling: editorSettings.smoothScrolling ?? true,
+          scrollBeyondLastLine: editorSettings.scrollBeyondLastLine ?? false,
           automaticLayout: true,
-          scrollBeyondLastLine: false,
-          smoothScrolling: true,
-          cursorBlinking: "smooth",
-          tabSize: 2,
           lineNumbersMinChars: 3,
           padding: { top: 12, bottom: 12 },
           renderLineHighlight: "all",

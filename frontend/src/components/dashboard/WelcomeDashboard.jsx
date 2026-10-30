@@ -1,5 +1,5 @@
 import React from "react";
-import { Folder, FileCode2, SquareTerminal } from "lucide-react";
+import { Folder, FileCode2, SquareTerminal, Settings } from "lucide-react";
 import "../../styles/welcomedashboard.css";
 
 export default function WelcomeDashboard({
@@ -7,6 +7,7 @@ export default function WelcomeDashboard({
   onOpenFolder,
   onNewFile,
   onOpenTerminal,
+  onOpenSettings,
 }) {
   return (
     <div className="welcome-dashboard-container">
@@ -131,6 +132,20 @@ export default function WelcomeDashboard({
             </span>
             <span className="welcome-btn-shortcut">Ctrl + `</span>
           </button>
+
+          {/* 4. Open Settings */}
+          {onOpenSettings && (
+            <button
+              className="welcome-btn welcome-btn-secondary"
+              onClick={onOpenSettings}
+            >
+              <span className="welcome-btn-left">
+                <Settings size={18} className="btn-icon" />
+                <span>Preferences & Settings</span>
+              </span>
+              <span className="welcome-btn-shortcut">Ctrl + ,</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

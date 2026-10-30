@@ -35,6 +35,7 @@ import {
 import ImportWorkspaceModal from "../components/dashboard/ImportWorkspaceModal";
 import UploadConfirmModal from "../components/dashboard/UploadConfirmModal";
 import ExportWorkspacesModal from "../components/dashboard/ExportWorkspacesModal";
+import SettingsView from "../components/settings/SettingsView";
 import "../styles/dashboard.css";
 
 export default function Dashboard() {
@@ -865,12 +866,14 @@ export default function Dashboard() {
       />
 
       {/* Main Content Area */}
-      <main className="dashboard-main">
+      <main className={`dashboard-main ${activeTab === "settings" ? "settings-active-main" : ""}`}>
+
         {/* Decorative Background Curves & Glow */}
         <DashboardBackground theme={theme} />
 
         {/* Top Toolbar */}
-        <DashboardHeader
+        {activeTab === "workspaces" && (
+          <DashboardHeader
           search={search}
           setSearch={setSearch}
           searchInputRef={searchInputRef}
@@ -888,7 +891,8 @@ export default function Dashboard() {
           createBtnRef={createBtnRef}
           setShowCreate={setShowCreate}
           createInputRef={createInputRef}
-        />
+          />
+        )}
 
         {/* WORKSPACES TAB VIEW */}
         {activeTab === "workspaces" && (
@@ -915,7 +919,14 @@ export default function Dashboard() {
         )}
 
         {/* PLACEHOLDER TAB VIEWS */}
-        {["templates", "terminal", "assistant", "settings"].includes(activeTab) && (
+        {activeTab === "settings" && (
+          <SettingsView
+            workspaceId={null}
+            onBack={() => setActiveTab("workspaces")}
+          />
+        )}
+
+        {["templates", "terminal", "assistant"].includes(activeTab) && (
           <DashboardPlaceholderTab
             activeTab={activeTab}
             onBack={() => setActiveTab("workspaces")}

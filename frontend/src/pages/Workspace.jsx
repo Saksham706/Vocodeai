@@ -15,6 +15,7 @@ import WorkspaceTerminalSection from "../components/terminal/WorkspaceTerminalSe
 import LivePreview from "../components/preview/LivePreview";
 import AIChat from "../components/ai/AIChat";
 import WelcomeDashboard from "../components/dashboard/WelcomeDashboard";
+import SettingsView from "../components/settings/SettingsView";
 
 import { AIProvider } from "../context/AIContext";
 import { X } from "lucide-react";
@@ -53,6 +54,22 @@ function WorkspaceLayout() {
 
   const location = useLocation();
   const navigate = useNavigate();
+  const { id: workspaceId } = useParams();
+
+  // Settings Panel State
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Ctrl+, keyboard shortcut to toggle Settings
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        setShowSettings((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // 1. Shared Theme State (Synced with localStorage & document attribute)
   const [theme, setTheme] = useState(() => {
@@ -338,8 +355,9 @@ function WorkspaceLayout() {
           setActiveTab={setActivityTab}
           isExplorerOpen={isExplorerOpen}
           toggleExplorer={toggleExplorer}
-          onOpenSettings={() => navigate("/dashboard")}
+          onOpenSettings={() => setShowSettings((prev) => !prev)}
           onRun={handleMainRun}
+          isSettingsOpen={showSettings}
         />
 
         {/* ===== LEFT PERSISTENT FILE EXPLORER ===== */}
@@ -356,7 +374,12 @@ function WorkspaceLayout() {
 
         {/* ===== CENTRAL COLUMN: CODE EDITOR / WELCOME DASHBOARD & INTEGRATED TERMINAL ===== */}
         <div className="ide-center">
-          {activeFile ? (
+          {showSettings ? (
+            <SettingsView
+              workspaceId={workspaceId || currentProject}
+              onBack={() => setShowSettings(false)}
+            />
+          ) : activeFile ? (
             <WorkspaceEditorSection
               activeFile={activeFile}
               isSplitEditor={isSplitEditor}
@@ -385,6 +408,7 @@ function WorkspaceLayout() {
                     setShowTerminal(true);
                   }
                 }}
+                onOpenSettings={() => setShowSettings(true)}
               />
             </div>
           )}

@@ -9,6 +9,7 @@ import ForgotPassword from "./auth/ForgotPassword";
 import ResetPassword from "./auth/ResetPassword";
 import OAuthSuccess from "./auth/OAuthSuccess";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import RobotMascot from "./components/mascot/RobotMascot";
 
 /* =========================
    PROTECTED ROUTE
@@ -45,6 +46,8 @@ export default function App() {
   return (
     <AuthProvider>
         <BrowserRouter>
+          {/* Global Draggable 3D AI Robot Mascot */}
+          <RobotMascot />
           <Routes>   {/* ✅ REQUIRED */}
 
             <Route path="/" element={<Landing />} />

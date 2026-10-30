@@ -3,6 +3,8 @@ import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import { useWorkspace } from "../../context/WorkspaceContext";
+import { getEffectiveSettings } from "../../utils/settingsStorage";
+import { DEFAULT_SETTINGS } from "../../config/defaultSettings";
 
 export default function TerminalPanel({ terminalId, theme = "dark" }) {
   const { socketRef } = useWorkspace();
@@ -13,6 +15,8 @@ export default function TerminalPanel({ terminalId, theme = "dark" }) {
 
     // Detect theme
     const isLight = theme === "light" || document.documentElement.getAttribute("data-theme") === "light";
+
+    const termSettings = getEffectiveSettings()?.["terminal.integrated"] || DEFAULT_SETTINGS["terminal.integrated"];
 
     const term = new Terminal({
       theme: isLight
@@ -46,10 +50,11 @@ export default function TerminalPanel({ terminalId, theme = "dark" }) {
             cyan: "#39c5cf",
             white: "#b1bac4",
           },
-      fontSize: 13,
-      fontFamily: "'Fira Code', Consolas, 'Courier New', monospace",
-      cursorBlink: true,
-      scrollback: 5000,
+      fontSize: termSettings.fontSize || 13,
+      fontFamily: termSettings.fontFamily || "'Fira Code', Consolas, 'Courier New', monospace",
+      cursorStyle: termSettings.cursorStyle || "block",
+      cursorBlink: termSettings.cursorBlink ?? true,
+      scrollback: termSettings.scrollback || 5000,
       convertEol: true,
     });
 

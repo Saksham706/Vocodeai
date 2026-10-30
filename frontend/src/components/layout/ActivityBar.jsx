@@ -16,6 +16,7 @@ export default function ActivityBar({
   toggleExplorer,
   onOpenSettings,
   onRun,
+  isSettingsOpen = false,
 }) {
   const handleItemClick = (id) => {
     if (id === "explorer") {
@@ -93,7 +94,7 @@ export default function ActivityBar({
       {/* Bottom pinned settings icon */}
       <div className="activity-bar-bottom">
         <button
-          className="activity-bar-btn"
+          className={`activity-bar-btn ${isSettingsOpen ? "active" : ""}`}
           onClick={onOpenSettings}
           title="Settings (Ctrl+,)"
           aria-label="Settings"
@@ -104,4 +105,3 @@ export default function ActivityBar({
     </div>
   );
 }
-

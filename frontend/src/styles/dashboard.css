@@ -67,8 +67,8 @@
    DASHBOARD ROOT LAYOUT (2-COLUMN FULL VIEWPORT)
    --------------------------------------------------------- */
 .dashboard-layout {
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   background-color: var(--bg-primary);
@@ -337,7 +337,17 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+}
+
+/* Zero padding and lock outer scroll when settings tab is active */
+.dashboard-main.settings-active-main {
+  padding: 0 !important;
+  overflow: hidden !important;
+  height: 100vh;
+  height: 100dvh;
 }
 
 /* ---------------------------------------------------------

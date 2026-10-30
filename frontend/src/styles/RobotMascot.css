@@ -1,0 +1,266 @@
+/* =========================================================
+   VOCODEAI - 3D DRAGGABLE ROBOT MASCOT
+   Persistent Interactive Companion
+   ========================================================= */
+
+.robot-mascot-wrapper {
+  position: fixed;
+  z-index: 99999;
+  width: 96px;
+  height: 96px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  touch-action: none;
+  cursor: grab;
+  perspective: 700px;
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.45));
+  transition: transform 0.15s ease-out;
+}
+
+.robot-mascot-wrapper.is-dragging {
+  cursor: grabbing !important;
+  transition: none !important;
+  filter: drop-shadow(0 16px 32px rgba(67, 230, 92, 0.35)) drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
+  transform: scale(1.08) !important;
+}
+
+/* Outer bobbing float animation */
+.robot-mascot-bobber {
+  width: 100%;
+  height: 100%;
+  animation: mascotFloat 4s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.robot-mascot-wrapper.is-dragging .robot-mascot-bobber {
+  animation-play-state: paused;
+}
+
+/* 3D tilt container */
+.robot-mascot-card {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Glowing Neon Halo / Base Aura */
+.robot-mascot-aura {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 82px;
+  height: 82px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(67, 230, 92, 0.22) 0%, rgba(255, 155, 61, 0.14) 45%, transparent 72%);
+  filter: blur(8px);
+  pointer-events: none;
+  z-index: 1;
+  animation: mascotAuraPulse 3.5s ease-in-out infinite alternate;
+}
+
+/* Main 3D Robot Image */
+.robot-mascot-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+/* ---------------------------------------------------------
+   INTERACTIVE EYE TRACKING OVERLAYS
+   --------------------------------------------------------- */
+.robot-eyes-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Green Eye (Viewer's left: robot's right eye) */
+.robot-eye-socket-green {
+  position: absolute;
+  top: 40.5%;
+  left: 41%;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.robot-pupil-green {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #E6FFFA 0%, #34D399 45%, #059669 100%);
+  box-shadow: 0 0 8px #43E65C, 0 0 14px rgba(67, 230, 92, 0.9);
+  transition: transform 0.08s ease-out;
+}
+
+/* Golden Eye (Viewer's right: robot's left eye) */
+.robot-eye-socket-gold {
+  position: absolute;
+  top: 41%;
+  left: 63.5%;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.robot-pupil-gold {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #FFFBEB 0%, #FBBF24 45%, #D97706 100%);
+  box-shadow: 0 0 8px #FFB84D, 0 0 14px rgba(255, 155, 61, 0.9);
+  transition: transform 0.08s ease-out;
+}
+
+/* Natural Blinking Animation */
+.robot-eyes-layer.is-blinking .robot-pupil-green,
+.robot-eyes-layer.is-blinking .robot-pupil-gold {
+  transform: scaleY(0.08) !important;
+  opacity: 0.15;
+  transition: transform 0.08s ease-in, opacity 0.08s ease-in;
+}
+
+/* ---------------------------------------------------------
+   INTERACTIVE SPEECH BUBBLE TOOLTIP
+   --------------------------------------------------------- */
+.robot-mascot-speech {
+  position: absolute;
+  bottom: 105%;
+  right: -10px;
+  background: rgba(6, 23, 16, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(67, 230, 92, 0.35);
+  border-radius: 12px;
+  padding: 8px 12px;
+  min-width: 170px;
+  max-width: 220px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4), 0 0 15px rgba(67, 230, 92, 0.15);
+  pointer-events: none;
+  animation: speechBubblePop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  z-index: 10;
+}
+
+.robot-mascot-speech::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  right: 28px;
+  width: 10px;
+  height: 10px;
+  background: rgba(6, 23, 16, 0.92);
+  border-right: 1px solid rgba(67, 230, 92, 0.35);
+  border-bottom: 1px solid rgba(67, 230, 92, 0.35);
+  transform: rotate(45deg);
+}
+
+.robot-speech-text {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 550;
+  color: #F3F8F4;
+  line-height: 1.35;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.robot-speech-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #43E65C;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+  display: block;
+}
+
+/* ---------------------------------------------------------
+   KEYFRAME ANIMATIONS
+   --------------------------------------------------------- */
+@keyframes mascotFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(1.2deg);
+  }
+}
+
+@keyframes mascotAuraPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.12);
+    opacity: 0.95;
+  }
+}
+
+@keyframes speechBubblePop {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ---------------------------------------------------------
+   RESPONSIVE DESIGN (MOBILE SCALING)
+   --------------------------------------------------------- */
+@media (max-width: 768px) {
+  .robot-mascot-wrapper {
+    width: 72px;
+    height: 72px;
+  }
+
+  .robot-mascot-aura {
+    width: 64px;
+    height: 64px;
+  }
+
+  .robot-eye-socket-green,
+  .robot-eye-socket-gold {
+    width: 10px;
+    height: 10px;
+  }
+
+  .robot-pupil-green,
+  .robot-pupil-gold {
+    width: 5px;
+    height: 5px;
+  }
+
+  .robot-mascot-speech {
+    min-width: 140px;
+    font-size: 0.72rem;
+  }
+}
+
