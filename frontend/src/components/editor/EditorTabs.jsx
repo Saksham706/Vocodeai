@@ -2,20 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { getFileIcon } from "../../utils/getFileIcon";
 import { LANGUAGE_META } from "../../config/languages";
-import { Plus, X, Columns2, MoreVertical, ChevronDown, Check } from "lucide-react";
+import { Plus, X, Columns2, MoreVertical } from "lucide-react";
 import "../../styles/editor.css";
-
-const AVAILABLE_LANGUAGES = [
-  { ext: "cpp", label: "C++" },
-  { ext: "c", label: "C" },
-  { ext: "py", label: "Python" },
-  { ext: "js", label: "JavaScript" },
-  { ext: "ts", label: "TypeScript" },
-  { ext: "html", label: "HTML" },
-  { ext: "css", label: "CSS" },
-  { ext: "java", label: "Java" },
-  { ext: "json", label: "JSON" },
-];
 
 export default function EditorTabs() {
   const {
@@ -25,18 +13,15 @@ export default function EditorTabs() {
     closeTab,
     dirtyFiles,
     setCreateRequest,
+    isSplitEditor,
+    toggleSplitEditor,
   } = useWorkspace();
 
-  const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
-  const langMenuRef = useRef(null);
   const optionsMenuRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (langMenuRef.current && !langMenuRef.current.contains(e.target)) {
-        setLangMenuOpen(false);
-      }
       if (optionsMenuRef.current && !optionsMenuRef.current.contains(e.target)) {
         setOptionsMenuOpen(false);
       }
@@ -99,39 +84,21 @@ export default function EditorTabs() {
         </button>
       </div>
 
-      {/* RIGHT: CONTROLS (LANGUAGE SELECTOR, SPLIT, MORE) */}
+      {/* RIGHT: CONTROLS (LANGUAGE INDICATOR, SPLIT, MORE) */}
       <div className="ide-tabs-controls">
-        {/* Language Selector */}
-        <div className="tab-control-dropdown-wrap" ref={langMenuRef}>
-          <button
-            className="tab-lang-btn"
-            onClick={() => setLangMenuOpen((prev) => !prev)}
-            title="Select Language Mode"
-          >
-            <span>{currentLangLabel}</span>
-            <ChevronDown size={13} />
-          </button>
-
-          {langMenuOpen && (
-            <div className="tab-dropdown-menu">
-              {AVAILABLE_LANGUAGES.map((lang) => (
-                <div
-                  key={lang.ext}
-                  className={`tab-dropdown-item ${
-                    lang.label === currentLangLabel ? "active" : ""
-                  }`}
-                  onClick={() => setLangMenuOpen(false)}
-                >
-                  <span>{lang.label}</span>
-                  {lang.label === currentLangLabel && <Check size={12} />}
-                </div>
-              ))}
-            </div>
-          )}
+        {/* Language Indicator Badge (No dropdown) */}
+        <div className="tab-lang-badge" title={`Language: ${currentLangLabel}`}>
+          <span>{currentLangLabel}</span>
         </div>
 
         {/* Split Editor Toggle */}
-        <button className="tab-icon-btn" title="Split Editor Right">
+        <button
+          type="button"
+          className={`tab-icon-btn ${isSplitEditor ? "active" : ""}`}
+          onClick={() => toggleSplitEditor()}
+          title={isSplitEditor ? "Unsplit Editor" : "Split Editor Right"}
+          aria-label={isSplitEditor ? "Unsplit Editor" : "Split Editor Right"}
+        >
           <Columns2 size={15} />
         </button>
 

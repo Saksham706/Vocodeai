@@ -3,6 +3,7 @@ import path from "path";
 import { auth } from "../middleware/auth.js";
 import { codeQueue } from "../queue/codeQueue.js";
 import { execInWorkspace } from "../sandbox/execService.js";
+import { getWorkspacesRoot } from "../config/paths.js";
 
 const router = express.Router();
 
@@ -17,8 +18,7 @@ router.post("/", auth, async (req, res) => {
     }
 
     const workspacePath = path.join(
-      process.cwd(),
-      process.env.WORKSPACES_ROOT || "workspaces",
+      getWorkspacesRoot(),
       req.user.id,
       workspaceId
     );

@@ -1,11 +1,11 @@
 import fs from "fs/promises";
 import path from "path";
 import FileNode from "../models/FileNode.js";
+import { getWorkspacesRoot } from "../config/paths.js";
 
 export async function hydrateWorkspace(userId, workspaceId) {
   const workspacePath = path.join(
-    process.cwd(),
-    process.env.WORKSPACES_ROOT || "workspaces",
+    getWorkspacesRoot(),
     userId,
     workspaceId
   );

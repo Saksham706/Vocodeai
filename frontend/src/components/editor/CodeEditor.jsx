@@ -5,9 +5,13 @@ import { LANGUAGE_META } from "../../config/languages";
 import { Code2, Plus } from "lucide-react";
 import "../../styles/editor.css";
 
-export default function CodeEditor() {
-  const { activeFile, fileContents, updateContent, setCreateRequest } = useWorkspace();
+export default function CodeEditor({ file }) {
+  const { activeFile, fileContents, updateContent, setCreateRequest, refreshPreview } = useWorkspace();
   const editorRef = useRef(null);
+
+  const currentFile = file || activeFile;
+  const currentFileRef = useRef(currentFile);
+  currentFileRef.current = currentFile;
 
   // Sync theme with data-theme on html or localStorage
   const [editorTheme, setEditorTheme] = useState(() => {
@@ -36,7 +40,7 @@ export default function CodeEditor() {
     };
   }, []);
 
-  if (!activeFile) {
+  if (!currentFile) {
     return (
       <div className="editor-empty-state">
         <div className="empty-content-box">
@@ -55,29 +59,29 @@ export default function CodeEditor() {
     );
   }
 
-  const content = fileContents[activeFile];
+  const content = fileContents[currentFile];
   if (content === undefined) {
     return (
       <div className="editor-empty-state">
         <div className="empty-content-box">
           <div className="editor-spinner" />
-          <h3>Loading {activeFile}...</h3>
+          <h3>Loading {currentFile}...</h3>
         </div>
       </div>
     );
   }
 
-  const ext = activeFile.split(".").pop()?.toLowerCase();
+  const ext = currentFile.split(".").pop()?.toLowerCase();
   const meta = ext ? LANGUAGE_META[ext] || {} : {};
 
   return (
     <div className="ide-monaco-wrapper">
       <Editor
         theme={editorTheme}
-        path={activeFile}
+        path={currentFile}
         defaultLanguage={meta.monaco || "plaintext"}
         language={meta.monaco || "plaintext"}
-        value={fileContents[activeFile] ?? ""}
+        value={fileContents[currentFile] ?? ""}
         height="100%"
         options={{
           fontSize: 14,
@@ -93,11 +97,30 @@ export default function CodeEditor() {
           padding: { top: 12, bottom: 12 },
           renderLineHighlight: "all",
         }}
-        onMount={(editor) => {
+        onMount={(editor, monaco) => {
           editorRef.current = editor;
+
+          // Add "Live Preview" action to right-click context menu
+          if (monaco) {
+            editor.addAction({
+              id: "vocode-live-preview",
+              label: "Live Preview (Open in Browser)",
+              keybindings: [
+                monaco.KeyMod.Alt | monaco.KeyCode.KeyP, // Alt + P
+              ],
+              contextMenuGroupId: "navigation",
+              contextMenuOrder: 1.2,
+              run: () => {
+                const target = currentFileRef.current;
+                if (target) {
+                  refreshPreview(true, target);
+                }
+              },
+            });
+          }
         }}
         onChange={(value) => {
-          updateContent(activeFile, value ?? "");
+          updateContent(currentFile, value ?? "");
         }}
       />
     </div>

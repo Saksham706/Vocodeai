@@ -107,10 +107,58 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/ai", aiRoutes);
 
 /* ================= STATIC WORKSPACE PREVIEW ================= */
-const workspacesDir = path.join(
-  process.cwd(),
-  process.env.WORKSPACES_ROOT || "workspaces"
-);
+import fs from "fs";
+import FileNode from "./models/FileNode.js";
+import { getWorkspacesRoot } from "./config/paths.js";
+const workspacesDir = getWorkspacesRoot();
+
+// Remove strict CSP and X-Frame-Options for user HTML preview
+app.use("/preview", (req, res, next) => {
+  res.removeHeader("Content-Security-Policy");
+  res.removeHeader("X-Frame-Options");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  next();
+});
+
+// Serve live workspace files from MongoDB FileNode (or disk fallback)
+app.use("/preview/:userId/:workspaceId", async (req, res, next) => {
+  try {
+    const { userId, workspaceId } = req.params;
+    const rawPath = req.path ? req.path.replace(/^[\\\/]+/, "") : "index.html";
+    const cleanPath = decodeURIComponent(rawPath) || "index.html";
+
+    // 1. Try serving from MongoDB FileNode (has latest saved code)
+    const node = await FileNode.findOne({
+      workspaceId,
+      path: cleanPath,
+    }).lean();
+
+    if (node && node.content !== undefined) {
+      if (cleanPath.endsWith(".html") || cleanPath.endsWith(".htm")) {
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+      } else if (cleanPath.endsWith(".css")) {
+        res.setHeader("Content-Type", "text/css; charset=utf-8");
+      } else if (cleanPath.endsWith(".js")) {
+        res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+      } else if (cleanPath.endsWith(".json")) {
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+      } else if (cleanPath.endsWith(".svg")) {
+        res.setHeader("Content-Type", "image/svg+xml");
+      }
+      return res.send(node.content);
+    }
+
+    // 2. Fall back to static file on disk
+    const diskPath = path.join(workspacesDir, String(userId), String(workspaceId), cleanPath);
+    if (fs.existsSync(diskPath) && fs.statSync(diskPath).isFile()) {
+      return res.sendFile(diskPath);
+    }
+
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 app.use(
   "/preview",

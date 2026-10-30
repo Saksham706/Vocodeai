@@ -51,11 +51,12 @@ export function isIgnoredFile(relativePath) {
   return false;
 }
 
+import { getWorkspacesRoot } from "../config/paths.js";
+
 export async function syncWorkspaceToDB(userId, workspaceId) {
   try {
     const workspacePath = path.join(
-      process.cwd(),
-      process.env.WORKSPACES_ROOT || "workspaces",
+      getWorkspacesRoot(),
       userId,
       workspaceId
     );

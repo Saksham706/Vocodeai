@@ -17,17 +17,6 @@ import {
 } from "lucide-react";
 
 export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
-  const [open, setOpen] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [tempName, setTempName] = useState(node.name);
-  const [creating, setCreating] = useState(null); // 'file' | 'folder'
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  const inputRef = useRef(null);
-  const menuRef = useRef(null);
-  const deleteModalRef = useRef(null);
-
   const {
     openFile,
     addFile,
@@ -40,12 +29,58 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
     setCreateRequest,
     selectedTarget,
     setSelectedTarget,
+    currentProject,
+    currentWorkspace,
   } = useWorkspace();
-
-  if (node.name === ".workspace.json") return null;
 
   const currentPath = path ? `${path}/${node.name}` : node.name;
   const isFile = node.type === "file";
+  const wsKey = currentProject || currentWorkspace?._id || "ws";
+  const folderKey = `vocode_folder_open_${wsKey}_${currentPath}`;
+
+  const [open, setOpen] = useState(() => {
+    if (isFile) return false;
+    try {
+      const stored = localStorage.getItem(folderKey);
+      return stored !== null ? JSON.parse(stored) : true;
+    } catch {
+      return true;
+    }
+  });
+  const [editing, setEditing] = useState(false);
+  const [tempName, setTempName] = useState(node.name);
+  const [creating, setCreating] = useState(null); // 'file' | 'folder'
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const inputRef = useRef(null);
+  const menuRef = useRef(null);
+  const deleteModalRef = useRef(null);
+  const isSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    setTempName(node.name);
+  }, [node.name]);
+
+  const toggleFolder = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(folderKey, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const openFolder = () => {
+    setOpen(true);
+    try {
+      localStorage.setItem(folderKey, JSON.stringify(true));
+    } catch {}
+  };
+
+  if (node.name === ".workspace.json") return null;
+
   const isActiveFile = isFile && activeFile === currentPath;
   const isSelectedFolder = !isFile && selectedTarget?.path === currentPath;
   const isDirty = dirtyFiles.has(currentPath);
@@ -54,26 +89,35 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
   useEffect(() => {
     if (collapseSignal > 0 && !isFile) {
       setOpen(false);
+      try {
+        localStorage.setItem(folderKey, JSON.stringify(false));
+      } catch {}
     }
-  }, [collapseSignal, isFile]);
+  }, [collapseSignal, isFile, folderKey]);
 
-  // Focus rename or inline creation inputs
+  // Focus rename once when entering editing mode (never re-select while typing)
   useEffect(() => {
-    if ((editing || creating) && inputRef.current) {
+    if (editing && inputRef.current) {
       inputRef.current.focus();
-      if (editing && isFile) {
-        // Select basename excluding extension for smooth VS Code-style rename
-        const dotIndex = tempName.lastIndexOf(".");
+      if (isFile) {
+        const dotIndex = node.name.lastIndexOf(".");
         if (dotIndex > 0) {
           inputRef.current.setSelectionRange(0, dotIndex);
         } else {
           inputRef.current.select();
         }
-      } else if (editing) {
+      } else {
         inputRef.current.select();
       }
     }
-  }, [editing, creating, isFile, tempName]);
+  }, [editing, isFile, node.name]);
+
+  // Focus when inline creation activates
+  useEffect(() => {
+    if (creating && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [creating]);
 
   // Close context menu on outside click
   useEffect(() => {
@@ -90,9 +134,19 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
   }, []);
 
   const submitRename = async () => {
+    if (isSubmittingRef.current) return;
     const trimmed = tempName.trim();
     if (trimmed && trimmed !== node.name) {
-      await renameNode(currentPath, trimmed);
+      isSubmittingRef.current = true;
+      try {
+        await renameNode(currentPath, trimmed);
+      } catch (err) {
+        console.error("Rename submission error:", err);
+      } finally {
+        isSubmittingRef.current = false;
+      }
+    } else {
+      setTempName(node.name);
     }
     setEditing(false);
   };
@@ -138,7 +192,7 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
           className={`tree-row folder ${isSelectedFolder ? "selected" : ""}`}
           onClick={() => {
             setSelectedTarget({ path: currentPath, type: "folder" });
-            if (!editing) setOpen((prev) => !prev);
+            if (!editing) toggleFolder();
           }}
           onContextMenu={(e) => {
             e.preventDefault();
@@ -152,7 +206,7 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
               className="arrow-col"
               onClick={(e) => {
                 e.stopPropagation();
-                setOpen((prev) => !prev);
+                toggleFolder();
               }}
             >
               {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -170,10 +224,17 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
                 onChange={(e) => setTempName(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") submitRename();
-                  if (e.key === "Escape") cancelRename();
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    submitRename();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    cancelRename();
+                  }
                 }}
-                onBlur={cancelRename}
+                onBlur={submitRename}
               />
             ) : (
               <span className="folder-name-label">{node.name}</span>
@@ -205,7 +266,7 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
                   className="context-menu-item"
                   onClick={() => {
                     setMenuOpen(false);
-                    setOpen(true);
+                    openFolder();
                     setCreating("file");
                   }}
                 >
@@ -216,7 +277,7 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
                   className="context-menu-item"
                   onClick={() => {
                     setMenuOpen(false);
-                    setOpen(true);
+                    openFolder();
                     setCreating("folder");
                   }}
                 >
@@ -227,12 +288,12 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
                   className="context-menu-item"
                   onClick={() => {
                     setMenuOpen(false);
+                    setTempName(node.name);
                     setEditing(true);
                   }}
                 >
                   <Pencil size={13} />
                   <span>Rename</span>
-                  <span className="shortcut-hint">F2</span>
                 </div>
                 <div
                   className="context-menu-item"
@@ -264,19 +325,32 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
               ref={deleteModalRef}
               onClick={(e) => e.stopPropagation()}
             >
-              <h4>Delete Folder?</h4>
+              <div className="delete-modal-header">
+                <div className="delete-modal-icon-wrap">
+                  <Trash2 size={16} color="#EF4444" />
+                </div>
+                <h4>Delete Folder</h4>
+              </div>
               <p>
-                Are you sure you want to delete <strong>{node.name}</strong> and all its contents? This cannot be undone.
+                Are you sure you want to delete <strong>{node.name}</strong> and all its contents?
               </p>
+              <span className="delete-modal-hint">
+                This item will be safely stored in the Recycle Bin. You can restore it anytime from the Dashboard.
+              </span>
               <div className="confirm-buttons">
                 <button
+                  type="button"
                   className="btn-cancel"
                   onClick={() => setShowDeleteConfirm(false)}
                 >
                   Cancel
                 </button>
-                <button className="btn-delete" onClick={handleDelete}>
-                  Delete
+                <button
+                  type="button"
+                  className="btn-delete"
+                  onClick={handleDelete}
+                >
+                  Move to Recycle Bin
                 </button>
               </div>
             </div>
@@ -304,7 +378,7 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
                     if (creating === "file") await addFile(currentPath, val);
                     else await addFolder(currentPath, val);
                     setCreating(null);
-                    setOpen(true);
+                    openFolder();
                   } else if (e.key === "Escape") {
                     setCreating(null);
                   }
@@ -336,7 +410,7 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
                     if (createRequest.type === "file") await addFile(currentPath, val);
                     else await addFolder(currentPath, val);
                     setCreateRequest(null);
-                    setOpen(true);
+                    openFolder();
                   } else if (e.key === "Escape") {
                     setCreateRequest(null);
                   }
@@ -398,10 +472,17 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
               onChange={(e) => setTempName(e.target.value)}
               onClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => {
-                if (e.key === "Enter") submitRename();
-                if (e.key === "Escape") cancelRename();
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  submitRename();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  cancelRename();
+                }
               }}
-              onBlur={cancelRename}
+              onBlur={submitRename}
             />
           ) : (
             <span className="file-name-label">
@@ -439,18 +520,19 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
                   openFile(currentPath);
                 }}
               >
+                <FileCode2 size={14} />
                 <span>Open in Editor</span>
               </div>
               <div
                 className="context-menu-item"
                 onClick={() => {
                   setMenuOpen(false);
+                  setTempName(node.name);
                   setEditing(true);
                 }}
               >
-                <Pencil size={13} />
+                <Pencil size={14} />
                 <span>Rename</span>
-                <span className="shortcut-hint">F2</span>
               </div>
               <div
                 className="context-menu-item"
@@ -482,19 +564,32 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
             ref={deleteModalRef}
             onClick={(e) => e.stopPropagation()}
           >
-            <h4>Delete File?</h4>
+            <div className="delete-modal-header">
+              <div className="delete-modal-icon-wrap">
+                <Trash2 size={16} color="#EF4444" />
+              </div>
+              <h4>Delete File</h4>
+            </div>
             <p>
-              Are you sure you want to permanently delete <strong>{node.name}</strong>?
+              Are you sure you want to delete <strong>{node.name}</strong>?
             </p>
+            <span className="delete-modal-hint">
+              This file will be safely stored in the Recycle Bin. You can restore it anytime from the Dashboard.
+            </span>
             <div className="confirm-buttons">
               <button
+                type="button"
                 className="btn-cancel"
                 onClick={() => setShowDeleteConfirm(false)}
               >
                 Cancel
               </button>
-              <button className="btn-delete" onClick={handleDelete}>
-                Delete
+              <button
+                type="button"
+                className="btn-delete"
+                onClick={handleDelete}
+              >
+                Move to Recycle Bin
               </button>
             </div>
           </div>

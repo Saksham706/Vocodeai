@@ -117,17 +117,19 @@ export const getFileIcon = (name, type, open = false) => {
         <span
           className="lang-badge-icon cpp"
           style={{
-            background: "rgba(2, 132, 199, 0.18)",
-            color: "#0284C7",
+            background: "rgba(2, 132, 199, 0.22)",
+            color: "#38BDF8",
             fontWeight: 800,
-            fontSize: "10px",
+            fontSize: "9.5px",
             padding: "1px 5px",
             borderRadius: "4px",
-            border: "1px solid rgba(2, 132, 199, 0.35)",
-            letterSpacing: "0.2px",
+            border: "1px solid rgba(56, 189, 248, 0.4)",
+            letterSpacing: "0.4px",
             display: "inline-flex",
             alignItems: "center",
-            height: "16px",
+            height: "15px",
+            lineHeight: 1,
+            marginRight: "6px",
           }}
           title="C++ Source"
         >
@@ -140,16 +142,18 @@ export const getFileIcon = (name, type, open = false) => {
         <span
           className="lang-badge-icon c"
           style={{
-            background: "rgba(100, 116, 139, 0.18)",
-            color: "#64748B",
+            background: "rgba(100, 116, 139, 0.22)",
+            color: "#94A3B8",
             fontWeight: 800,
-            fontSize: "10px",
+            fontSize: "9.5px",
             padding: "1px 5px",
             borderRadius: "4px",
-            border: "1px solid rgba(100, 116, 139, 0.35)",
+            border: "1px solid rgba(148, 163, 184, 0.4)",
             display: "inline-flex",
             alignItems: "center",
-            height: "16px",
+            height: "15px",
+            lineHeight: 1,
+            marginRight: "6px",
           }}
           title="C Source"
         >

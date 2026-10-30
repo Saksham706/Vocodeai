@@ -25,20 +25,51 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
     loadWorkspace,
     addFile,
     addFolder,
+    currentProject,
+    currentWorkspace,
   } = useWorkspace();
 
-  const [rootOpen, setRootOpen] = useState(true);
+  const wsKey = currentProject || currentWorkspace?._id || workspaceTitle || "ws_root";
+
+  const [rootOpen, setRootOpen] = useState(() => {
+    try {
+      const stored = localStorage.getItem(`vocode_root_open_${wsKey}`);
+      return stored !== null ? JSON.parse(stored) : true;
+    } catch {
+      return true;
+    }
+  });
   const [rootMenuOpen, setRootMenuOpen] = useState(false);
   const [rootCreating, setRootCreating] = useState(null); // 'file' | 'folder'
   const rootMenuRef = useRef(null);
   const rootInputRef = useRef(null);
 
+  const toggleRootOpen = () => {
+    setRootOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(`vocode_root_open_${wsKey}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const openRoot = () => {
+    setRootOpen(true);
+    try {
+      localStorage.setItem(`vocode_root_open_${wsKey}`, JSON.stringify(true));
+    } catch {}
+  };
+
   // Collapse all when signal changes
   useEffect(() => {
     if (collapseSignal > 0) {
       setRootOpen(false);
+      try {
+        localStorage.setItem(`vocode_root_open_${wsKey}`, JSON.stringify(false));
+      } catch {}
     }
-  }, [collapseSignal]);
+  }, [collapseSignal, wsKey]);
 
   // Close root menu on outside click
   useEffect(() => {
@@ -67,7 +98,7 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
         await addFolder("", val);
       }
       setRootCreating(null);
-      setRootOpen(true);
+      openRoot();
     } else if (e.key === "Escape") {
       setRootCreating(null);
     }
@@ -82,7 +113,7 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
         className={`tree-row folder root-row ${isRootSelected ? "selected" : ""}`}
         onClick={() => {
           setSelectedTarget({ path: "", type: "folder" });
-          setRootOpen((prev) => !prev);
+          toggleRootOpen();
         }}
       >
         <div className="tree-left">
@@ -106,7 +137,7 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
             title="New File"
             onClick={(e) => {
               e.stopPropagation();
-              setRootOpen(true);
+              openRoot();
               setRootCreating("file");
             }}
           >
@@ -119,7 +150,7 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
             title="New Folder"
             onClick={(e) => {
               e.stopPropagation();
-              setRootOpen(true);
+              openRoot();
               setRootCreating("folder");
             }}
           >
@@ -156,7 +187,7 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
                 className="context-menu-item"
                 onClick={() => {
                   setRootMenuOpen(false);
-                  setRootOpen(true);
+                  openRoot();
                   setRootCreating("file");
                 }}
               >
@@ -167,7 +198,7 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
                 className="context-menu-item"
                 onClick={() => {
                   setRootMenuOpen(false);
-                  setRootOpen(true);
+                  openRoot();
                   setRootCreating("folder");
                 }}
               >

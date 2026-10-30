@@ -1,4 +1,6 @@
 import FileNode from "../models/FileNode.js";
+import RecycleBin from "../models/RecycleBin.js";
+import Workspace from "../models/Workspace.js";
 import * as fsService from "../services/fileService.js";
 
 /* ========== CREATE FILE / FOLDER ========== */
@@ -119,25 +121,182 @@ export async function renameNode(req, res) {
   }
 }
 
-/* ========== DELETE FILE / FOLDER ========== */
+/* ========== DELETE FILE / FOLDER (MOVES TO RECYCLE BIN) ========== */
 export async function deleteNode(req, res) {
   try {
     const { workspaceId, path } = req.body;
+    const userId = String(req.user.id || req.user._id);
+    const wsId = String(workspaceId);
 
     const clean = path.replace(/^[\\\/]+/, "");
     const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-    await FileNode.deleteMany({
-      workspaceId,
-      path: { $regex: `^${escaped}` },
+    // Fetch existing nodes matching exact path or directory contents
+    const targetNodes = await FileNode.find({
+      workspaceId: wsId,
+      path: { $regex: `^${escaped}(/|$)` },
+    }).lean();
+
+    const ws = await Workspace.findById(wsId).lean();
+    const wsName = ws?.name || "Workspace";
+
+    const name = clean.split("/").pop() || clean;
+    const primary = targetNodes.find((n) => n.path === clean) || targetNodes[0];
+    const isFolder = targetNodes.length > 1 || (targetNodes.length === 1 && targetNodes[0].type === "folder");
+
+    await RecycleBin.create({
+      userId,
+      workspaceId: wsId,
+      workspaceName: wsName,
+      name,
+      originalPath: clean,
+      type: primary?.type || (isFolder ? "folder" : "file"),
+      content: primary?.content || "",
+      items: targetNodes.map((n) => ({
+        path: n.path,
+        type: n.type,
+        content: n.content || "",
+      })),
+      deletedAt: new Date(),
     });
 
-    fsService.deleteNode(req.user.id, workspaceId, clean);
+    await FileNode.deleteMany({
+      workspaceId: wsId,
+      path: { $regex: `^${escaped}(/|$)` },
+    });
 
-    res.json({ success: true });
+    fsService.deleteNode(userId, wsId, clean);
+
+    res.json({ success: true, movedToRecycleBin: true });
   } catch (err) {
     console.error("DELETE NODE ERROR:", err);
     res.status(500).json({ error: "Delete failed: " + err.message });
+  }
+}
+
+/* ========== GET RECYCLE BIN ITEMS ========== */
+export async function getRecycleBin(req, res) {
+  try {
+    const userId = String(req.user.id || req.user._id);
+    const items = await RecycleBin.find({ userId }).sort({ deletedAt: -1 }).lean();
+    res.json(items);
+  } catch (err) {
+    console.error("GET RECYCLE BIN ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch recycle bin" });
+  }
+}
+
+/* ========== RESTORE RECYCLE BIN ITEM ========== */
+export async function restoreRecycleBinItem(req, res) {
+  try {
+    const { id } = req.params;
+    const userId = String(req.user.id || req.user._id);
+
+    const item = await RecycleBin.findOne({ _id: id, userId });
+    if (!item) {
+      return res.status(404).json({ error: "Item not found in recycle bin" });
+    }
+
+    const wsId = String(item.workspaceId);
+
+    // Helper: recreate parent directories in FileNode so the tree hierarchy stays intact
+    const ensureParents = async (targetPath) => {
+      const parts = targetPath.split("/").filter(Boolean);
+      let curr = "";
+      for (let i = 0; i < parts.length - 1; i++) {
+        curr = curr ? `${curr}/${parts[i]}` : parts[i];
+        await FileNode.findOneAndUpdate(
+          { workspaceId: wsId, path: curr },
+          { workspaceId: wsId, path: curr, type: "folder" },
+          { upsert: true }
+        );
+      }
+    };
+
+    // 1. Ensure parent folders exist
+    await ensureParents(item.originalPath);
+
+    // 2. Restore nodes to FileNode collection
+    if (item.type === "file") {
+      await FileNode.findOneAndUpdate(
+        { workspaceId: wsId, path: item.originalPath },
+        {
+          workspaceId: wsId,
+          path: item.originalPath,
+          type: "file",
+          content: item.content || "",
+        },
+        { upsert: true }
+      );
+    } else {
+      // Folder
+      await FileNode.findOneAndUpdate(
+        { workspaceId: wsId, path: item.originalPath },
+        {
+          workspaceId: wsId,
+          path: item.originalPath,
+          type: "folder",
+        },
+        { upsert: true }
+      );
+
+      if (Array.isArray(item.items)) {
+        for (const sub of item.items) {
+          await ensureParents(sub.path);
+          await FileNode.findOneAndUpdate(
+            { workspaceId: wsId, path: sub.path },
+            {
+              workspaceId: wsId,
+              path: sub.path,
+              type: sub.type,
+              content: sub.content || "",
+            },
+            { upsert: true }
+          );
+        }
+      }
+    }
+
+    // 3. Restore on disk at the exact original path
+    fsService.restoreNode(userId, wsId, item);
+
+    // 4. Remove from RecycleBin
+    await RecycleBin.deleteOne({ _id: id });
+
+    res.json({ success: true, restored: item.originalPath });
+  } catch (err) {
+    console.error("RESTORE ERROR:", err);
+    res.status(500).json({ error: "Failed to restore item: " + err.message });
+  }
+}
+
+/* ========== PERMANENTLY DELETE RECYCLE BIN ITEM ========== */
+export async function permanentlyDeleteRecycleBinItem(req, res) {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const deleted = await RecycleBin.findOneAndDelete({ _id: id, userId });
+    if (!deleted) {
+      return res.status(404).json({ error: "Item not found in recycle bin" });
+    }
+
+    res.json({ success: true, message: "Permanently deleted" });
+  } catch (err) {
+    console.error("PERMANENT DELETE ERROR:", err);
+    res.status(500).json({ error: "Failed to permanently delete item" });
+  }
+}
+
+/* ========== EMPTY RECYCLE BIN ========== */
+export async function emptyRecycleBin(req, res) {
+  try {
+    const userId = req.user.id;
+    await RecycleBin.deleteMany({ userId });
+    res.json({ success: true, message: "Recycle bin emptied" });
+  } catch (err) {
+    console.error("EMPTY RECYCLE BIN ERROR:", err);
+    res.status(500).json({ error: "Failed to empty recycle bin" });
   }
 }
 

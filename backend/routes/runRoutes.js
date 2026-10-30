@@ -4,6 +4,7 @@ import { auth } from "../middleware/auth.js";
 import { detectProject } from "../projects/projectDetector.js";
 import { codeQueue } from "../queue/codeQueue.js";
 import rateLimit from "express-rate-limit";
+import { getWorkspacesRoot } from "../config/paths.js";
 
 const runLimiter = rateLimit({
   windowMs: 5 * 1000,
@@ -35,8 +36,7 @@ router.post("/", runLimiter, auth, async (req, res) => {
     activeRuns.set(runKey, true);
 
     const workspacePath = path.join(
-      process.cwd(),
-      process.env.WORKSPACES_ROOT || "workspaces",
+      getWorkspacesRoot(),
       req.user.id,
       workspaceId
     );

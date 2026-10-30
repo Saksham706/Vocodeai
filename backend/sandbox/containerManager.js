@@ -26,7 +26,7 @@ chmod +x /usr/local/bin/cls
 cat << 'EOF' > /etc/vocode_bashrc
 alias cls='clear'
 alias ll='ls -la'
-PROMPT_COMMAND='PS1="\\[\\e[32m\\]\${TERM_USER:-user}@vocodeai\\[\\e[0m\\]:\\[\\e[34;1m\\]\${PWD/#\\/workspace/~\\/workspace}\\[\\e[0m\\]\\$ "'
+PROMPT_COMMAND='PS1="\\[\\e[32m\\]\${TERM_USER:-user}@vocodeai\\[\\e[0m\\]:\\[\\e[34;1m\\]\${PWD/#\\/workspace/~}\\[\\e[0m\\]\\$ "'
 EOF
 sed -i '/vocode/d' /etc/bash.bashrc 2>/dev/null || true
 sed -i '/vocode/d' /root/.bashrc 2>/dev/null || true

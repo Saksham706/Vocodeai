@@ -1,10 +1,6 @@
 import fs from "fs";
 import path from "path";
-
-const WORKSPACES_ROOT = path.join(
-  process.cwd(),
-  process.env.WORKSPACES_ROOT || "workspaces"
-);
+import { getWorkspacesRoot } from "../config/paths.js";
 
 /* ================= HELPERS ================= */
 
@@ -25,7 +21,9 @@ export function safeJoin(base, target) {
 }
 
 export function ensureWorkspace(userId, workspaceId) {
-  const wsPath = path.join(WORKSPACES_ROOT, userId, workspaceId);
+  const uId = String(userId || "");
+  const wId = String(workspaceId || "");
+  const wsPath = path.join(getWorkspacesRoot(), uId, wId);
   if (!fs.existsSync(wsPath)) {
     fs.mkdirSync(wsPath, { recursive: true });
   }
@@ -98,10 +96,38 @@ export function deleteNode(userId, workspaceId, relativePath) {
   }
 }
 
+/* ================= RESTORE ================= */
+
+export function restoreNode(userId, workspaceId, item) {
+  const wsPath = ensureWorkspace(userId, workspaceId);
+
+  if (item.type === "file") {
+    const fullPath = safeJoin(wsPath, item.originalPath);
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    fs.writeFileSync(fullPath, item.content || "");
+  } else if (item.type === "folder") {
+    const folderPath = safeJoin(wsPath, item.originalPath);
+    fs.mkdirSync(folderPath, { recursive: true });
+    if (Array.isArray(item.items)) {
+      for (const sub of item.items) {
+        const subPath = safeJoin(wsPath, sub.path);
+        if (sub.type === "folder") {
+          fs.mkdirSync(subPath, { recursive: true });
+        } else {
+          fs.mkdirSync(path.dirname(subPath), { recursive: true });
+          fs.writeFileSync(subPath, sub.content || "");
+        }
+      }
+    }
+  }
+}
+
 /* ================= DELETE WORKSPACE ================= */
 
 export function deleteWorkspace(userId, workspaceId) {
-  const wsPath = path.join(WORKSPACES_ROOT, userId, workspaceId);
+  const uId = String(userId || "");
+  const wId = String(workspaceId || "");
+  const wsPath = path.join(getWorkspacesRoot(), uId, wId);
 
   if (fs.existsSync(wsPath)) {
     fs.rmSync(wsPath, { recursive: true, force: true });

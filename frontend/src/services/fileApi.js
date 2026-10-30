@@ -154,3 +154,50 @@ export async function deleteNode(token, workspaceId, path) {
   }
   return res.json();
 }
+
+/* ================= RECYCLE BIN ================= */
+
+export async function getRecycleBin(token) {
+  const res = await fetch(`${BASE}/recycle-bin`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to load recycle bin");
+  }
+  return res.json();
+}
+
+export async function restoreRecycleBinItem(token, id) {
+  const res = await fetch(`${BASE}/recycle-bin/${id}/restore`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to restore item");
+  }
+  return res.json();
+}
+
+export async function permanentlyDeleteRecycleBinItem(token, id) {
+  const res = await fetch(`${BASE}/recycle-bin/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to delete item permanently");
+  }
+  return res.json();
+}
+
+export async function emptyRecycleBin(token) {
+  const res = await fetch(`${BASE}/recycle-bin`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to empty recycle bin");
+  }
+  return res.json();
+}

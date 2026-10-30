@@ -16,6 +16,7 @@ import {
   X,
   FilePlus2,
   FolderPlus,
+  Folder,
   PanelTop,
   WandSparkles,
   HelpCircle,
@@ -24,7 +25,6 @@ import {
   Paperclip,
   Image as ImageIcon,
   SendHorizontal,
-  Bot,
   Sparkles,
   User,
   Copy,
@@ -33,38 +33,83 @@ import {
   Plus,
   Clock,
   Trash2,
+  Maximize2,
+  Minimize2,
+  Upload,
+  Download,
+  Search,
+  ExternalLink,
 } from "lucide-react";
 import "../../styles/aichat.css";
 
 const AI_MODELS = ["GPT-4o", "Claude 3.5 Sonnet", "Gemini 1.5 Pro"];
 
-export default function AIChat({ workspaceId, onClose }) {
-  const { sendMessage, messages, loading } = useAI();
-  const { activeFile, openFile, tree } = useWorkspace();
+export default function AIChat({
+  workspaceId,
+  onClose,
+  isMaximized = false,
+  onToggleMaximize,
+}) {
+  const {
+    sendMessage,
+    messages,
+    loading,
+    sessions,
+    currentSessionId,
+    createNewSession,
+    loadSession,
+    deleteSession,
+    saveChatToFile,
+  } = useAI();
+
+  const { activeFile, openFile, tree, applyFileChange } = useWorkspace();
 
   const [activeTab, setActiveTab] = useState("chat");
   const [input, setInput] = useState("");
   const [selectedModel, setSelectedModel] = useState("GPT-4o");
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [filePickerOpen, setFilePickerOpen] = useState(false);
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState(null);
-  const [attachedFiles, setAttachedFiles] = useState([]);
+
+  // Attached items (files, folders, images)
+  const [attachments, setAttachments] = useState([]);
+  const [toastMessage, setToastMessage] = useState(null);
+  const [chatFileModal, setChatFileModal] = useState(null);
+  const [lightboxImage, setLightboxImage] = useState(null);
+  const [historySearch, setHistorySearch] = useState("");
 
   const modelMenuRef = useRef(null);
   const filePickerRef = useRef(null);
+  const folderPickerRef = useRef(null);
+  const attachMenuRef = useRef(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Hidden inputs for file/folder/image uploads
+  const localFileInputRef = useRef(null);
+  const localFolderInputRef = useRef(null);
+  const imageInputRef = useRef(null);
+
   const displayFile = activeFile ? activeFile.split("/").pop() : "No active file";
 
-  // Flatten workspace tree to get all available files for file picker
-  const allFiles = useMemo(() => {
-    const list = [];
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Flatten workspace tree to get all available files and folders
+  const { allWorkspaceFiles, allWorkspaceFolders } = useMemo(() => {
+    const files = [];
+    const folders = [];
     const traverse = (node, prefix = "") => {
       if (!node) return;
       const currentPath = prefix ? `${prefix}/${node.name}` : node.name;
       if (node.type === "file") {
-        list.push(currentPath);
+        files.push(currentPath);
+      } else if (node.type === "folder") {
+        folders.push(currentPath);
       }
       if (node.children?.length) {
         node.children.forEach((c) => traverse(c, currentPath));
@@ -73,7 +118,7 @@ export default function AIChat({ workspaceId, onClose }) {
     if (tree?.children?.length) {
       tree.children.forEach((c) => traverse(c, ""));
     }
-    return list;
+    return { allWorkspaceFiles: files, allWorkspaceFolders: folders };
   }, [tree]);
 
   const scrollToBottom = () => {
@@ -86,6 +131,7 @@ export default function AIChat({ workspaceId, onClose }) {
     }
   }, [messages, loading, activeTab]);
 
+  // Close popups on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (modelMenuRef.current && !modelMenuRef.current.contains(e.target)) {
@@ -94,23 +140,207 @@ export default function AIChat({ workspaceId, onClose }) {
       if (filePickerRef.current && !filePickerRef.current.contains(e.target)) {
         setFilePickerOpen(false);
       }
+      if (folderPickerRef.current && !folderPickerRef.current.contains(e.target)) {
+        setFolderPickerOpen(false);
+      }
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target)) {
+        setAttachMenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSend = (textToSend) => {
-    const query = typeof textToSend === "string" ? textToSend : input;
-    if (!query.trim() || loading) return;
+  /* ================= ATTACHMENT HANDLERS ================= */
 
-    // Attach active file or extra context if present
-    let finalQuery = query;
-    if (attachedFiles.length > 0) {
-      finalQuery += `\n[Context Files: ${attachedFiles.join(", ")}]`;
+  // Attach local files
+  const handleLocalFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach((file) => {
+      const isImg = file.type.startsWith("image/");
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        setAttachments((prev) => [
+          ...prev,
+          {
+            id: `file_${Date.now()}_${Math.random()}`,
+            type: isImg ? "image" : "file",
+            name: file.name,
+            size: file.size,
+            previewUrl: isImg ? evt.target.result : null,
+            content: !isImg && typeof evt.target.result === "string" ? evt.target.result.slice(0, 10000) : null,
+            source: "upload",
+          },
+        ]);
+      };
+      if (isImg) {
+        reader.readAsDataURL(file);
+      } else {
+        reader.readAsText(file);
+      }
+    });
+    setAttachMenuOpen(false);
+    e.target.value = "";
+  };
+
+  // Attach local folder
+  const handleLocalFolderSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      const folderPath = files[0].webkitRelativePath || files[0].name;
+      const folderName = folderPath.split("/")[0] || "Uploaded Folder";
+      setAttachments((prev) => [
+        ...prev,
+        {
+          id: `folder_${Date.now()}_${Math.random()}`,
+          type: "folder",
+          name: folderName,
+          fileCount: files.length,
+          source: "upload",
+        },
+      ]);
+      showToast(`Attached folder: ${folderName} (${files.length} files)`);
+    }
+    setAttachMenuOpen(false);
+    e.target.value = "";
+  };
+
+  // Attach image directly
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach((file) => {
+      if (!file.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        setAttachments((prev) => [
+          ...prev,
+          {
+            id: `img_${Date.now()}_${Math.random()}`,
+            type: "image",
+            name: file.name,
+            previewUrl: evt.target.result,
+            source: "upload",
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+    setAttachMenuOpen(false);
+    e.target.value = "";
+  };
+
+  // Attach workspace item (file or folder)
+  const attachWorkspaceItem = (path, type = "file") => {
+    if (attachments.some((a) => a.path === path)) return;
+    setAttachments((prev) => [
+      ...prev,
+      {
+        id: `ws_${path}`,
+        type,
+        name: path.split("/").pop() || path,
+        path,
+        source: "workspace",
+      },
+    ]);
+    setFilePickerOpen(false);
+    setFolderPickerOpen(false);
+    setAttachMenuOpen(false);
+  };
+
+  // Copy and Paste Handler (supports text, images from clipboard, and files)
+  const handlePaste = (e) => {
+    const clipboardData = e.clipboardData;
+    if (!clipboardData) return;
+
+    const items = clipboardData.items;
+    let hasMedia = false;
+
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+
+        // 1. Image paste (e.g. Snipping tool / screenshot / copied image)
+        if (item.type.startsWith("image/")) {
+          hasMedia = true;
+          const blob = item.getAsFile();
+          if (blob) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+              setAttachments((prev) => [
+                ...prev,
+                {
+                  id: `paste_img_${Date.now()}_${Math.random()}`,
+                  type: "image",
+                  name: `screenshot_${new Date().toLocaleTimeString().replace(/:/g, "-")}.png`,
+                  previewUrl: evt.target.result,
+                  source: "clipboard",
+                },
+              ]);
+              showToast("Pasted image attached! 🖼️");
+            };
+            reader.readAsDataURL(blob);
+          }
+        }
+        // 2. File paste
+        else if (item.kind === "file") {
+          hasMedia = true;
+          const file = item.getAsFile();
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+              setAttachments((prev) => [
+                ...prev,
+                {
+                  id: `paste_file_${Date.now()}_${Math.random()}`,
+                  type: "file",
+                  name: file.name,
+                  content: evt.target.result,
+                  source: "clipboard",
+                },
+              ]);
+              showToast(`Pasted file attached: ${file.name} 📄`);
+            };
+            reader.readAsText(file);
+          }
+        }
+      }
     }
 
-    sendMessage(finalQuery, workspaceId);
+    // If pasted pure media, prevent inserting binary/empty string
+    if (hasMedia && !clipboardData.getData("text/plain")) {
+      e.preventDefault();
+    }
+  };
+
+  const removeAttachment = (id) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  /* ================= SEND MESSAGE ================= */
+  const handleSend = (textToSend) => {
+    const query = typeof textToSend === "string" ? textToSend : input;
+    if ((!query.trim() && attachments.length === 0) || loading) return;
+
+    let finalQuery = query.trim();
+
+    // Append attachments summary to prompt context
+    if (attachments.length > 0) {
+      const summaryList = attachments
+        .map((a) => {
+          if (a.type === "image") return `[Attached Image: ${a.name}]`;
+          if (a.type === "folder") return `[Attached Folder: ${a.name}${a.path ? ` (${a.path})` : ""}]`;
+          return `[Attached File: ${a.name}${a.path ? ` (${a.path})` : ""}]`;
+        })
+        .join("\n");
+
+      finalQuery = finalQuery
+        ? `${finalQuery}\n\n---\nContext Attachments:\n${summaryList}`
+        : `Please inspect the attached items:\n${summaryList}`;
+    }
+
+    sendMessage(finalQuery, workspaceId, attachments);
     setInput("");
+    setAttachments([]);
     setActiveTab("chat");
   };
 
@@ -127,7 +357,21 @@ export default function AIChat({ workspaceId, onClose }) {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  // 6 AI Feature Cards matching Reference Image
+  // Open Chat File in modal and provide Save-to-Workspace
+  const handleViewChatFile = (session) => {
+    setChatFileModal(session);
+  };
+
+  const handleSaveChatFileToWorkspace = async (session) => {
+    const filePath = await saveChatToFile(session.id);
+    if (filePath) {
+      showToast(`Saved to workspace: ${filePath} 💾`);
+      openFile?.(filePath);
+      setChatFileModal(null);
+    }
+  };
+
+  // Feature Cards matching design
   const featureCards = [
     {
       id: "generate",
@@ -189,7 +433,7 @@ export default function AIChat({ workspaceId, onClose }) {
     },
   ];
 
-  // Quick Action pill buttons matching Reference Image
+  // Quick Action Buttons
   const quickActions = [
     {
       label: "Create File",
@@ -275,7 +519,6 @@ export default function AIChat({ workspaceId, onClose }) {
 
     const trimmed = content.trim();
 
-    // Check for JSON action response
     if (trimmed.startsWith("{") && trimmed.includes('"actions"')) {
       try {
         const parsed = JSON.parse(trimmed);
@@ -285,10 +528,9 @@ export default function AIChat({ workspaceId, onClose }) {
           (a) => a.action === "create_file" || a.action === "write_file"
         );
         if (file) return `✅ Created and updated ${file.path} with the requested code.`;
-      } catch { }
+      } catch {}
     }
 
-    // Parse code fences ```lang ... ```
     const codeFenceRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
     const parts = [];
     let lastIndex = 0;
@@ -354,8 +596,44 @@ export default function AIChat({ workspaceId, onClose }) {
     });
   };
 
+  // Filter sessions for History tab
+  const filteredSessions = useMemo(() => {
+    if (!historySearch.trim()) return sessions;
+    const q = historySearch.toLowerCase();
+    return sessions.filter((s) => s.title.toLowerCase().includes(q));
+  }, [sessions, historySearch]);
+
   return (
     <div className="ide-ai-panel">
+      {/* Hidden file input pickers */}
+      <input
+        ref={localFileInputRef}
+        type="file"
+        multiple
+        style={{ display: "none" }}
+        onChange={handleLocalFileSelect}
+      />
+      <input
+        ref={localFolderInputRef}
+        type="file"
+        webkitdirectory="true"
+        directory="true"
+        multiple
+        style={{ display: "none" }}
+        onChange={handleLocalFolderSelect}
+      />
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        style={{ display: "none" }}
+        onChange={handleImageSelect}
+      />
+
+      {/* Toast Notification */}
+      {toastMessage && <div className="ai-status-toast">{toastMessage}</div>}
+
       {/* ================= 1. ASSISTANT HEADER ================= */}
       <div className="ide-ai-header">
         <div className="ide-ai-brand">
@@ -397,6 +675,19 @@ export default function AIChat({ workspaceId, onClose }) {
               </div>
             )}
           </div>
+
+          {/* Expand / Decrease Width Button */}
+          {onToggleMaximize && (
+            <button
+              type="button"
+              className="ai-header-icon-btn"
+              onClick={onToggleMaximize}
+              title={isMaximized ? "Restore Width" : "Expand Assistant Width"}
+              aria-label={isMaximized ? "Restore Width" : "Expand Assistant Width"}
+            >
+              {isMaximized ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            </button>
+          )}
 
           {/* Close Panel Button */}
           {onClose && (
@@ -443,6 +734,7 @@ export default function AIChat({ workspaceId, onClose }) {
             onClick={() => setActiveTab("history")}
           >
             <span>History</span>
+            {sessions.length > 0 && <span className="ai-tab-badge">{sessions.length}</span>}
           </button>
         </div>
       </div>
@@ -454,7 +746,7 @@ export default function AIChat({ workspaceId, onClose }) {
           <>
             {messages.length === 0 ? (
               <>
-                {/* 1. Welcome Section with Robot Illustration */}
+                {/* 1. Welcome Section */}
                 <div className="ai-welcome-section">
                   <RobotIllustration size={76} />
                   <div className="ai-welcome-text-col">
@@ -468,7 +760,7 @@ export default function AIChat({ workspaceId, onClose }) {
                   </div>
                 </div>
 
-                {/* 2. Six AI Feature Cards (2-Column Grid) */}
+                {/* 2. Feature Cards */}
                 <div className="ai-features-grid">
                   {featureCards.map((card) => (
                     <div
@@ -531,12 +823,11 @@ export default function AIChat({ workspaceId, onClose }) {
                     </button>
 
                     {filePickerOpen && (
-                      <div className="ai-model-dropdown" style={{ minWidth: 180 }}>
-                        {allFiles.map((file) => (
+                      <div className="ai-model-dropdown" style={{ minWidth: 200, maxHeight: 220 }}>
+                        {allWorkspaceFiles.map((file) => (
                           <div
                             key={file}
-                            className={`ai-model-item ${file === activeFile ? "active" : ""
-                              }`}
+                            className={`ai-model-item ${file === activeFile ? "active" : ""}`}
                             onClick={() => {
                               openFile?.(file);
                               setFilePickerOpen(false);
@@ -557,12 +848,13 @@ export default function AIChat({ workspaceId, onClose }) {
                     type="button"
                     className="ai-import-btn"
                     onClick={() => {
-                      if (displayFile && !attachedFiles.includes(displayFile)) {
-                        setAttachedFiles((prev) => [...prev, displayFile]);
+                      if (activeFile) {
+                        attachWorkspaceItem(activeFile, "file");
+                      } else {
+                        setFilePickerOpen(true);
                       }
-                      setInput((prev) => `${prev} @${displayFile} `);
-                      inputRef.current?.focus();
                     }}
+                    title="Attach active file to context"
                   >
                     <Plus size={12} />
                     <span>Import File</span>
@@ -572,9 +864,9 @@ export default function AIChat({ workspaceId, onClose }) {
                     type="button"
                     className="ai-import-btn"
                     onClick={() => {
-                      setInput((prev) => `${prev} @workspace `);
-                      inputRef.current?.focus();
+                      setFolderPickerOpen(true);
                     }}
+                    title="Attach workspace folder"
                   >
                     <Plus size={12} />
                     <span>Import Folder</span>
@@ -604,11 +896,8 @@ export default function AIChat({ workspaceId, onClose }) {
                   <button
                     type="button"
                     className="ai-new-chat-btn"
-                    onClick={() => {
-                      // Reset to welcome screen
-                      window.location.reload();
-                    }}
-                    title="Return to feature cards"
+                    onClick={() => createNewSession()}
+                    title="Start fresh chat session"
                   >
                     <RotateCcw size={11} />
                     <span>New Chat</span>
@@ -625,6 +914,31 @@ export default function AIChat({ workspaceId, onClose }) {
                         {m.role === "user" ? "You" : "VocodeAI"}
                       </span>
                     </div>
+
+                    {/* Render message attachments if present */}
+                    {m.attachments && m.attachments.length > 0 && (
+                      <div className="bubble-attachments-grid">
+                        {m.attachments.map((att, aIdx) => (
+                          <div key={aIdx} className="bubble-att-chip">
+                            {att.type === "image" && att.previewUrl ? (
+                              <img
+                                src={att.previewUrl}
+                                alt={att.name}
+                                className="bubble-att-thumb"
+                                onClick={() => setLightboxImage(att.previewUrl)}
+                                title="Click to view full image"
+                              />
+                            ) : att.type === "folder" ? (
+                              <Folder size={12} color="#F59E0B" />
+                            ) : (
+                              <FileText size={12} color="#38BDF8" />
+                            )}
+                            <span className="bubble-att-name">{att.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     {renderFormattedMessage(m.content, i)}
                   </div>
                 ))}
@@ -693,22 +1007,26 @@ export default function AIChat({ workspaceId, onClose }) {
               </div>
             </div>
 
-            {attachedFiles.length > 0 && (
+            {attachments.length > 0 && (
               <div className="ai-context-group">
-                <span className="ai-current-file-label">Attached Files</span>
-                {attachedFiles.map((f, i) => (
-                  <div key={i} className="ai-context-item">
+                <span className="ai-current-file-label">Attached to Next Prompt</span>
+                {attachments.map((a) => (
+                  <div key={a.id} className="ai-context-item">
                     <div className="ai-context-item-left">
-                      <FileText size={14} />
-                      <span>{f}</span>
+                      {a.type === "image" ? (
+                        <ImageIcon size={14} color="#38BDF8" />
+                      ) : a.type === "folder" ? (
+                        <Folder size={14} color="#F59E0B" />
+                      ) : (
+                        <FileText size={14} color="#10B981" />
+                      )}
+                      <span>{a.name}</span>
                     </div>
                     <button
                       type="button"
                       className="ai-remove-context-btn"
-                      onClick={() =>
-                        setAttachedFiles((prev) => prev.filter((item) => item !== f))
-                      }
-                      title="Remove from context"
+                      onClick={() => removeAttachment(a.id)}
+                      title="Remove attachment"
                     >
                       <Trash2 size={12} />
                     </button>
@@ -730,32 +1048,111 @@ export default function AIChat({ workspaceId, onClose }) {
           </div>
         )}
 
-        {/* ============ TAB: HISTORY ============ */}
+        {/* ============ TAB: HISTORY (ChatGPT Style Session Threads) ============ */}
         {activeTab === "history" && (
           <div className="ai-history-container">
-            <h5 className="ai-section-title">Recent Sessions</h5>
-            {messages.length > 0 ? (
-              <div
-                className="ai-tool-item-card"
-                style={{ cursor: "pointer" }}
-                onClick={() => setActiveTab("chat")}
+            <div className="ai-history-top-bar">
+              <div className="ai-history-search-wrap">
+                <Search size={13} className="ai-history-search-icon" />
+                <input
+                  type="text"
+                  className="ai-history-search-input"
+                  placeholder="Search chat history..."
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                />
+              </div>
+
+              <button
+                type="button"
+                className="ai-history-new-btn"
+                onClick={() => {
+                  createNewSession();
+                  setActiveTab("chat");
+                }}
+                title="Start a fresh conversation"
               >
-                <div className="ai-tool-left">
-                  <Clock size={16} color="#FF8B32" />
-                  <div>
-                    <h6 className="ai-tool-name">Pair Programming Session</h6>
-                    <p className="ai-tool-desc">{messages.length} messages exchanged</p>
-                  </div>
-                </div>
-                <ChevronRight size={13} color="#94A3B8" />
+                <Plus size={13} />
+                <span>New Chat</span>
+              </button>
+            </div>
+
+            {filteredSessions.length > 0 ? (
+              <div className="ai-sessions-list">
+                {filteredSessions.map((sess) => {
+                  const isActive = sess.id === currentSessionId;
+                  const dateLabel = new Date(sess.createdAt).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  const count = sess.messages?.length || 0;
+
+                  return (
+                    <div
+                      key={sess.id}
+                      className={`ai-session-card ${isActive ? "active-session" : ""}`}
+                    >
+                      <div
+                        className="ai-session-click-area"
+                        onClick={() => {
+                          loadSession(sess.id);
+                          setActiveTab("chat");
+                        }}
+                        title="Click to open this conversation"
+                      >
+                        <div className="ai-session-left-meta">
+                          <Clock size={14} className="ai-session-clock-icon" />
+                          <div className="ai-session-text">
+                            <h6 className="ai-session-title">{sess.title}</h6>
+                            <div className="ai-session-sub">
+                              <span>{dateLabel}</span>
+                              <span className="dot-sep">•</span>
+                              <span>{count} msgs</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right action buttons: Chat File + Delete */}
+                      <div className="ai-session-actions">
+                        <button
+                          type="button"
+                          className="ai-session-action-btn file-btn"
+                          title="View / Save as Chat File"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewChatFile(sess);
+                          }}
+                        >
+                          <FileCode2 size={13} />
+                          <span>Chat File</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ai-session-action-btn delete-btn"
+                          title="Delete conversation"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSession(sess.id);
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="ai-history-empty">
                 <Clock size={32} className="ai-history-icon" />
-                <p className="ai-history-msg">No conversation history yet</p>
+                <p className="ai-history-msg">No conversation history found</p>
                 <p className="ai-history-sub">
-                  Start interacting with VocodeAI in the Chat tab to see your saved
-                  sessions here.
+                  Start interacting with VocodeAI in the Chat tab or click "New Chat" to
+                  start a conversation.
                 </p>
               </div>
             )}
@@ -763,27 +1160,145 @@ export default function AIChat({ workspaceId, onClose }) {
         )}
       </div>
 
-      {/* ================= 4. FIXED BOTTOM CHAT INPUT ================= */}
+      {/* ================= 4. ATTACHMENT CHIPS PREVIEW (ABOVE INPUT) ================= */}
+      {attachments.length > 0 && (
+        <div className="ai-attachments-tray">
+          <div className="ai-att-tray-header">
+            <span className="ai-att-tray-title">Attached Context ({attachments.length})</span>
+            <button
+              type="button"
+              className="ai-att-clear-btn"
+              onClick={() => setAttachments([])}
+              title="Clear all attachments"
+            >
+              Clear All
+            </button>
+          </div>
+          <div className="ai-att-chips-row">
+            {attachments.map((att) => (
+              <div key={att.id} className="ai-att-preview-chip">
+                {att.type === "image" && att.previewUrl ? (
+                  <img src={att.previewUrl} alt={att.name} className="ai-att-chip-img" />
+                ) : att.type === "folder" ? (
+                  <Folder size={13} color="#F59E0B" />
+                ) : (
+                  <FileText size={13} color="#38BDF8" />
+                )}
+                <span className="ai-att-chip-label" title={att.name}>
+                  {att.name}
+                </span>
+                <button
+                  type="button"
+                  className="ai-att-chip-remove"
+                  onClick={() => removeAttachment(att.id)}
+                  title="Remove"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ================= 5. FIXED BOTTOM CHAT INPUT ================= */}
       <div className="ai-bottom-fixed-area">
+        {/* Dropdown for folder picking */}
+        {folderPickerOpen && (
+          <div className="ai-workspace-picker-popover" ref={folderPickerRef}>
+            <div className="ai-picker-popover-header">
+              <span>Select Workspace Folder</span>
+              <button onClick={() => setFolderPickerOpen(false)}>
+                <X size={12} />
+              </button>
+            </div>
+            <div className="ai-picker-popover-list">
+              {allWorkspaceFolders.map((fld) => (
+                <div
+                  key={fld}
+                  className="ai-picker-item"
+                  onClick={() => attachWorkspaceItem(fld, "folder")}
+                >
+                  <Folder size={13} color="#F59E0B" />
+                  <span>{fld}</span>
+                </div>
+              ))}
+              {allWorkspaceFolders.length === 0 && (
+                <div className="ai-picker-empty">No subfolders in workspace</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Paperclip Attach Menu Popover */}
+        {attachMenuOpen && (
+          <div className="ai-attach-menu-popover" ref={attachMenuRef}>
+            <div
+              className="ai-attach-menu-item"
+              onClick={() => {
+                setAttachMenuOpen(false);
+                setFilePickerOpen(true);
+              }}
+            >
+              <FileCode2 size={14} color="#38BDF8" />
+              <span>Workspace File</span>
+            </div>
+            <div
+              className="ai-attach-menu-item"
+              onClick={() => {
+                setAttachMenuOpen(false);
+                setFolderPickerOpen(true);
+              }}
+            >
+              <Folder size={14} color="#F59E0B" />
+              <span>Workspace Folder</span>
+            </div>
+            <div
+              className="ai-attach-menu-item"
+              onClick={() => {
+                setAttachMenuOpen(false);
+                localFileInputRef.current?.click();
+              }}
+            >
+              <Upload size={14} color="#10B981" />
+              <span>Upload Local File</span>
+            </div>
+            <div
+              className="ai-attach-menu-item"
+              onClick={() => {
+                setAttachMenuOpen(false);
+                imageInputRef.current?.click();
+              }}
+            >
+              <ImageIcon size={14} color="#EC4899" />
+              <span>Upload Image / Screenshot</span>
+            </div>
+            <div
+              className="ai-attach-menu-item"
+              onClick={() => {
+                setAttachMenuOpen(false);
+                localFolderInputRef.current?.click();
+              }}
+            >
+              <FolderPlus size={14} color="#8B5CF6" />
+              <span>Upload Local Folder</span>
+            </div>
+          </div>
+        )}
+
         {/* Pill-shaped Input Container */}
         <div className="ai-input-pill-container">
-          {/* Attachment Button */}
+          {/* Attachment Paperclip Button */}
           <button
             type="button"
-            className="ai-attach-btn"
-            title="Attach file to context"
-            onClick={() => {
-              if (displayFile && !attachedFiles.includes(displayFile)) {
-                setAttachedFiles((prev) => [...prev, displayFile]);
-              }
-              setInput((prev) => `${prev} @${displayFile} `);
-              inputRef.current?.focus();
-            }}
+            className={`ai-attach-btn ${attachMenuOpen ? "active" : ""}`}
+            title="Attach file, folder or image"
+            onClick={() => setAttachMenuOpen((prev) => !prev)}
           >
             <Paperclip size={16} />
           </button>
 
-          {/* Text Input */}
+          {/* Text Input with Paste Support */}
           <input
             ref={inputRef}
             type="text"
@@ -791,7 +1306,8 @@ export default function AIChat({ workspaceId, onClose }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask VocodeAI anything..."
+            onPaste={handlePaste}
+            placeholder="Ask VocodeAI anything... (paste text, images or files)"
             disabled={loading}
           />
 
@@ -800,18 +1316,15 @@ export default function AIChat({ workspaceId, onClose }) {
             <button
               type="button"
               className="ai-icon-tool-btn"
-              title="Attach image or screenshot"
-              onClick={() => {
-                setInput((prev) => `${prev} [Image attached] `);
-                inputRef.current?.focus();
-              }}
+              title="Attach image or screenshot (or paste via Ctrl+V)"
+              onClick={() => imageInputRef.current?.click()}
             >
               <ImageIcon size={15} />
             </button>
 
             <VoiceInput
               onCommand={(cmd) => {
-                if (cmd) sendMessage(cmd, workspaceId);
+                if (cmd) sendMessage(cmd, workspaceId, attachments);
               }}
             />
 
@@ -819,7 +1332,7 @@ export default function AIChat({ workspaceId, onClose }) {
               type="button"
               className="ai-send-action-btn"
               onClick={() => handleSend()}
-              disabled={!input.trim() || loading}
+              disabled={(!input.trim() && attachments.length === 0) || loading}
               title="Send to VocodeAI"
               aria-label="Send to VocodeAI"
             >
@@ -853,6 +1366,95 @@ export default function AIChat({ workspaceId, onClose }) {
           </span>
         </div>
       </div>
+
+      {/* ================= 6. CHAT FILE PREVIEW MODAL ================= */}
+      {chatFileModal && (
+        <div
+          className="ai-modal-overlay"
+          onClick={() => setChatFileModal(null)}
+        >
+          <div
+            className="ai-chat-file-modal-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="ai-modal-header">
+              <div className="ai-modal-title-row">
+                <FileCode2 size={16} color="#FF8B32" />
+                <h5>Chat File: {chatFileModal.title}</h5>
+              </div>
+              <button
+                className="ai-modal-close-btn"
+                onClick={() => setChatFileModal(null)}
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="ai-modal-body">
+              <pre className="ai-chat-file-pre">
+                <code>
+                  {`# VocodeAI Chat Session: ${chatFileModal.title}
+*Date: ${new Date(chatFileModal.createdAt).toLocaleString()}*
+*Total Messages: ${chatFileModal.messages?.length || 0}*
+
+` +
+                    (chatFileModal.messages || [])
+                      .map((m) => {
+                        const sender = m.role === "user" ? "### 👤 User" : "### 🤖 VocodeAI";
+                        const atts =
+                          m.attachments?.length > 0
+                            ? `\n*Attachments:* ${m.attachments.map((a) => a.name).join(", ")}\n`
+                            : "";
+                        return `${sender}${atts}\n${m.content}\n\n---`;
+                      })
+                      .join("\n\n")}
+                </code>
+              </pre>
+            </div>
+
+            <div className="ai-modal-footer">
+              <button
+                type="button"
+                className="ai-btn-secondary"
+                onClick={() => {
+                  const content = (chatFileModal.messages || [])
+                    .map((m) => `${m.role === "user" ? "User" : "VocodeAI"}: ${m.content}`)
+                    .join("\n\n");
+                  navigator.clipboard.writeText(content);
+                  showToast("Chat text copied! 📋");
+                }}
+              >
+                <Copy size={13} />
+                <span>Copy Text</span>
+              </button>
+
+              <button
+                type="button"
+                className="ai-btn-primary"
+                onClick={() => handleSaveChatFileToWorkspace(chatFileModal)}
+              >
+                <Download size={13} />
+                <span>Save to Workspace (.chat.md)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= 7. IMAGE LIGHTBOX MODAL ================= */}
+      {lightboxImage && (
+        <div className="ai-modal-overlay" onClick={() => setLightboxImage(null)}>
+          <div className="ai-lightbox-card" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="ai-lightbox-close"
+              onClick={() => setLightboxImage(null)}
+            >
+              <X size={18} />
+            </button>
+            <img src={lightboxImage} alt="Enlarged" className="ai-lightbox-img" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

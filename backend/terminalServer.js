@@ -8,6 +8,7 @@ import { touchContainer } from "./sandbox/containerRegistry.js";
 import { createDockerPty } from "./terminal/dockerPty.js";
 import { syncWorkspaceToDB } from "./services/syncService.js";
 import { hydrateWorkspace } from "./services/hydrateWorkspace.js";
+import { getWorkspacesRoot } from "./config/paths.js";
 import User from "./models/User.js";
 
 import {
@@ -95,8 +96,7 @@ export function setupTerminalServer(server) {
 
         try {
           const workspacePath = path.join(
-            process.cwd(),
-            process.env.WORKSPACES_ROOT || "workspaces",
+            getWorkspacesRoot(),
             userId,
             workspaceId
           );
@@ -285,8 +285,7 @@ export function setupTerminalServer(server) {
         removeTerminal(msg.terminalId);
 
         const workspacePath = path.join(
-          process.cwd(),
-          process.env.WORKSPACES_ROOT || "workspaces",
+          getWorkspacesRoot(),
           userId,
           workspaceId
         );

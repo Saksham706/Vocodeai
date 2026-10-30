@@ -247,6 +247,33 @@
   color: var(--nav-text-muted);
 }
 
+/* Preview Mode for HTML Files */
+.ide-nav-run-btn.preview-btn {
+  border-color: rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.ide-nav-run-btn.preview-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.26);
+  border-color: #60a5fa;
+  color: #93c5fd;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.35);
+}
+
+[data-theme="light"] .ide-nav-run-btn.preview-btn {
+  background: rgba(37, 99, 235, 0.12);
+  border-color: rgba(37, 99, 235, 0.4);
+  color: #2563eb;
+}
+
+[data-theme="light"] .ide-nav-run-btn.preview-btn:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: #2563eb;
+  color: #1d4ed8;
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.25);
+}
+
 .ide-panel-controls {
   display: flex;
   align-items: center;

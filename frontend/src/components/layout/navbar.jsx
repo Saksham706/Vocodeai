@@ -15,6 +15,7 @@ import {
   FilePlus2,
   Save,
   Play,
+  Eye,
   RotateCw,
   Terminal as TerminalIcon,
   HelpCircle,
@@ -58,8 +59,15 @@ export default function Navbar({
     closeTab,
   } = useWorkspace();
 
+  const isHTML = Boolean(
+    activeFile?.toLowerCase().endsWith(".html") ||
+    activeFile?.toLowerCase().endsWith(".htm")
+  );
+
   const handleRunClick = () => {
-    if (onRun) {
+    if (isHTML) {
+      refreshPreview(true);
+    } else if (onRun) {
       onRun();
     } else if (activeFile) {
       runCode();
@@ -425,17 +433,32 @@ export default function Navbar({
 
       {/* 3. RIGHT: TOOLBAR CONTROLS & WINDOW BUTTONS */}
       <div className="ide-nav-right">
-        {/* Prominent Run Button */}
+        {/* Prominent Run or Preview Button */}
         <button
           type="button"
-          className="ide-nav-run-btn"
+          className={`ide-nav-run-btn ${isHTML ? "preview-btn" : ""}`}
           onClick={handleRunClick}
           disabled={!activeFile}
-          title={activeFile ? `Run ${activeFile} (F5)` : "Open a file to run (F5)"}
-          aria-label="Run File"
+          title={
+            activeFile
+              ? isHTML
+                ? `Preview ${activeFile} on next page (Alt+P)`
+                : `Run ${activeFile} (F5)`
+              : "Open a file to run (F5)"
+          }
+          aria-label={isHTML ? "Preview HTML" : "Run File"}
         >
-          <Play size={12} fill="currentColor" strokeWidth={0} />
-          <span>Run</span>
+          {isHTML ? (
+            <>
+              <Eye size={13} strokeWidth={2.2} />
+              <span>Preview</span>
+            </>
+          ) : (
+            <>
+              <Play size={12} fill="currentColor" strokeWidth={0} />
+              <span>Run</span>
+            </>
+          )}
         </button>
 
         {/* Layout Panel Toggles */}

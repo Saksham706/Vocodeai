@@ -1,6 +1,6 @@
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-export async function askAI(token, message, workspaceId, activeFile) {
+export async function askAI(token, message, workspaceId, activeFile, attachments = []) {
   const res = await fetch(`${backendUrl}/api/ai`, {
     method: "POST",
     headers: {
@@ -11,6 +11,7 @@ export async function askAI(token, message, workspaceId, activeFile) {
       message,
       workspaceId,
       activeFile,
+      attachments,
     }),
   });
 
@@ -20,4 +21,21 @@ export async function askAI(token, message, workspaceId, activeFile) {
   }
 
   return data;
+}
+
+export async function deleteChatHistory(token, workspaceId) {
+  const url = workspaceId
+    ? `${backendUrl}/api/ai/history/${workspaceId}`
+    : `${backendUrl}/api/ai/history`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to delete chat history");
+  }
+  return res.json();
 }

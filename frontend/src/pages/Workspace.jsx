@@ -48,6 +48,9 @@ function WorkspaceLayout() {
     setProblems,
     outputLogs,
     setOutputLogs,
+    isSplitEditor,
+    splitEditorFile,
+    closeSplitEditor,
   } = useWorkspace();
 
   const location = useLocation();
@@ -238,6 +241,37 @@ function WorkspaceLayout() {
     resizingTerminal.current = false;
   };
 
+  // 8. Resizable AI Assistant Sidebar
+  const [aiWidth, setAiWidth] = useState(() => {
+    try {
+      const stored = localStorage.getItem("vocode_ai_width");
+      return stored ? parseInt(stored, 10) : 400;
+    } catch {
+      return 400;
+    }
+  });
+  const [isAiMaximized, setIsAiMaximized] = useState(false);
+  const resizingAi = useRef(false);
+
+  const startAiResize = () => {
+    resizingAi.current = true;
+  };
+
+  const resizeAi = (e) => {
+    if (!resizingAi.current) return;
+    setAiWidth((w) => {
+      const next = Math.min(Math.max(w - e.movementX, 290), Math.floor(window.innerWidth * 0.75));
+      try {
+        localStorage.setItem("vocode_ai_width", next.toString());
+      } catch {}
+      return next;
+    });
+  };
+
+  const stopAiResize = () => {
+    resizingAi.current = false;
+  };
+
   // Clear or reset terminal output
   const handleClearTerminal = () => {
     const target = activeTerminal || (terminals && terminals[0]?.id);
@@ -250,11 +284,16 @@ function WorkspaceLayout() {
   };
 
   const handleMainRun = () => {
+    const isHtml =
+      activeFile?.toLowerCase().endsWith(".html") ||
+      activeFile?.toLowerCase().endsWith(".htm");
+    if (isHtml) {
+      refreshPreview(true);
+      return;
+    }
     setShowTerminal(true);
     setActiveTermTab("terminal");
-    if (activeFile?.endsWith(".html")) {
-      refreshPreview();
-    } else if (activeFile) {
+    if (activeFile) {
       runCode();
     } else {
       runProject();
@@ -282,14 +321,17 @@ function WorkspaceLayout() {
         onMouseMove={(e) => {
           resizeSidebar(e);
           resizeTerminal(e);
+          resizeAi(e);
         }}
         onMouseUp={() => {
           stopSidebarResize();
           stopTerminalResize();
+          stopAiResize();
         }}
         onMouseLeave={() => {
           stopSidebarResize();
           stopTerminalResize();
+          stopAiResize();
         }}
       >
         {/* ===== LEFT ACTIVITY BAR (VS Code / Antigravity Style Rail) ===== */}
@@ -322,12 +364,45 @@ function WorkspaceLayout() {
               <EditorTabs />
 
               <div className="ide-editor-view">
-                <CodeEditor />
-              </div>
+                {isSplitEditor && splitEditorFile ? (
+                  <div className="editor-split-view">
+                    <div className="editor-split-pane primary-pane">
+                      <div className="editor-pane-header">
+                        <span className="editor-pane-filename">
+                          {activeFile.split("/").pop()}
+                        </span>
+                      </div>
+                      <div className="editor-pane-content">
+                        <CodeEditor file={activeFile} />
+                      </div>
+                    </div>
 
-              {previewUrl && (
-                <LivePreview url={previewUrl} activeFile={activeFile} />
-              )}
+                    <div className="editor-split-divider" />
+
+                    <div className="editor-split-pane secondary-pane">
+                      <div className="editor-pane-header">
+                        <span className="editor-pane-filename">
+                          {splitEditorFile.split("/").pop()}
+                        </span>
+                        <button
+                          type="button"
+                          className="editor-pane-close"
+                          onClick={closeSplitEditor}
+                          title="Close Split Editor"
+                          aria-label="Close Split Editor"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                      <div className="editor-pane-content">
+                        <CodeEditor file={splitEditorFile} />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <CodeEditor />
+                )}
+              </div>
             </div>
           ) : (
             /* Welcome Dashboard when no file is active */
@@ -460,7 +535,7 @@ function WorkspaceLayout() {
                       <div className="term-block">
                         <div className="term-line">
                           <span className="term-prompt-user">saksham@vocodeai:</span>
-                          <span className="term-prompt-path">~/workspace$</span>
+                          <span className="term-prompt-path">~$</span>
                           <span className="term-cursor">█</span>
                         </div>
                       </div>
@@ -600,10 +675,20 @@ function WorkspaceLayout() {
 
         {/* ===== RIGHT COLUMN: FULL-HEIGHT AI ASSISTANT ===== */}
         {showAI && (
-          <div className="ide-ai-sidebar-wrapper">
+          <div
+            className={`ide-ai-sidebar-wrapper ${isAiMaximized ? "maximized" : ""}`}
+            style={{ width: isAiMaximized ? "65%" : `${aiWidth}px` }}
+          >
+            <div
+              className="ide-ai-resizer"
+              onMouseDown={startAiResize}
+              title="Drag to resize AI Assistant"
+            />
             <AIChat
               workspaceId={currentProject}
               onClose={() => setShowAI(false)}
+              isMaximized={isAiMaximized}
+              onToggleMaximize={() => setIsAiMaximized((prev) => !prev)}
             />
           </div>
         )}

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export async function askAI({ message, history = [], workspaceContext = "" }) {
+export async function askAI({ message, history = [], workspaceContext = "", images = [] }) {
   const geminiKey = process.env.GEMINI_API_KEY;
   const groqKey = process.env.GROQ_API_KEY;
   const generalKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
@@ -42,9 +42,16 @@ export async function askAI({ message, history = [], workspaceContext = "" }) {
         ? "https://openrouter.ai/api/v1/chat/completions"
         : "https://api.openai.com/v1/chat/completions");
 
-    model =
-      process.env.AI_MODEL ||
-      (isOpenRouter ? "openrouter/free" : "gpt-4o-mini");
+    if (isOpenRouter) {
+      if (images && images.length > 0) {
+        model = "nvidia/nemotron-3.5-super-vl:free";
+      } else {
+        model = process.env.AI_MODEL || "openrouter/free";
+      }
+    } else {
+      model =
+        process.env.AI_MODEL || "gpt-4o-mini";
+    }
 
     headers["Authorization"] = `Bearer ${apiKey}`;
 
@@ -63,6 +70,10 @@ export async function askAI({ message, history = [], workspaceContext = "" }) {
 You are VocodeAI, a professional autonomous AI pair programmer (similar to Antigravity, GitHub Copilot, and Cursor) embedded in a cloud code editor.
 You write complete, production-grade, bug-free code, modify existing codebases, explain technical concepts, and manage workspace files directly.
 The workspace runs in an isolated Docker container with Node.js 20, Python 3, OpenJDK 17, GCC, and Maven.
+
+CAPABILITIES:
+- MULTIMODAL VISION: You CAN see and read attached images, screenshots, diagrams, and UI errors. Read the exact text, errors, stack traces, and code from screenshots and solve the user's issue. Never claim you are text-only or unable to see screenshots.
+- FILE & FOLDER INSPECTION: You have access to attached files and folder contents provided in the context. Inspect them thoroughly to provide accurate code modifications.
 
 ${workspaceContext ? `Current Workspace Files and Context:\n${workspaceContext}\n` : ""}
 
@@ -110,6 +121,24 @@ CRITICAL RULES:
         typeof h.content === "string" ? h.content : JSON.stringify(h.content),
     }));
 
+  let userMessageContent;
+  if (Array.isArray(images) && images.length > 0) {
+    userMessageContent = [
+      {
+        type: "text",
+        text: `${message}\n\nPlease inspect the attached image(s)/screenshot(s) carefully. You have full vision capabilities. Read all errors, terminal output, UI details, or code displayed in the images and provide a complete solution.`,
+      },
+      ...images.map((img) => ({
+        type: "image_url",
+        image_url: {
+          url: img.url,
+        },
+      })),
+    ];
+  } else {
+    userMessageContent = message;
+  }
+
   let lastError;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
@@ -120,7 +149,7 @@ CRITICAL RULES:
           messages: [
             { role: "system", content: systemPrompt },
             ...cleanHistory,
-            { role: "user", content: message },
+            { role: "user", content: userMessageContent },
           ],
           temperature: 0.2,
         },

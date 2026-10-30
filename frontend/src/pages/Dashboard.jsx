@@ -10,6 +10,13 @@ import {
   pinWorkspace,
 } from "../services/workspaceApi";
 import {
+  getRecycleBin,
+  restoreRecycleBinItem,
+  permanentlyDeleteRecycleBinItem,
+  emptyRecycleBin,
+} from "../services/fileApi";
+import { getFileIcon } from "../utils/getFileIcon";
+import {
   LayoutDashboard,
   Layers3,
   SquareTerminal,
@@ -29,6 +36,8 @@ import {
   LogOut,
   Menu,
   X,
+  RotateCcw,
+  Check,
 } from "lucide-react";
 import DashboardBackground from "../components/DashboardBackground";
 import "../styles/dashboard.css";
@@ -89,6 +98,12 @@ export default function Dashboard() {
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
 
+  // Recycle Bin state
+  const [recycleItems, setRecycleItems] = useState([]);
+  const [recycleLoading, setRecycleLoading] = useState(false);
+  const [recycleActionLoading, setRecycleActionLoading] = useState(null);
+  const [recycleMessage, setRecycleMessage] = useState(null);
+
   const searchInputRef = useRef(null);
   const createInputRef = useRef(null);
   const createContainerRef = useRef(null);
@@ -113,6 +128,94 @@ export default function Dashboard() {
       }
     });
   }, [accessToken]);
+
+  // Load Recycle Bin
+  const loadRecycleBin = async () => {
+    if (!accessToken) return;
+    try {
+      setRecycleLoading(true);
+      const items = await getRecycleBin(accessToken);
+      setRecycleItems(Array.isArray(items) ? items : []);
+    } catch (err) {
+      console.error("Failed to load recycle bin:", err);
+    } finally {
+      setRecycleLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (accessToken) {
+      loadRecycleBin();
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (activeTab === "recycle-bin" && accessToken) {
+      loadRecycleBin();
+    }
+  }, [activeTab, accessToken]);
+
+  const handleRestoreItem = async (id, name) => {
+    if (!accessToken) return;
+    try {
+      setRecycleActionLoading(id);
+      await restoreRecycleBinItem(accessToken, id);
+      setRecycleItems((prev) => prev.filter((item) => item._id !== id));
+      setRecycleMessage(`Restored "${name}" successfully`);
+      setTimeout(() => setRecycleMessage(null), 3500);
+    } catch (err) {
+      console.error("Restore failed:", err);
+      alert("Failed to restore item: " + err.message);
+    } finally {
+      setRecycleActionLoading(null);
+    }
+  };
+
+  const handlePermanentDeleteItem = async (id, name) => {
+    if (!accessToken) return;
+    if (
+      !window.confirm(
+        `Are you sure you want to permanently delete "${name}"? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    try {
+      setRecycleActionLoading(id);
+      await permanentlyDeleteRecycleBinItem(accessToken, id);
+      setRecycleItems((prev) => prev.filter((item) => item._id !== id));
+      setRecycleMessage(`Permanently deleted "${name}"`);
+      setTimeout(() => setRecycleMessage(null), 3500);
+    } catch (err) {
+      console.error("Permanent delete failed:", err);
+      alert("Failed to permanently delete item: " + err.message);
+    } finally {
+      setRecycleActionLoading(null);
+    }
+  };
+
+  const handleEmptyRecycleBin = async () => {
+    if (!accessToken || recycleItems.length === 0) return;
+    if (
+      !window.confirm(
+        "Are you sure you want to permanently delete all items in the Recycle Bin? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+    try {
+      setRecycleLoading(true);
+      await emptyRecycleBin(accessToken);
+      setRecycleItems([]);
+      setRecycleMessage("Recycle bin emptied");
+      setTimeout(() => setRecycleMessage(null), 3500);
+    } catch (err) {
+      console.error("Empty recycle bin failed:", err);
+      alert("Failed to empty recycle bin: " + err.message);
+    } finally {
+      setRecycleLoading(false);
+    }
+  };
 
   // Command + K keyboard shortcut handler for search
   useEffect(() => {
@@ -374,6 +477,20 @@ export default function Dashboard() {
           >
             <Settings className="nav-icon" />
             <span>Settings</span>
+          </button>
+
+          <button
+            className={`sidebar-nav-item ${activeTab === "recycle-bin" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("recycle-bin");
+              setMobileSidebarOpen(false);
+            }}
+          >
+            <Trash2 className="nav-icon" />
+            <span>Recycle Bin</span>
+            {recycleItems.length > 0 && (
+              <span className="sidebar-recycle-badge">{recycleItems.length}</span>
+            )}
           </button>
         </nav>
 
@@ -708,6 +825,120 @@ export default function Dashboard() {
               Back to Workspaces
             </button>
           </div>
+        )}
+
+        {/* ================= RECYCLE BIN TAB VIEW ================= */}
+        {activeTab === "recycle-bin" && (
+          <section className="recycle-bin-container">
+            <div className="recycle-bin-header">
+              <div>
+                <h1 className="dash-main-title">
+                  Recycle <span className="dash-heading-accent">Bin</span>
+                </h1>
+                <p className="dash-main-subtitle">
+                  Restore deleted files and folders back to your workspace or permanently remove them.
+                </p>
+              </div>
+
+              {recycleItems.length > 0 && (
+                <button
+                  className="btn-empty-recycle"
+                  onClick={handleEmptyRecycleBin}
+                  disabled={recycleLoading}
+                >
+                  <Trash2 size={16} />
+                  <span>Empty Recycle Bin</span>
+                </button>
+              )}
+            </div>
+
+            {recycleMessage && (
+              <div className="recycle-toast-banner">
+                <Check size={16} className="recycle-toast-icon" />
+                <span>{recycleMessage}</span>
+              </div>
+            )}
+
+            {recycleLoading ? (
+              <div className="recycle-bin-loading">
+                <div className="recycle-spinner" />
+                <p>Loading deleted items...</p>
+              </div>
+            ) : recycleItems.length === 0 ? (
+              <div className="recycle-empty-state">
+                <div className="recycle-empty-icon-wrap">
+                  <Trash2 size={42} />
+                </div>
+                <h3>Recycle Bin is Empty</h3>
+                <p>
+                  Files and folders you delete in the workspace explorer will appear here before being permanently removed.
+                </p>
+                <button
+                  className="btn-create-workspace-primary"
+                  onClick={() => setActiveTab("workspaces")}
+                >
+                  Back to Workspaces
+                </button>
+              </div>
+            ) : (
+              <div className="recycle-items-list">
+                {recycleItems.map((item) => (
+                  <div key={item._id} className="recycle-item-card">
+                    <div className="recycle-item-icon-box">
+                      {getFileIcon(item.name, item.type, false)}
+                    </div>
+
+                    <div className="recycle-item-details">
+                      <div className="recycle-item-title-row">
+                        <span className="recycle-item-name">{item.name}</span>
+                        <span className={`recycle-item-type-badge ${item.type}`}>
+                          {item.type}
+                        </span>
+                        {item.workspaceName && (
+                          <span className="recycle-item-ws-tag">
+                            {item.workspaceName}
+                          </span>
+                        )}
+                      </div>
+                      <div className="recycle-item-meta">
+                        <span className="recycle-item-path" title={item.originalPath}>
+                          Original path: <code>{item.originalPath}</code>
+                        </span>
+                        <span className="recycle-item-dot">•</span>
+                        <span className="recycle-item-time">
+                          {formatRelativeTime(item.deletedAt)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="recycle-item-actions">
+                      <button
+                        className="btn-recycle-restore"
+                        onClick={() => handleRestoreItem(item._id, item.name)}
+                        disabled={recycleActionLoading === item._id}
+                        title="Restore to workspace"
+                      >
+                        <RotateCcw size={15} />
+                        <span>
+                          {recycleActionLoading === item._id ? "Restoring..." : "Restore"}
+                        </span>
+                      </button>
+
+                      <button
+                        className="btn-recycle-delete-perm"
+                        onClick={() => handlePermanentDeleteItem(item._id, item.name)}
+                        disabled={recycleActionLoading === item._id}
+                        title="Delete permanently"
+                      >
+                        <Trash2 size={15} />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         )}
       </main>
     </div>

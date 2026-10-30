@@ -30,7 +30,11 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
   });
   const [activeFile, setActiveFile] = useState(() => {
     try {
-      return localStorage.getItem(`vocode_active_${workspaceId}`) || null;
+      const storedTabs = localStorage.getItem(`vocode_tabs_${workspaceId}`);
+      const tabs = storedTabs ? JSON.parse(storedTabs) : [];
+      if (!Array.isArray(tabs) || tabs.length === 0) return null;
+      const storedActive = localStorage.getItem(`vocode_active_${workspaceId}`);
+      return storedActive && tabs.includes(storedActive) ? storedActive : tabs[0];
     } catch {
       return null;
     }
@@ -55,7 +59,7 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
       } else {
         localStorage.removeItem(`vocode_tabs_${workspaceId}`);
       }
-    } catch {}
+    } catch { }
   }, [openTabs, workspaceId]);
 
   useEffect(() => {
@@ -66,7 +70,7 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
       } else {
         localStorage.removeItem(`vocode_active_${workspaceId}`);
       }
-    } catch {}
+    } catch { }
   }, [activeFile, workspaceId]);
 
   // Proactively fetch content for activeFile whenever it becomes active and not yet cached
@@ -113,6 +117,40 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
     },
   ]);
   const [problems, setProblems] = useState([]);
+
+  /* ================= SPLIT EDITOR STATE ================= */
+  const [isSplitEditor, setIsSplitEditor] = useState(false);
+  const [splitEditorFile, setSplitEditorFile] = useState(null);
+
+  const toggleSplitEditor = async (targetFile = null) => {
+    if (isSplitEditor) {
+      setIsSplitEditor(false);
+      setSplitEditorFile(null);
+      return;
+    }
+
+    const other = targetFile || openTabs.find((f) => f !== activeFile) || activeFile;
+    if (!other) return;
+
+    if (fileContentsRef.current[other] === undefined && accessToken && workspaceId) {
+      try {
+        const content = await fileApi.readFile(accessToken, workspaceId, other);
+        setFileContents((prev) => ({
+          ...prev,
+          [other]: content || "",
+        }));
+        fileContentsRef.current[other] = content || "";
+      } catch { }
+    }
+
+    setSplitEditorFile(other);
+    setIsSplitEditor(true);
+  };
+
+  const closeSplitEditor = () => {
+    setIsSplitEditor(false);
+    setSplitEditorFile(null);
+  };
 
   const socketRef = useRef(null);
   const wsReadyRef = useRef(false);
@@ -382,7 +420,7 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
       try {
         const stored = localStorage.getItem(`vocode_tabs_${workspaceId}`);
         if (stored) currentTabs = JSON.parse(stored);
-      } catch {}
+      } catch { }
 
       // Keep only valid tabs that exist
       let filteredTabs = Array.isArray(currentTabs)
@@ -393,15 +431,11 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
       let currentActive = null;
       try {
         currentActive = localStorage.getItem(`vocode_active_${workspaceId}`);
-      } catch {}
+      } catch { }
 
-      if (!currentActive || !validSet.has(currentActive)) {
-        currentActive = filteredTabs[0] || validFiles[0] || null;
-      }
-
-      // Ensure activeFile is always included in open tabs
-      if (currentActive && !filteredTabs.includes(currentActive)) {
-        filteredTabs = [currentActive, ...filteredTabs];
+      // Only restore active file if it is actually in the saved open tabs and exists on disk
+      if (!currentActive || !filteredTabs.includes(currentActive) || !validSet.has(currentActive)) {
+        currentActive = filteredTabs.length > 0 ? filteredTabs[filteredTabs.length - 1] : null;
       }
 
       setOpenTabs(filteredTabs);
@@ -411,11 +445,15 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
       try {
         if (filteredTabs.length > 0) {
           localStorage.setItem(`vocode_tabs_${workspaceId}`, JSON.stringify(filteredTabs));
+        } else {
+          localStorage.removeItem(`vocode_tabs_${workspaceId}`);
         }
         if (currentActive) {
           localStorage.setItem(`vocode_active_${workspaceId}`, currentActive);
+        } else {
+          localStorage.removeItem(`vocode_active_${workspaceId}`);
         }
-      } catch {}
+      } catch { }
 
       // Immediately fetch and populate content for active file so Monaco is ready
       if (currentActive) {
@@ -551,6 +589,11 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
       return copy;
     });
 
+    if (splitEditorFile === path) {
+      setSplitEditorFile(null);
+      setIsSplitEditor(false);
+    }
+
     if (activeFile === path) {
       const remaining = openTabs.filter((t) => t !== path);
       const nextActive = remaining.length > 0 ? remaining[remaining.length - 1] : null;
@@ -562,8 +605,8 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
   };
 
   const renameNode = async (oldPath, newName) => {
-    const newPath = oldPath
-      .split("/")
+    const parts = oldPath.split("/");
+    const newPath = parts
       .slice(0, -1)
       .concat(newName)
       .join("/");
@@ -575,6 +618,35 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
         oldPath,
         newPath
       );
+
+      // Preserve open tabs and activeFile with the renamed path
+      setOpenTabs((prev) =>
+        prev.map((t) => {
+          if (t === oldPath) return newPath;
+          if (t.startsWith(oldPath + "/")) return newPath + t.slice(oldPath.length);
+          return t;
+        })
+      );
+
+      setActiveFile((prev) => {
+        if (prev === oldPath) return newPath;
+        if (prev && prev.startsWith(oldPath + "/")) return newPath + prev.slice(oldPath.length);
+        return prev;
+      });
+
+      setFileContents((prev) => {
+        const copy = { ...prev };
+        if (copy[oldPath] !== undefined) {
+          copy[newPath] = copy[oldPath];
+          delete copy[oldPath];
+        }
+        return copy;
+      });
+
+      if (fileContentsRef.current[oldPath] !== undefined) {
+        fileContentsRef.current[newPath] = fileContentsRef.current[oldPath];
+        delete fileContentsRef.current[oldPath];
+      }
     } catch (err) {
       console.error("Rename failed", err);
     }
@@ -625,25 +697,37 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
       fileContentsRef.current[activeFile] || ""
     );
 
-    const file = `/workspace/${activeFile}`;
-
     let command = "";
     if (activeFile.endsWith(".py")) {
-      command = `python3 "${file}"`;
+      command = `python3 "${activeFile}"`;
     } else if (activeFile.endsWith(".js") || activeFile.endsWith(".mjs")) {
-      command = `node "${file}"`;
+      command = `node "${activeFile}"`;
     } else if (activeFile.endsWith(".cpp") || activeFile.endsWith(".cc")) {
-      command = `g++ "${file}" -o /workspace/a.out && /workspace/a.out`;
+      command = `g++ "${activeFile}" -o a.out && ./a.out`;
     } else if (activeFile.endsWith(".c")) {
-      command = `gcc "${file}" -o /workspace/a.out && /workspace/a.out`;
+      command = `gcc "${activeFile}" -o a.out && ./a.out`;
     } else if (activeFile.endsWith(".java")) {
-      const dir = activeFile.split("/").slice(0, -1).join("/");
-      const cls = activeFile.split("/").pop().replace(".java", "");
-      command = dir
-        ? `cd /workspace/${dir} && javac ${cls}.java && java ${cls}`
-        : `javac /workspace/${cls}.java && java -cp /workspace ${cls}`;
+      const parts = activeFile.split("/");
+      const cls = parts.pop().replace(".java", "");
+      const dir = parts.join("/");
+      const content = fileContentsRef.current[activeFile] || "";
+
+      // Check for Java package statement
+      const pkgMatch = content.match(/^\s*package\s+([a-zA-Z0-9_.]+)\s*;/m);
+      if (pkgMatch) {
+        const pkg = pkgMatch[1];
+        const pkgPath = pkg.replace(/\./g, "/");
+        let cpRoot = ".";
+        if (dir.endsWith(pkgPath)) {
+          cpRoot = dir.slice(0, -pkgPath.length).replace(/\/$/, "") || ".";
+        }
+        command = `javac "${activeFile}" && java -cp "${cpRoot}" ${pkg}.${cls}`;
+      } else {
+        const cp = dir || ".";
+        command = `javac "${activeFile}" && java -cp "${cp}" ${cls}`;
+      }
     } else {
-      command = `cat "${file}"`;
+      command = `cat "${activeFile}"`;
     }
 
     setOutputLogs((prev) => [
@@ -660,11 +744,10 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
     setProblems((prev) => prev.filter((p) => p.file !== activeFile));
 
     const baseName = activeFile.split("/").pop();
+    const termTitle = activeFile;
 
-    // 1. Check if a terminal dedicated to this file already exists
-    const existingFileTerm = terminals.find(
-      (t) => t.file === activeFile || (t.title && t.title === baseName)
-    );
+    // 1. Check if a terminal dedicated to this EXACT file already exists
+    const existingFileTerm = terminals.find((t) => t.file === activeFile);
 
     if (existingFileTerm) {
       setActiveTerminal(existingFileTerm.id);
@@ -675,7 +758,7 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
     // 2. If no dedicated terminal exists for this file, create a new separate terminal
     const newId = `term_${Date.now()}`;
     pendingRunRef.current = command + "\n";
-    createTerminal(newId, "bash", true, baseName, activeFile);
+    createTerminal(newId, "bash", true, termTitle, activeFile);
   };
 
   /* ================= RUN PROJECT ================= */
@@ -718,22 +801,42 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
   };
 
   /* ================= PREVIEW ================= */
-  const refreshPreview = async () => {
-    if (!activeFile?.endsWith(".html")) return;
+  const refreshPreview = async (openInNewTab = true, targetFile = activeFile) => {
+    const fileToPreview = targetFile || activeFile;
+    if (!fileToPreview) return;
+    const isHtml =
+      fileToPreview.toLowerCase().endsWith(".html") ||
+      fileToPreview.toLowerCase().endsWith(".htm");
+    if (!isHtml) return;
 
-    await fileApi.saveFile(
-      accessToken,
-      workspaceId,
-      activeFile,
-      fileContentsRef.current[activeFile] || ""
-    );
+    const contentToSave = fileContentsRef.current[fileToPreview] ?? "";
 
-    const url = `${backendUrl}/preview/${userId}/${workspaceId}/${activeFile}`;
-    setPreviewUrl(url);
+    try {
+      await fileApi.saveFile(
+        accessToken,
+        workspaceId,
+        fileToPreview,
+        contentToSave
+      );
+    } catch (saveErr) {
+      console.warn("Could not save before preview:", saveErr);
+    }
+
+    const uId = String(userId || "user");
+    const wId = String(workspaceId || "ws");
+    const url = `${backendUrl}/preview/${uId}/${wId}/${fileToPreview}`;
+
+    if (openInNewTab) {
+      window.open(url, "_blank");
+    } else {
+      setPreviewUrl(url);
+    }
+
+    return url;
   };
 
   useEffect(() => {
-    if (!activeFile?.endsWith(".html")) {
+    if (!activeFile?.endsWith(".html") && !activeFile?.endsWith(".htm")) {
       setPreviewUrl(null);
     }
   }, [activeFile]);
@@ -781,6 +884,12 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
         setProblems,
         outputLogs,
         setOutputLogs,
+        isSplitEditor,
+        setIsSplitEditor,
+        splitEditorFile,
+        setSplitEditorFile,
+        toggleSplitEditor,
+        closeSplitEditor,
       }}
     >
       {children}
