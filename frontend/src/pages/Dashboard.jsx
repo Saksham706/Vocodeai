@@ -919,7 +919,7 @@ export default function Dashboard() {
           />
         )}
 
-        {["templates", "terminal", "assistant"].includes(activeTab) && (
+        {["templates", "terminal"].includes(activeTab) && (
           <DashboardPlaceholderTab
             activeTab={activeTab}
             onBack={() => setActiveTab("workspaces")}

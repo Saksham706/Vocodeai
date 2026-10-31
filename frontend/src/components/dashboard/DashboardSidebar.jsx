@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   Layers3,
   SquareTerminal,
-  Sparkles,
   Settings,
   Trash2,
   ChevronRight,
@@ -109,17 +108,6 @@ export default function DashboardSidebar({
           >
             <SquareTerminal className="nav-icon" />
             <span>Cloud Terminal</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === "assistant" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("assistant");
-              setMobileSidebarOpen(false);
-            }}
-          >
-            <Sparkles className="nav-icon" />
-            <span>AI Assistant</span>
           </button>
 
           <button

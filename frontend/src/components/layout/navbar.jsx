@@ -10,6 +10,7 @@ import {
   Settings,
   Minus,
   Square,
+  Copy,
   X,
   FolderPlus,
   FilePlus2,
@@ -78,7 +79,70 @@ export default function Navbar({
 
   const [activeMenu, setActiveMenu] = useState(null);
   const [showAboutModal, setShowAboutModal] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(() => Boolean(document.fullscreenElement));
   const menuBarRef = useRef(null);
+
+  // Sync fullscreen state with document events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+    };
+  }, []);
+
+  const handleMaximize = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        } else if (document.documentElement.webkitRequestFullscreen) {
+          await document.documentElement.webkitRequestFullscreen();
+        } else if (document.documentElement.msRequestFullscreen) {
+          await document.documentElement.msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          await document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          await document.msExitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.warn("Fullscreen toggle error:", err);
+    }
+  };
+
+  const handleMinimize = async () => {
+    try {
+      if (document.fullscreenElement) {
+        // Return back to original position
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          await document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          await document.msExitFullscreen();
+        }
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      console.warn("Minimize error:", err);
+    }
+  };
 
   // Close menu dropdown on outside click
   useEffect(() => {
@@ -119,10 +183,15 @@ export default function Navbar({
         e.preventDefault();
         handleRunClick();
       }
+      // F11: Toggle Full Screen
+      if (e.key === "F11") {
+        e.preventDefault();
+        handleMaximize();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeFile, saveFile, setCreateRequest, selectedTarget, toggleTerminal, toggleExplorer, onRun]);
+  }, [activeFile, saveFile, setCreateRequest, selectedTarget, toggleTerminal, toggleExplorer, onRun, handleMaximize]);
 
   const handleMenuClick = (menu) => {
     setActiveMenu((prev) => (prev === menu ? null : menu));
@@ -317,6 +386,16 @@ export default function Navbar({
                         }}
                       >
                         <span>Toggle Theme ({theme === "dark" ? "Light" : "Dark"})</span>
+                      </button>
+                      <button
+                        className="ide-menu-entry"
+                        onClick={() => {
+                          closeMenu();
+                          handleMaximize();
+                        }}
+                      >
+                        <span>{isFullscreen ? "Exit Full Screen" : "Toggle Full Screen"}</span>
+                        <kbd>F11</kbd>
                       </button>
                     </>
                   )}
@@ -526,24 +605,31 @@ export default function Navbar({
         </button>
 
         {/* Window Controls: Minimize, Maximize, Close */}
-        <div className="ide-window-controls" aria-hidden="true">
+        <div className="ide-window-controls" aria-label="Window controls">
           <button
             className="ide-win-btn win-min"
-            title="Minimize"
-            onClick={() => { }}
+            title={isFullscreen ? "Restore to original position" : "Minimize to Dashboard"}
+            aria-label={isFullscreen ? "Restore to original position" : "Minimize to Dashboard"}
+            onClick={handleMinimize}
           >
             <Minus size={13} strokeWidth={2} />
           </button>
           <button
             className="ide-win-btn win-max"
-            title="Maximize"
-            onClick={() => { }}
+            title={isFullscreen ? "Restore (Original Position)" : "Maximize (Full Screen)"}
+            aria-label={isFullscreen ? "Restore (Original Position)" : "Maximize (Full Screen)"}
+            onClick={handleMaximize}
           >
-            <Square size={11} strokeWidth={2} />
+            {isFullscreen ? (
+              <Copy size={11} strokeWidth={2} />
+            ) : (
+              <Square size={11} strokeWidth={2} />
+            )}
           </button>
           <button
             className="ide-win-btn win-close"
             title="Close"
+            aria-label="Close"
             onClick={() => navigate("/dashboard")}
           >
             <X size={13} strokeWidth={2} />
