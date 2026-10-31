@@ -128,21 +128,14 @@ export default function Dashboard() {
   // Load Workspaces
   useEffect(() => {
     if (!accessToken) return;
-    listWorkspaces(accessToken).then((data) => {
-      // If user has no workspaces from API, provide initial default workspace if empty
-      if (Array.isArray(data) && data.length > 0) {
-        setWorkspaces(data);
-      } else {
-        setWorkspaces([
-          {
-            _id: "demo-java",
-            name: "Java",
-            updatedAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
-            isPinned: false,
-          },
-        ]);
-      }
-    });
+    listWorkspaces(accessToken)
+      .then((data) => {
+        setWorkspaces(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        console.error("Failed to load workspaces:", err);
+        setWorkspaces([]);
+      });
 
     getCommonFolders(accessToken)
       .then((data) => {
