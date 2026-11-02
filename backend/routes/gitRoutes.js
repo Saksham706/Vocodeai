@@ -15,6 +15,7 @@ import {
   push,
   pull,
   cloneRepo,
+  generateCommitMessage,
 } from "../controllers/gitController.js";
 
 const router = express.Router();
@@ -24,6 +25,7 @@ router.post("/init", auth, initRepo);
 router.post("/stage", auth, stageFiles);
 router.post("/unstage", auth, unstageFiles);
 router.post("/commit", auth, commit);
+router.post("/generate-commit-message", auth, generateCommitMessage);
 router.post("/discard", auth, discardChanges);
 router.get("/branches", auth, getBranches);
 router.post("/branch", auth, createOrCheckoutBranch);

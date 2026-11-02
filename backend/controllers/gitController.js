@@ -4,8 +4,103 @@ import path from "path";
 import util from "util";
 import { getWorkspacesRoot } from "../config/paths.js";
 import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
-import { syncWorkspaceToDB } from "../services/syncService.js";
+import { syncWorkspaceToDB, isIgnoredFile } from "../services/syncService.js";
+import { askAI } from "../services/aiService.js";
 import User from "../models/User.js";
+
+const DEFAULT_GITIGNORE = `# Compiled class and binary files
+*.class
+*.out
+*.o
+*.obj
+*.exe
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dll
+*.dylib
+*.pdb
+*.idb
+*.ilk
+*.map
+a.out
+a.exe
+
+# OS and temporary files
+.DS_Store
+thumbs.db
+.workspace.json
+
+# Dependencies and build outputs
+node_modules/
+dist/
+build/
+__pycache__/
+.venv/
+.pytest_cache/
+`;
+
+async function cleanTrackedIgnoredFiles(wsPath) {
+  try {
+    const lsRes = await runGit(wsPath, ["ls-files"]);
+    if (lsRes.stdout) {
+      const tracked = lsRes.stdout.split("\n").map((s) => s.trim()).filter(Boolean);
+      const toUntrack = tracked.filter((f) => isIgnoredFile(f) && f !== ".gitignore");
+      if (toUntrack.length > 0) {
+        await runGit(wsPath, ["rm", "--cached", "--ignore-unmatch", "--", ...toUntrack]);
+      }
+    }
+  } catch (err) {
+    console.warn("cleanTrackedIgnoredFiles notice:", err.message);
+  }
+}
+
+async function ensureGitignore(wsPath) {
+  try {
+    const gitDir = path.join(wsPath, ".git");
+    if (!fs.existsSync(gitDir)) return;
+
+    const gitignorePath = path.join(wsPath, ".gitignore");
+    if (!fs.existsSync(gitignorePath)) {
+      fs.writeFileSync(gitignorePath, DEFAULT_GITIGNORE, "utf-8");
+      await runGit(wsPath, ["add", ".gitignore"]);
+    } else {
+      let content = fs.readFileSync(gitignorePath, "utf-8");
+      let changed = false;
+      const criticalEntries = ["*.class", "*.out", "*.exe", "*.pyc", "node_modules/", "dist/", "build/"];
+      for (const entry of criticalEntries) {
+        if (!content.includes(entry)) {
+          content += `\n${entry}`;
+          changed = true;
+        }
+      }
+      if (changed) {
+        fs.writeFileSync(gitignorePath, content.trim() + "\n", "utf-8");
+      }
+    }
+
+    // Untrack any previously committed files that should be ignored
+    await cleanTrackedIgnoredFiles(wsPath);
+  } catch (err) {
+    console.warn("ensureGitignore notice:", err.message);
+  }
+}
+
+let globalExcludesPath = null;
+function getGlobalExcludesPath() {
+  if (globalExcludesPath) return globalExcludesPath;
+  try {
+    const p = path.join(getWorkspacesRoot(), ".gitignore_global");
+    if (!fs.existsSync(p)) {
+      fs.writeFileSync(p, DEFAULT_GITIGNORE, "utf-8");
+    }
+    globalExcludesPath = p.replace(/\\/g, "/");
+    return globalExcludesPath;
+  } catch {
+    return null;
+  }
+}
 
 const execFileAsync = util.promisify(execFile);
 
@@ -19,7 +114,13 @@ async function runGit(workspaceDir, args, envOptions = {}) {
     LANG: "en_US.UTF-8",
   };
 
-  const finalArgs = ["-c", "safe.directory=*", "-c", "core.filemode=false", ...args];
+  const excludesFile = getGlobalExcludesPath();
+  const finalArgs = [
+    "-c", "safe.directory=*",
+    "-c", "core.filemode=false",
+    ...(excludesFile ? ["-c", `core.excludesFile=${excludesFile}`] : []),
+    ...args
+  ];
 
   try {
     const { stdout, stderr } = await execFileAsync("git", finalArgs, {
@@ -27,9 +128,9 @@ async function runGit(workspaceDir, args, envOptions = {}) {
       env: { ...defaultEnv, ...envOptions },
       maxBuffer: 10 * 1024 * 1024, // 10MB
     });
-    return { stdout: stdout.trim(), stderr: stderr.trim(), exitCode: 0 };
+    return { stdout: stdout.trimEnd(), stderr: stderr.trim(), exitCode: 0 };
   } catch (err) {
-    const stdout = (err.stdout || "").toString().trim();
+    const stdout = (err.stdout || "").toString().trimEnd();
     let stderr = (err.stderr || "").toString().trim();
     if (!stderr) {
       stderr = stdout || err.message || "Git command failed";
@@ -95,6 +196,8 @@ export async function getStatus(req, res) {
       });
     }
 
+    await ensureGitignore(wsPath);
+
     // 1. Get current branch
     const branchRes = await runGit(wsPath, ["branch", "--show-current"]);
     let currentBranch = branchRes.stdout;
@@ -117,11 +220,24 @@ export async function getStatus(req, res) {
 
     if (statusRes.stdout) {
       const lines = statusRes.stdout.split("\n");
-      for (const line of lines) {
+      for (const rawLine of lines) {
+        const line = rawLine.replace(/\r$/, "");
         if (!line || line.length < 3) continue;
         const x = line[0]; // Staged status
         const y = line[1]; // Unstaged status
-        const rawPath = line.substring(3).trim().replace(/^"(.*)"$/, "$1");
+        let rawPath = line.substring(2).trim().replace(/^"(.*)"$/, "$1");
+        if (rawPath.includes(" -> ")) {
+          rawPath = rawPath.split(" -> ").pop().trim().replace(/^"(.*)"$/, "$1");
+        }
+
+        // Filter out ignored files (e.g. .class, .out, .exe, etc.) that do not belong in Explorer
+        const isIgnored = isIgnoredFile(rawPath) && rawPath !== ".gitignore";
+        if (isIgnored) {
+          // If it is unstaged or untracked, completely ignore it
+          if (x === "?" || (x === " " && y !== " ")) {
+            continue;
+          }
+        }
 
         // Staged changes
         if (x !== " " && x !== "?" && x !== "!") {
@@ -168,7 +284,7 @@ export async function getStatus(req, res) {
     // 4. Ahead / Behind calculation
     let ahead = 0;
     let behind = 0;
-    const revCountRes = await runGit(wsPath, [
+    let revCountRes = await runGit(wsPath, [
       "rev-list",
       "--left-right",
       "--count",
@@ -179,6 +295,39 @@ export async function getStatus(req, res) {
       if (counts.length >= 2) {
         ahead = parseInt(counts[0], 10) || 0;
         behind = parseInt(counts[1], 10) || 0;
+      }
+    } else {
+      // Fallback 1: Compare against origin/<currentBranch>
+      const originBranchRes = await runGit(wsPath, [
+        "rev-list",
+        "--left-right",
+        "--count",
+        `HEAD...origin/${currentBranch}`,
+      ]);
+      if (originBranchRes.exitCode === 0 && originBranchRes.stdout) {
+        const counts = originBranchRes.stdout.split(/\s+/);
+        if (counts.length >= 2) {
+          ahead = parseInt(counts[0], 10) || 0;
+          behind = parseInt(counts[1], 10) || 0;
+        }
+        // Auto set upstream tracking if branch exists on remote
+        await runGit(wsPath, ["branch", `--set-upstream-to=origin/${currentBranch}`, currentBranch]);
+      } else {
+        // Fallback 2: Check commits ahead of origin/main
+        const mainCountRes = await runGit(wsPath, [
+          "rev-list",
+          "--count",
+          "origin/main..HEAD",
+        ]);
+        if (mainCountRes.exitCode === 0 && mainCountRes.stdout) {
+          ahead = parseInt(mainCountRes.stdout.trim(), 10) || 0;
+        } else {
+          // Fallback 3: Count total commits in HEAD if not pushed at all
+          const totalCommitsRes = await runGit(wsPath, ["rev-list", "--count", "HEAD"]);
+          if (totalCommitsRes.exitCode === 0 && totalCommitsRes.stdout) {
+            ahead = parseInt(totalCommitsRes.stdout.trim(), 10) || 0;
+          }
+        }
       }
     }
 
@@ -208,6 +357,9 @@ export async function initRepo(req, res) {
     const wsPath = await getWorkspacePath(req.user.id, workspaceId);
     const { name, email } = await getUserGitSignature(req.user.id);
 
+    // Ensure standard .gitignore exists and untracks any ignored files
+    await ensureGitignore(wsPath);
+
     const initRes = await runGit(wsPath, ["init", "-b", defaultBranch]);
     if (initRes.exitCode !== 0) {
       return res.status(500).json({ error: initRes.stderr || "Git init failed" });
@@ -217,12 +369,8 @@ export async function initRepo(req, res) {
     await runGit(wsPath, ["config", "user.name", name]);
     await runGit(wsPath, ["config", "user.email", email]);
 
-    // Create standard .gitignore if none exists
-    const gitignorePath = path.join(wsPath, ".gitignore");
-    if (!fs.existsSync(gitignorePath)) {
-      const defaultGitignore = `node_modules/\ndist/\nbuild/\n__pycache__/\n*.class\n.DS_Store\n`;
-      fs.writeFileSync(gitignorePath, defaultGitignore, "utf-8");
-    }
+    // Ensure .gitignore is automatically added
+    await runGit(wsPath, ["add", ".gitignore"]);
 
     res.json({ success: true, message: `Initialized empty Git repository on branch ${defaultBranch}` });
   } catch (err) {
@@ -238,16 +386,21 @@ export async function stageFiles(req, res) {
     if (!workspaceId) return res.status(400).json({ error: "workspaceId required" });
 
     const wsPath = await getWorkspacePath(req.user.id, workspaceId);
+    await ensureGitignore(wsPath);
 
     if (all) {
       const addRes = await runGit(wsPath, ["add", "-A"]);
+      await cleanTrackedIgnoredFiles(wsPath);
       if (addRes.exitCode !== 0) {
         return res.status(500).json({ error: addRes.stderr || "Failed to stage all files" });
       }
     } else if (Array.isArray(files) && files.length > 0) {
-      const addRes = await runGit(wsPath, ["add", "--", ...files]);
-      if (addRes.exitCode !== 0) {
-        return res.status(500).json({ error: addRes.stderr || "Failed to stage selected files" });
+      const validFiles = files.filter((f) => !isIgnoredFile(f) || f === ".gitignore");
+      if (validFiles.length > 0) {
+        const addRes = await runGit(wsPath, ["add", "--", ...validFiles]);
+        if (addRes.exitCode !== 0) {
+          return res.status(500).json({ error: addRes.stderr || "Failed to stage selected files" });
+        }
       }
     } else {
       return res.status(400).json({ error: "Specify files or all: true" });
@@ -274,15 +427,23 @@ export async function unstageFiles(req, res) {
         resetRes = await runGit(wsPath, ["reset", "HEAD", "--", "."]);
       }
       if (resetRes.exitCode !== 0) {
+        resetRes = await runGit(wsPath, ["rm", "--cached", "-r", "--", "."]);
+      }
+      if (resetRes.exitCode !== 0) {
         return res.status(500).json({ error: resetRes.stderr || "Failed to unstage all files" });
       }
     } else if (Array.isArray(files) && files.length > 0) {
-      let resetRes = await runGit(wsPath, ["restore", "--staged", "--", ...files]);
-      if (resetRes.exitCode !== 0) {
-        resetRes = await runGit(wsPath, ["reset", "HEAD", "--", ...files]);
-      }
-      if (resetRes.exitCode !== 0) {
-        return res.status(500).json({ error: resetRes.stderr || "Failed to unstage selected files" });
+      for (const f of files) {
+        let resetRes = await runGit(wsPath, ["restore", "--staged", "--", f]);
+        if (resetRes.exitCode !== 0) {
+          resetRes = await runGit(wsPath, ["reset", "HEAD", "--", f]);
+        }
+        if (resetRes.exitCode !== 0) {
+          resetRes = await runGit(wsPath, ["rm", "--cached", "-r", "--", f]);
+        }
+        if (resetRes.exitCode !== 0) {
+          return res.status(500).json({ error: resetRes.stderr || `Failed to unstage ${f}` });
+        }
       }
     }
 
@@ -303,6 +464,9 @@ export async function commit(req, res) {
     }
 
     const wsPath = await getWorkspacePath(req.user.id, workspaceId);
+    await ensureGitignore(wsPath);
+    await cleanTrackedIgnoredFiles(wsPath);
+
     const { name, email } = await getUserGitSignature(req.user.id);
 
     // 1. Check if there are staged changes in git index
@@ -312,6 +476,7 @@ export async function commit(req, res) {
     // 2. If nothing is staged or stageAll requested, auto-stage tracked and untracked changes
     if (!hasStaged || stageAll) {
       await runGit(wsPath, ["add", "-A"]);
+      await cleanTrackedIgnoredFiles(wsPath);
     }
 
     // 3. Verify there is something to commit
@@ -604,7 +769,7 @@ export async function push(req, res) {
     const pushTarget = authToken ? buildAuthUrl(originalUrl, authToken) : remote;
 
     const pushArgs = ["push"];
-    if (setUpstream) pushArgs.push("-u");
+    if (setUpstream && !authToken) pushArgs.push("-u");
     pushArgs.push(pushTarget, targetBranch);
 
     const pushRes = await runGit(wsPath, pushArgs);
@@ -612,6 +777,25 @@ export async function push(req, res) {
       return res.status(500).json({
         error: pushRes.stderr || pushRes.stdout || "Push failed. Check GitHub permissions and branch state.",
       });
+    }
+
+    // Update local remote-tracking reference (e.g. refs/remotes/origin/main)
+    // so Git immediately knows local commits match remote
+    try {
+      await runGit(wsPath, [
+        "fetch",
+        pushTarget,
+        `+refs/heads/${targetBranch}:refs/remotes/${remote}/${targetBranch}`,
+      ]);
+    } catch {
+      // Non-fatal if fetch tracking update fails
+    }
+
+    // Always ensure local branch tracks remote branch
+    if (setUpstream) {
+      try {
+        await runGit(wsPath, ["branch", `--set-upstream-to=${remote}/${targetBranch}`, targetBranch]);
+      } catch {}
     }
 
     res.json({ success: true, output: pushRes.stdout || pushRes.stderr || "Pushed successfully" });
@@ -651,6 +835,17 @@ export async function pull(req, res) {
 
     // Sync newly pulled files from disk into MongoDB
     await syncWorkspaceToDB(req.user.id, workspaceId);
+
+    // Update tracking ref
+    if (authToken) {
+      try {
+        await runGit(wsPath, [
+          "fetch",
+          pullTarget,
+          `+refs/heads/${targetBranch}:refs/remotes/${remote}/${targetBranch}`,
+        ]);
+      } catch {}
+    }
 
     res.json({ success: true, output: pullRes.stdout || "Pulled latest changes" });
   } catch (err) {
@@ -703,6 +898,110 @@ export async function cloneRepo(req, res) {
     res.json({ success: true, message: "Cloned repository successfully" });
   } catch (err) {
     console.error("GIT CLONE ERROR:", err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/**
+ * Generate a smart Git commit message using AI and diff/file analysis.
+ */
+export async function generateCommitMessage(req, res) {
+  try {
+    const { workspaceId } = req.body;
+    if (!workspaceId) {
+      return res.status(400).json({ error: "workspaceId required" });
+    }
+
+    const wsPath = await getWorkspacePath(req.user.id, workspaceId);
+
+    // 1. Gather status and diff
+    let diffRes = await runGit(wsPath, ["diff", "--cached"]);
+    if (!diffRes.stdout || diffRes.stdout.trim().length === 0) {
+      diffRes = await runGit(wsPath, ["diff", "HEAD"]);
+    }
+
+    const statusRes = await runGit(wsPath, ["status", "--porcelain=v1", "-uall"]);
+    const lines = statusRes.stdout ? statusRes.stdout.split("\n").filter(Boolean) : [];
+    const files = lines.map((l) => {
+      const status = l.substring(0, 2).trim();
+      let p = l.substring(2).trim().replace(/^"(.*)"$/, "$1");
+      if (p.includes(" -> ")) p = p.split(" -> ").pop().trim();
+      return { status, path: p };
+    });
+
+    if (files.length === 0 && (!diffRes.stdout || diffRes.stdout.trim().length === 0)) {
+      return res.json({ message: "chore: update workspace files" });
+    }
+
+    const diffText = (diffRes.stdout || "").slice(0, 3500);
+    const filesSummary = files.map((f) => `${f.status || "M"} ${f.path}`).join(", ");
+
+    // 2. Try generating via LLM
+    try {
+      const prompt = `Generate a single concise git commit message following Conventional Commits (feat:, fix:, refactor:, docs:, chore:, test:).
+Changed files: ${filesSummary}
+${diffText ? `Git diff:\n${diffText}` : ""}
+
+Requirements:
+- Exactly 1 line
+- Maximum 72 characters
+- Lowercase description after prefix
+- No quotes, no markdown, no trailing period
+- Return ONLY the commit message text.`;
+
+      const aiResponse = await askAI({
+        message: prompt,
+        history: [],
+        workspaceContext: "",
+        systemPromptOverride: "You are an expert git assistant. You generate clean, accurate conventional commit messages in one line without extra text, explanation, or markdown formatting.",
+      });
+
+      let commitMsg = "";
+      if (aiResponse) {
+        if (typeof aiResponse === "string") {
+          commitMsg = aiResponse.trim();
+        } else if (aiResponse.chat) {
+          commitMsg = aiResponse.chat.trim();
+        } else if (aiResponse.message) {
+          commitMsg = aiResponse.message.trim();
+        }
+      }
+
+      commitMsg = commitMsg
+        .replace(/^["'`]+|["'`]+$/g, "")
+        .replace(/^```[a-z]*\n?|```$/g, "")
+        .replace(/\r?\n/g, " ")
+        .trim();
+
+      if (commitMsg && commitMsg.length >= 5 && commitMsg.length <= 100) {
+        return res.json({ message: commitMsg });
+      }
+    } catch (aiErr) {
+      console.warn("AI commit generation fallback triggered:", aiErr.message);
+    }
+
+    // 3. Fallback heuristic
+    let fallback = "";
+    if (files.length === 1) {
+      const f = files[0];
+      const filename = f.path.split("/").pop();
+      if (f.status.includes("A") || f.status.includes("?")) {
+        fallback = `feat: add ${filename}`;
+      } else if (f.status.includes("D")) {
+        fallback = `chore: remove ${filename}`;
+      } else {
+        fallback = `refactor: update ${filename}`;
+      }
+    } else if (files.length > 1) {
+      const names = files.slice(0, 2).map((f) => f.path.split("/").pop()).join(" and ");
+      fallback = `feat: update ${names}${files.length > 2 ? ` and ${files.length - 2} other files` : ""}`;
+    } else {
+      fallback = "chore: update project changes";
+    }
+
+    return res.json({ message: fallback });
+  } catch (err) {
+    console.error("GENERATE COMMIT MESSAGE ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 }

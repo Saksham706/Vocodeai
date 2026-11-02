@@ -26,6 +26,13 @@ RUN printf "alias cls='clear'\nalias ll='ls -la'\nPROMPT_COMMAND='PS1=\"\\[\\e[3
     echo ". /etc/vocode_bashrc" >> /etc/bash.bashrc && \
     echo ". /etc/vocode_bashrc" >> /root/.bashrc
 
+# Global Git configuration: Ignore compiled binaries, bytecode and system junk across all repos
+RUN printf "*.class\n*.out\n*.o\n*.obj\n*.exe\n*.pyc\n*.pyo\n*.pyd\n*.so\n*.dll\n*.dylib\n*.pdb\n*.idb\n*.ilk\n*.map\na.out\na.exe\n.DS_Store\nthumbs.db\n.workspace.json\nnode_modules/\ndist/\nbuild/\n__pycache__/\n.venv/\n.pytest_cache/\n" > /etc/gitignore_global && \
+    git config --system core.excludesfile /etc/gitignore_global && \
+    mkdir -p /etc/git-templates/info && \
+    cp /etc/gitignore_global /etc/git-templates/info/exclude && \
+    git config --system init.templateDir /etc/git-templates
+
 # Verify installations (optional but useful)
 RUN node -v && npm -v && java -version && mvn -v && python3 --version && convert -version
 

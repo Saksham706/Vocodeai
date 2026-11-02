@@ -289,6 +289,11 @@
   gap: 6px;
 }
 
+.sc-commit-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
 .sc-commit-input {
   width: 100%;
   box-sizing: border-box;
@@ -298,7 +303,7 @@
   color: var(--text-primary, #FFFFFF);
   font-family: inherit;
   font-size: 12px;
-  padding: 8px 10px;
+  padding: 8px 34px 8px 10px;
   resize: vertical;
   min-height: 52px;
   outline: none;
@@ -308,6 +313,54 @@
 .sc-commit-input:focus {
   border-color: #FF9B3D;
   box-shadow: 0 0 0 1px rgba(255, 155, 61, 0.25);
+}
+
+.sc-ai-commit-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 155, 61, 0.35);
+  background: rgba(255, 155, 61, 0.12);
+  color: #FF9B3D;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 2;
+}
+
+.sc-ai-commit-btn:hover:not(:disabled) {
+  background: rgba(255, 155, 61, 0.25);
+  border-color: #FF9B3D;
+  color: #FFFFFF;
+  box-shadow: 0 0 8px rgba(255, 155, 61, 0.4);
+  transform: scale(1.06);
+}
+
+.sc-ai-commit-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted, #7E9388);
+}
+
+.sc-ai-commit-btn.generating {
+  animation: pulse-ai 1.2s infinite ease-in-out;
+}
+
+@keyframes pulse-ai {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; filter: drop-shadow(0 0 5px #FF9B3D); }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
+.spinning-sparkle {
+  animation: spin 1s linear infinite;
 }
 
 .sc-commit-btn {
@@ -435,35 +488,43 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 10px 0 24px;
+  padding: 0 8px 0 20px;
   cursor: pointer;
   font-size: 12px;
   transition: background 0.15s ease;
+  border-radius: 3px;
+  margin: 1px 4px;
 }
 
 .sc-file-row:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.sc-file-row .sc-item-action-btn {
-  opacity: 0;
-}
-
-.sc-file-row:hover .sc-item-action-btn {
-  opacity: 1;
-}
-
+.sc-file-info,
 .sc-file-left {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.sc-file-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
 }
 
 .sc-file-name {
   color: var(--text-primary, #E6EDF3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.3;
 }
 
 .sc-file-dir {
@@ -471,10 +532,105 @@
   font-size: 11px;
 }
 
+.sc-file-row-actions,
 .sc-file-right {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+.sc-status-letter {
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  text-align: center;
+  line-height: 1;
+}
+
+.sc-status-letter.m {
+  color: #F59E0B;
+}
+
+.sc-status-letter.a {
+  color: #10B981;
+}
+
+.sc-status-letter.d {
+  color: #EF4444;
+}
+
+.sc-status-letter.u {
+  color: #10B981;
+}
+
+.sc-status-letter.r {
+  color: #38BDF8;
+}
+
+/* VS Code Style Row Action Buttons (Stage/Unstage/Discard) */
+.sc-row-btn,
+.sc-item-action-btn,
+.sc-file-row .sc-item-action-btn {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  color: var(--text-muted, #7E9388) !important;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  opacity: 0.7;
+  transition: all 0.15s ease;
+}
+
+.sc-row-btn svg,
+.sc-item-action-btn svg,
+.sc-file-row .sc-item-action-btn svg {
+  pointer-events: none !important;
+  display: block;
+}
+
+.sc-file-row:hover .sc-row-btn,
+.sc-file-row:hover .sc-item-action-btn {
+  opacity: 1;
+}
+
+.sc-row-btn:hover,
+.sc-item-action-btn:hover,
+.sc-file-row .sc-item-action-btn:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #FFFFFF !important;
+  opacity: 1 !important;
+}
+
+.sc-row-btn:active,
+.sc-item-action-btn:active {
+  background: rgba(255, 255, 255, 0.22) !important;
+  transform: scale(0.93);
+}
+
+.sc-row-btn.danger:hover,
+.sc-item-action-btn.danger:hover,
+.sc-file-row .sc-item-action-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.18) !important;
+  color: #EF4444 !important;
 }
 
 .sc-no-changes {

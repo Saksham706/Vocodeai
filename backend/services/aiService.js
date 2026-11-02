@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export async function askAI({ message, history = [], workspaceContext = "", images = [] }) {
+export async function askAI({ message, history = [], workspaceContext = "", images = [], systemPromptOverride = null }) {
   const geminiKey = process.env.GEMINI_API_KEY;
   const groqKey = process.env.GROQ_API_KEY;
   const generalKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
@@ -147,7 +147,7 @@ CRITICAL RULES:
         {
           model,
           messages: [
-            { role: "system", content: systemPrompt },
+            { role: "system", content: systemPromptOverride || systemPrompt },
             ...cleanHistory,
             { role: "user", content: userMessageContent },
           ],

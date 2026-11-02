@@ -21,12 +21,51 @@ export function safeJoin(base, target) {
   return targetPath;
 }
 
+export const DEFAULT_GITIGNORE = `# Compiled class and binary files
+*.class
+*.out
+*.o
+*.obj
+*.exe
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dll
+*.dylib
+*.pdb
+*.idb
+*.ilk
+*.map
+a.out
+a.exe
+
+# OS and temporary files
+.DS_Store
+thumbs.db
+.workspace.json
+
+# Dependencies and build outputs
+node_modules/
+dist/
+build/
+__pycache__/
+.venv/
+.pytest_cache/
+`;
+
 export function ensureWorkspace(userId, workspaceId) {
   const uId = String(userId || "");
   const wId = String(workspaceId || "");
   const wsPath = path.join(getWorkspacesRoot(), uId, wId);
   if (!fs.existsSync(wsPath)) {
     fs.mkdirSync(wsPath, { recursive: true });
+  }
+  const gitignorePath = path.join(wsPath, ".gitignore");
+  if (!fs.existsSync(gitignorePath)) {
+    try {
+      fs.writeFileSync(gitignorePath, DEFAULT_GITIGNORE, "utf-8");
+    } catch {}
   }
   return wsPath;
 }

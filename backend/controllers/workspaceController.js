@@ -10,6 +10,7 @@ import {
   deleteWorkspace as deleteWorkspaceFS,
   moveToTrash,
   restoreFromTrash,
+  DEFAULT_GITIGNORE,
 } from "../services/fileService.js";
 import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
 import { getWorkspacesRoot } from "../config/paths.js";
@@ -24,6 +25,16 @@ export async function createWorkspace(req, res) {
     });
 
     ensureWorkspace(req.user.id, ws._id.toString());
+
+    try {
+      await FileNode.create({
+        workspaceId: ws._id.toString(),
+        path: ".gitignore",
+        type: "file",
+        content: DEFAULT_GITIGNORE,
+      });
+    } catch {}
+
     res.json(ws);
   } catch (err) {
     console.error("CREATE WORKSPACE ERROR:", err);

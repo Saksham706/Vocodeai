@@ -59,6 +59,15 @@ export async function commitGit(token, workspaceId, message, stageAll = false, a
   return handleResponse(res);
 }
 
+export async function generateAiCommitMessage(token, workspaceId) {
+  const res = await fetch(`${BASE}/generate-commit-message`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ workspaceId }),
+  });
+  return handleResponse(res);
+}
+
 export async function discardGitChanges(token, workspaceId, files = null, all = false) {
   const res = await fetch(`${BASE}/discard`, {
     method: "POST",

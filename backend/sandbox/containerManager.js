@@ -69,6 +69,48 @@ git config --system core.filemode false 2>/dev/null || true
 git config --global core.filemode false 2>/dev/null || true
 git config --system init.defaultBranch main 2>/dev/null || true
 git config --global init.defaultBranch main 2>/dev/null || true
+
+cat << 'GITIGNORE_EOF' > /etc/gitignore_global
+# Compiled class and binary files
+*.class
+*.out
+*.o
+*.obj
+*.exe
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dll
+*.dylib
+*.pdb
+*.idb
+*.ilk
+*.map
+a.out
+a.exe
+
+# OS and temporary files
+.DS_Store
+thumbs.db
+.workspace.json
+
+# Dependencies and build outputs
+node_modules/
+dist/
+build/
+__pycache__/
+.venv/
+.pytest_cache/
+GITIGNORE_EOF
+
+git config --system core.excludesfile /etc/gitignore_global 2>/dev/null || true
+git config --global core.excludesfile /etc/gitignore_global 2>/dev/null || true
+
+mkdir -p /etc/git-templates/info 2>/dev/null || true
+cp /etc/gitignore_global /etc/git-templates/info/exclude 2>/dev/null || true
+git config --system init.templateDir /etc/git-templates 2>/dev/null || true
+git config --global init.templateDir /etc/git-templates 2>/dev/null || true
 if [ -n "${gitUser}" ]; then
   git config --global user.name "${gitUser}" 2>/dev/null || true
 fi

@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import FileNode from "../models/FileNode.js";
 import { getWorkspacesRoot } from "../config/paths.js";
+import { DEFAULT_GITIGNORE } from "./fileService.js";
 
 export async function hydrateWorkspace(userId, workspaceId) {
   const workspacePath = path.join(
@@ -13,6 +14,13 @@ export async function hydrateWorkspace(userId, workspaceId) {
   await fs.mkdir(workspacePath, {
     recursive: true,
   });
+
+  const gitignorePath = path.join(workspacePath, ".gitignore");
+  try {
+    await fs.access(gitignorePath);
+  } catch {
+    await fs.writeFile(gitignorePath, DEFAULT_GITIGNORE, "utf-8");
+  }
 
   const nodes = await FileNode.find({
     $or: [

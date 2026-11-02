@@ -23,6 +23,7 @@ import {
   Unlink,
   CheckCircle2,
   AlertCircle,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useWorkspace } from "../../context/WorkspaceContext";
@@ -32,6 +33,7 @@ import {
   stageGitFiles,
   unstageGitFiles,
   commitGit,
+  generateAiCommitMessage,
   discardGitChanges,
   getGitBranches,
   checkoutGitBranch,
@@ -90,6 +92,7 @@ export default function SourceControl({
   const [gitStatus, setGitStatus] = useState(null);
   const [commitMessage, setCommitMessage] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [stagedExpanded, setStagedExpanded] = useState(true);
   const [changesExpanded, setChangesExpanded] = useState(true);
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -272,10 +275,12 @@ export default function SourceControl({
 
   // Stage single file
   const handleStageFile = async (e, filePath) => {
-    e.stopPropagation();
+    if (e?.stopPropagation) e.stopPropagation();
+    if (e?.preventDefault) e.preventDefault();
     try {
       await stageGitFiles(accessToken, workspaceId, [filePath]);
       await fetchStatus();
+      if (typeof loadWorkspace === "function") await loadWorkspace();
     } catch (err) {
       showBanner(err.message, "error");
     }
@@ -283,10 +288,12 @@ export default function SourceControl({
 
   // Stage all
   const handleStageAll = async (e) => {
-    e.stopPropagation();
+    if (e?.stopPropagation) e.stopPropagation();
+    if (e?.preventDefault) e.preventDefault();
     try {
       await stageGitFiles(accessToken, workspaceId, null, true);
       await fetchStatus();
+      if (typeof loadWorkspace === "function") await loadWorkspace();
     } catch (err) {
       showBanner(err.message, "error");
     }
@@ -294,10 +301,12 @@ export default function SourceControl({
 
   // Unstage single file
   const handleUnstageFile = async (e, filePath) => {
-    e.stopPropagation();
+    if (e?.stopPropagation) e.stopPropagation();
+    if (e?.preventDefault) e.preventDefault();
     try {
       await unstageGitFiles(accessToken, workspaceId, [filePath]);
       await fetchStatus();
+      if (typeof loadWorkspace === "function") await loadWorkspace();
     } catch (err) {
       showBanner(err.message, "error");
     }
@@ -305,10 +314,12 @@ export default function SourceControl({
 
   // Unstage all
   const handleUnstageAll = async (e) => {
-    e.stopPropagation();
+    if (e?.stopPropagation) e.stopPropagation();
+    if (e?.preventDefault) e.preventDefault();
     try {
       await unstageGitFiles(accessToken, workspaceId, null, true);
       await fetchStatus();
+      if (typeof loadWorkspace === "function") await loadWorkspace();
     } catch (err) {
       showBanner(err.message, "error");
     }
@@ -316,13 +327,14 @@ export default function SourceControl({
 
   // Discard file changes
   const handleDiscardFile = async (e, filePath) => {
-    e.stopPropagation();
+    if (e?.stopPropagation) e.stopPropagation();
+    if (e?.preventDefault) e.preventDefault();
     if (!window.confirm(`Are you sure you want to discard changes in "${filePath}"?`)) return;
     try {
       await discardGitChanges(accessToken, workspaceId, [filePath]);
       showBanner(`Discarded changes in "${filePath}"`);
       await fetchStatus();
-      await loadWorkspace();
+      if (typeof loadWorkspace === "function") await loadWorkspace();
     } catch (err) {
       showBanner(err.message, "error");
     }
@@ -330,13 +342,14 @@ export default function SourceControl({
 
   // Discard all changes
   const handleDiscardAll = async (e) => {
-    e.stopPropagation();
+    if (e?.stopPropagation) e.stopPropagation();
+    if (e?.preventDefault) e.preventDefault();
     if (!window.confirm("Are you sure you want to discard ALL uncommitted changes? This cannot be undone.")) return;
     try {
       await discardGitChanges(accessToken, workspaceId, null, true);
       showBanner("Discarded all changes");
       await fetchStatus();
-      await loadWorkspace();
+      if (typeof loadWorkspace === "function") await loadWorkspace();
     } catch (err) {
       showBanner(err.message, "error");
     }
@@ -367,11 +380,29 @@ export default function SourceControl({
       setCommitMessage("");
       showBanner("Committed changes successfully");
       await fetchStatus();
+      if (typeof loadWorkspace === "function") await loadWorkspace();
       if (historyExpanded) loadHistory();
     } catch (err) {
       showBanner(err.message, "error");
     } finally {
       setIsCommitting(false);
+    }
+  };
+
+  // Generate Commit Message with AI
+  const handleGenerateAiCommit = async () => {
+    if (isGeneratingAi) return;
+    try {
+      setIsGeneratingAi(true);
+      const res = await generateAiCommitMessage(accessToken, workspaceId);
+      if (res?.message) {
+        setCommitMessage(res.message);
+        showBanner("Generated commit message with AI", "success");
+      }
+    } catch (err) {
+      showBanner(err.message || "Failed to generate AI commit message", "error");
+    } finally {
+      setIsGeneratingAi(false);
     }
   };
 
@@ -743,21 +774,33 @@ export default function SourceControl({
               </div>
             </div>
 
-            {/* Commit Message Box */}
+            {/* Commit Message Box with AI Generator */}
             <div className="sc-commit-box">
-              <textarea
-                className="sc-commit-input"
-                placeholder="Message (Ctrl+Enter to commit)"
-                rows={2}
-                value={commitMessage}
-                onChange={(e) => setCommitMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                    e.preventDefault();
-                    handleCommit();
-                  }
-                }}
-              />
+              <div className="sc-commit-input-wrapper">
+                <textarea
+                  className="sc-commit-input"
+                  placeholder="Message (Ctrl+Enter to commit)"
+                  rows={2}
+                  value={commitMessage}
+                  onChange={(e) => setCommitMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                      e.preventDefault();
+                      handleCommit();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className={`sc-ai-commit-btn ${isGeneratingAi ? "generating" : ""}`}
+                  onClick={handleGenerateAiCommit}
+                  disabled={isGeneratingAi || totalChanges === 0}
+                  title="Generate Commit Message with AI (✨)"
+                  aria-label="Generate Commit Message with AI"
+                >
+                  <Sparkles size={13} className={isGeneratingAi ? "spinning-sparkle" : ""} />
+                </button>
+              </div>
               <button
                 className="sc-commit-btn"
                 onClick={handleCommit}
@@ -769,8 +812,9 @@ export default function SourceControl({
             </div>
 
             {/* Prominent Sync / Push Changes Button (VS Code style) */}
-            {(gitStatus.ahead > 0 || (gitStatus.remotes?.length > 0 && totalChanges === 0)) && (
+            {gitStatus.remotes?.length > 0 ? (
               <button
+                type="button"
                 className="sc-publish-btn"
                 onClick={handleSync}
                 disabled={loading}
@@ -778,8 +822,27 @@ export default function SourceControl({
               >
                 <UploadCloud size={14} className={loading ? "spinning" : ""} />
                 <span>
-                  {loading ? "Syncing..." : gitStatus.ahead > 0 ? `Sync Changes (${gitStatus.ahead} ↑)` : "Sync with GitHub"}
+                  {loading
+                    ? "Syncing with GitHub..."
+                    : gitStatus.ahead > 0 && gitStatus.behind > 0
+                    ? `Sync Changes (${gitStatus.ahead} ↑ ${gitStatus.behind} ↓)`
+                    : gitStatus.ahead > 0
+                    ? `Sync Changes (${gitStatus.ahead} ↑)`
+                    : gitStatus.behind > 0
+                    ? `Pull Changes (${gitStatus.behind} ↓)`
+                    : "Sync with GitHub"}
                 </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="sc-publish-btn"
+                onClick={() => setShowRemoteModal(true)}
+                disabled={loading}
+                title="Publish branch to GitHub remote"
+              >
+                <UploadCloud size={14} />
+                <span>Publish Branch to GitHub</span>
               </button>
             )}
 
@@ -796,8 +859,9 @@ export default function SourceControl({
                     <span className="sc-badge count">{stagedCount}</span>
                   </div>
 
-                  <div className="sc-section-actions">
+                  <div className="sc-section-actions" onClick={(e) => e.stopPropagation()}>
                     <button
+                      type="button"
                       className="sc-item-action-btn"
                       onClick={handleUnstageAll}
                       title="Unstage All Changes"
@@ -821,11 +885,12 @@ export default function SourceControl({
                             <span className="sc-file-name" title={f.path}>{f.path}</span>
                           </div>
 
-                          <div className="sc-file-row-actions">
+                          <div className="sc-file-row-actions" onClick={(e) => e.stopPropagation()}>
                             <span className={`sc-status-letter ${f.status.toLowerCase()}`}>
                               {f.status}
                             </span>
                             <button
+                              type="button"
                               className="sc-row-btn"
                               onClick={(e) => handleUnstageFile(e, f.path)}
                               title="Unstage"
@@ -856,8 +921,9 @@ export default function SourceControl({
                 </div>
 
                 {changesCount > 0 && (
-                  <div className="sc-section-actions">
+                  <div className="sc-section-actions" onClick={(e) => e.stopPropagation()}>
                     <button
+                      type="button"
                       className="sc-item-action-btn"
                       onClick={handleDiscardAll}
                       title="Discard All Changes"
@@ -865,6 +931,7 @@ export default function SourceControl({
                       <RotateCcw size={13} />
                     </button>
                     <button
+                      type="button"
                       className="sc-item-action-btn"
                       onClick={handleStageAll}
                       title="Stage All Changes"
@@ -894,11 +961,12 @@ export default function SourceControl({
                               <span className="sc-file-name" title={f.path}>{f.path}</span>
                             </div>
 
-                            <div className="sc-file-row-actions">
+                            <div className="sc-file-row-actions" onClick={(e) => e.stopPropagation()}>
                               <span className={`sc-status-letter ${f.status.toLowerCase()}`}>
                                 {f.status}
                               </span>
                               <button
+                                type="button"
                                 className="sc-row-btn"
                                 onClick={(e) => handleDiscardFile(e, f.path)}
                                 title="Discard Changes"
@@ -906,6 +974,7 @@ export default function SourceControl({
                                 <RotateCcw size={12} />
                               </button>
                               <button
+                                type="button"
                                 className="sc-row-btn"
                                 onClick={(e) => handleStageFile(e, f.path)}
                                 title="Stage Changes"
@@ -930,9 +999,10 @@ export default function SourceControl({
                               <span className="sc-file-name" title={f.path}>{f.path}</span>
                             </div>
 
-                            <div className="sc-file-row-actions">
+                            <div className="sc-file-row-actions" onClick={(e) => e.stopPropagation()}>
                               <span className="sc-status-letter u" title="Untracked">U</span>
                               <button
+                                type="button"
                                 className="sc-row-btn"
                                 onClick={(e) => handleDiscardFile(e, f.path)}
                                 title="Delete Untracked File"
@@ -940,6 +1010,7 @@ export default function SourceControl({
                                 <RotateCcw size={12} />
                               </button>
                               <button
+                                type="button"
                                 className="sc-row-btn"
                                 onClick={(e) => handleStageFile(e, f.path)}
                                 title="Stage File"
