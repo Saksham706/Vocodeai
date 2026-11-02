@@ -10,6 +10,8 @@ import {
   ChevronDown,
   Check,
   X,
+  RotateCw,
+  RotateCcw,
 } from "lucide-react";
 import "../../styles/terminal.css";
 
@@ -21,6 +23,8 @@ export default function TerminalTabs({
   onNewTerminal,
   onSplitTerminal,
   onClearTerminal,
+  onRestartTerminal,
+  onKillTerminal,
   onToggleMaximize,
   isMaximized = false,
   isSplit = false,
@@ -154,17 +158,45 @@ export default function TerminalTabs({
             </span>
           </div>
 
-          {/* Kill Terminal (Trash) */}
+          {/* Clear Buffer Screen */}
           <div className="term-btn-tooltip-wrapper">
             <button
               type="button"
               className="term-tool-icon-btn"
               onClick={onClearTerminal}
+              aria-label="Clear Terminal"
+            >
+              <RotateCcw size={13} />
+            </button>
+            <span className="term-hover-tooltip">Clear Terminal Screen</span>
+          </div>
+
+          {/* Restart Session */}
+          {onRestartTerminal && (
+            <div className="term-btn-tooltip-wrapper">
+              <button
+                type="button"
+                className="term-tool-icon-btn"
+                onClick={onRestartTerminal}
+                aria-label="Restart Terminal"
+              >
+                <RotateCw size={13} />
+              </button>
+              <span className="term-hover-tooltip">Restart Session</span>
+            </div>
+          )}
+
+          {/* Kill Terminal (Trash) */}
+          <div className="term-btn-tooltip-wrapper">
+            <button
+              type="button"
+              className="term-tool-icon-btn"
+              onClick={onKillTerminal || onClearTerminal}
               aria-label="Kill Terminal"
             >
               <Trash2 size={14} />
             </button>
-            <span className="term-hover-tooltip">Kill Terminal</span>
+            <span className="term-hover-tooltip">Kill Session</span>
           </div>
 
           {/* Maximize / Restore */}

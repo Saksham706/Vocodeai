@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /docs
+Allow: /login
+Allow: /signup
+Disallow: /api/
+Disallow: /preview/
+Disallow: /workspace/
+
+Sitemap: https://vocodeai.com/sitemap.xml
+

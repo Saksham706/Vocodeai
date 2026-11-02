@@ -1,0 +1,294 @@
+/* ========================================================
+   VOCODEAI IDE — RUN AND DEBUG SIDEBAR STYLES (VS CODE STYLE)
+   ======================================================== */
+
+.run-debug-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+}
+
+/* 1. Main Action Card */
+.run-debug-actions-card {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-bottom: 1px solid var(--explorer-border, rgba(16, 185, 129, 0.12));
+}
+
+.run-primary-btn {
+  width: 100%;
+  background: #22C55E;
+  color: #020B08;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+}
+
+.run-primary-btn:hover {
+  background: #43E65C;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(67, 230, 92, 0.35);
+}
+
+.run-primary-btn:active {
+  transform: scale(0.98);
+}
+
+.run-btn-icon {
+  flex-shrink: 0;
+}
+
+.run-btn-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: hidden;
+}
+
+.run-btn-title {
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.run-btn-subtitle {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.run-secondary-btn {
+  width: 100%;
+  background: var(--explorer-surface, #04160F);
+  color: var(--explorer-text, #F3F8F4);
+  border: 1px solid var(--explorer-border, rgba(16, 185, 129, 0.2));
+  border-radius: 6px;
+  padding: 7px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.run-secondary-btn:hover {
+  background: var(--explorer-surface-hover, rgba(255, 255, 255, 0.08));
+  border-color: rgba(67, 230, 92, 0.4);
+}
+
+.run-controls-bar {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.run-control-btn {
+  flex: 1;
+  background: var(--explorer-surface, #04160F);
+  color: var(--explorer-text-muted, #809C8E);
+  border: 1px solid var(--explorer-border, rgba(16, 185, 129, 0.15));
+  border-radius: 4px;
+  padding: 5px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.12s ease;
+}
+
+.run-control-btn:hover {
+  color: var(--explorer-text, #F3F8F4);
+  background: var(--explorer-surface-hover, rgba(255, 255, 255, 0.08));
+}
+
+.run-control-btn.danger:hover {
+  color: #EF4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* 2. Target Environment & Command Preview */
+.run-config-preview {
+  padding: 10px 14px;
+  background: var(--explorer-surface, #04160F);
+  border-bottom: 1px solid var(--explorer-border, rgba(16, 185, 129, 0.12));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.run-preview-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #43E65C;
+  margin-bottom: 2px;
+}
+
+.run-preview-item {
+  display: flex;
+  font-size: 11.5px;
+  gap: 6px;
+}
+
+.run-preview-key {
+  color: var(--explorer-text-muted, #809C8E);
+  font-weight: 500;
+}
+
+.run-preview-val {
+  color: var(--explorer-text, #F3F8F4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-preview-val.highlight {
+  color: #FFAA43;
+  font-weight: 600;
+}
+
+.run-command-box {
+  margin-top: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--explorer-border, rgba(16, 185, 129, 0.15));
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-family: 'Fira Code', Consolas, monospace;
+  font-size: 11px;
+  color: #D1D5DB;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* 3. VS Code Style Accordions */
+.run-accordions-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.run-accordion-group {
+  border-bottom: 1px solid var(--explorer-border, rgba(16, 185, 129, 0.08));
+}
+
+.run-accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.run-accordion-header:hover {
+  background: var(--explorer-surface-hover, rgba(255, 255, 255, 0.04));
+}
+
+.run-accordion-chevron {
+  color: var(--explorer-text-muted, #809C8E);
+  display: flex;
+}
+
+.run-accordion-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--explorer-text-muted, #809C8E);
+  letter-spacing: 0.5px;
+  flex: 1;
+}
+
+.run-accordion-add-btn {
+  background: transparent;
+  border: none;
+  color: var(--explorer-text-muted, #809C8E);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  display: flex;
+}
+
+.run-accordion-add-btn:hover {
+  color: var(--explorer-text, #F3F8F4);
+  background: var(--explorer-surface-hover, rgba(255, 255, 255, 0.08));
+}
+
+.run-accordion-content {
+  padding: 4px 14px 10px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.run-empty-msg {
+  color: var(--explorer-text-muted, #809C8E);
+  font-size: 11px;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.run-watch-add-form {
+  margin-bottom: 4px;
+}
+
+.run-watch-input {
+  width: 100%;
+  background: var(--explorer-surface, #04160F);
+  border: 1px solid #43E65C;
+  border-radius: 3px;
+  color: var(--explorer-text, #F3F8F4);
+  font-size: 11px;
+  padding: 3px 6px;
+  outline: none;
+  font-family: 'Fira Code', monospace;
+}
+
+.run-watch-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-family: 'Fira Code', monospace;
+}
+
+.run-watch-expr {
+  color: #FFAA43;
+}
+
+.run-watch-val {
+  color: var(--explorer-text-muted, #809C8E);
+}
+
+.run-bp-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--explorer-text, #F3F8F4);
+}
+
+.bp-check {
+  color: #22C55E;
+}
+

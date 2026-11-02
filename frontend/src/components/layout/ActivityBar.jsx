@@ -50,7 +50,7 @@ export default function ActivityBar({
 
         {/* 2. Search */}
         <button
-          className={`activity-bar-btn ${activeTab === "search" ? "active" : ""}`}
+          className={`activity-bar-btn ${activeTab === "search" && isExplorerOpen ? "active" : ""}`}
           onClick={() => handleItemClick("search")}
           title="Search (Ctrl+Shift+F)"
           aria-label="Search"
@@ -75,7 +75,7 @@ export default function ActivityBar({
 
         {/* 4. Run and Debug */}
         <button
-          className={`activity-bar-btn ${activeTab === "debug" ? "active" : ""}`}
+          className={`activity-bar-btn ${(activeTab === "debug" || activeTab === "run") && isExplorerOpen ? "active" : ""}`}
           onClick={() => handleItemClick("debug")}
           title="Run and Debug (Ctrl+Shift+D)"
           aria-label="Run and Debug"

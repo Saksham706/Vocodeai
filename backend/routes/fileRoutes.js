@@ -11,15 +11,19 @@ import {
   restoreRecycleBinItem,
   permanentlyDeleteRecycleBinItem,
   emptyRecycleBin,
+  searchFiles,
+  replaceInFiles,
 } from "../controllers/fileController.js";
 
 const router = express.Router();
 
 router.get("/tree", auth, loadTree);
 router.get("/read", auth, readFile);
+router.get("/search", auth, searchFiles);
 router.post("/create", auth, createNode);
 router.put("/save", auth, saveFile);
 router.put("/rename", auth, renameNode);
+router.put("/replace", auth, replaceInFiles);
 router.post("/delete", auth, deleteNode);
 
 /* Recycle Bin Routes */

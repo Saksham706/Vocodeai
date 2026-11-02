@@ -5,7 +5,7 @@ import chokidar from "chokidar";
 
 import { getOrCreateContainer } from "./sandbox/containerManager.js";
 import { touchContainer } from "./sandbox/containerRegistry.js";
-import { createDockerPty } from "./terminal/dockerPty.js";
+import { createDockerPty, createLocalPty } from "./terminal/dockerPty.js";
 import { syncWorkspaceToDB } from "./services/syncService.js";
 import { hydrateWorkspace } from "./services/hydrateWorkspace.js";
 import { getWorkspacesRoot } from "./config/paths.js";
@@ -91,7 +91,7 @@ export function setupTerminalServer(server) {
       /* ================= CREATE TERMINAL ================ */
       /* ================================================= */
       if (msg.type === "create") {
-        const { terminalId, workspaceId, shell } = msg;
+        const { terminalId, workspaceId, shell, cols, rows } = msg;
         if (!terminalId || !workspaceId) return;
 
         try {
@@ -104,18 +104,26 @@ export function setupTerminalServer(server) {
           // 1. Ensure files from MongoDB exist on disk before mounting container
           await hydrateWorkspace(userId, workspaceId);
 
-          const key = getContainerKey(userId, workspaceId);
+          let ptyProcess = null;
+          let fallbackNotice = null;
 
-          // 2. Start or attach Docker container
-          const container = await getOrCreateContainer({
-            workspaceKey: key,
-            workspacePath,
-          });
+          // 2. Start or attach Docker container with graceful local PTY fallback
+          try {
+            const key = getContainerKey(userId, workspaceId);
+            const container = await getOrCreateContainer({
+              workspaceKey: key,
+              workspacePath,
+            });
 
-          touchContainer(key);
+            touchContainer(key);
 
-          // 3. Spawn real PTY session connected to container
-          const ptyProcess = createDockerPty(container.id, shell, username);
+            // 3. Spawn real PTY session connected to container with client's exact dimensions
+            ptyProcess = createDockerPty(container.id, shell, username, cols, rows);
+          } catch (dockerErr) {
+            console.warn("Docker container spawn unavailable, using local PTY fallback:", dockerErr.message);
+            ptyProcess = createLocalPty(workspacePath, shell, cols, rows);
+            fallbackNotice = `\r\n\x1b[33m⚡ [VocodeAI] Docker offline (${dockerErr.message.slice(0, 40)}...). Connected to native terminal in /workspace.\x1b[0m\r\n`;
+          }
 
           registerTerminal(terminalId, {
             pty: ptyProcess,
@@ -125,6 +133,8 @@ export function setupTerminalServer(server) {
             title: msg.title || shell || "bash",
             file: msg.file || null,
             buffer: "",
+            cols: cols || 120,
+            rows: rows || 30,
           });
 
           /* ---------- FILE WATCHER ---------- */
@@ -193,6 +203,16 @@ export function setupTerminalServer(server) {
               setAsActive: msg.setAsActive !== false,
             })
           );
+
+          if (fallbackNotice && ws.readyState === ws.OPEN) {
+            ws.send(
+              JSON.stringify({
+                type: "output",
+                terminalId,
+                data: fallbackNotice,
+              })
+            );
+          }
         } catch (err) {
           console.error("Terminal creation failed:", err);
           if (ws.readyState === ws.OPEN) {
@@ -200,7 +220,7 @@ export function setupTerminalServer(server) {
               JSON.stringify({
                 type: "output",
                 terminalId,
-                data: `\r\n\x1b[31m[Error] Failed to initialize terminal container: ${err.message}\x1b[0m\r\n`,
+                data: `\r\n\x1b[31m[Error] Failed to initialize terminal: ${err.message}\x1b[0m\r\n`,
               })
             );
           }
@@ -236,21 +256,13 @@ export function setupTerminalServer(server) {
           return;
         }
 
-        const command = msg.data.trim();
-
-        if (command === "cls") {
-          entry.buffer = "";
-          ws.send(
-            JSON.stringify({
-              type: "output",
-              terminalId: msg.terminalId,
-              data: "\x1Bc",
-            })
-          );
-          return;
+        try {
+          if (msg.data) {
+            entry.pty.write(msg.data);
+          }
+        } catch (ptyErr) {
+          console.warn("PTY write error:", ptyErr.message);
         }
-
-        entry.pty.write(msg.data);
       }
 
       /* ================================================= */

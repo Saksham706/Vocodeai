@@ -251,28 +251,6 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
       if (pendingCreateRef.current) {
         ws.send(JSON.stringify(pendingCreateRef.current));
         pendingCreateRef.current = null;
-      } else {
-        // Auto-create initial default terminal if none exists
-        setTimeout(() => {
-          setTerminals((prev) => {
-            if (prev.length === 0) {
-              const defaultId = `term_default_${Date.now()}`;
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.send(
-                  JSON.stringify({
-                    type: "create",
-                    terminalId: defaultId,
-                    workspaceId,
-                    shell: "bash",
-                    setAsActive: true,
-                    title: "bash",
-                  })
-                );
-              }
-            }
-            return prev;
-          });
-        }, 100);
       }
     };
 
@@ -428,6 +406,21 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
       }
       return remaining;
     });
+  };
+
+  const clearTerminal = (terminalId) => {
+    if (!terminalId) return;
+    sendWS({ type: "clear", terminalId });
+    window.dispatchEvent(
+      new CustomEvent("terminal-buffer", {
+        detail: { terminalId, data: "" },
+      })
+    );
+  };
+
+  const restartTerminal = (terminalId) => {
+    if (!terminalId) return;
+    sendWS({ type: "restart", terminalId });
   };
 
   /* ================= LOAD WORKSPACE ================= */
@@ -774,21 +767,31 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
     setProblems((prev) => prev.filter((p) => p.file !== activeFile));
 
     const baseName = activeFile.split("/").pop();
-    const termTitle = activeFile;
 
-    // 1. Check if a terminal dedicated to this EXACT file already exists
-    const existingFileTerm = terminals.find((t) => t.file === activeFile);
+    // 1. If any terminal already exists, reuse it and run the command in it (ensuring only 1 terminal is open)
+    const targetTerm =
+      terminals.find((t) => t.file === activeFile) ||
+      (activeTerminal ? terminals.find((t) => t.id === activeTerminal) : null) ||
+      terminals[0];
 
-    if (existingFileTerm) {
-      setActiveTerminal(existingFileTerm.id);
-      sendWS({ type: "input", terminalId: existingFileTerm.id, data: command + "\n" });
+    if (targetTerm) {
+      setActiveTerminal(targetTerm.id);
+      // Update terminal tab label and file metadata
+      setTerminals((prev) =>
+        prev.map((t) =>
+          t.id === targetTerm.id
+            ? { ...t, title: baseName, file: activeFile }
+            : t
+        )
+      );
+      sendWS({ type: "input", terminalId: targetTerm.id, data: command + "\n" });
       return;
     }
 
-    // 2. If no dedicated terminal exists for this file, create a new separate terminal
+    // 2. If NO terminal exists, spawn exactly ONE terminal to execute the command
     const newId = `term_${Date.now()}`;
     pendingRunRef.current = command + "\n";
-    createTerminal(newId, "bash", true, termTitle, activeFile);
+    createTerminal(newId, "bash", true, baseName, activeFile);
   };
 
   /* ================= RUN PROJECT ================= */
@@ -808,19 +811,26 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
       const data = await res.json();
 
       if (data.command) {
-        const terminalId = `project_${workspaceId}`;
         const cmdString = data.command + "\n";
+        const targetTerm =
+          terminals.find((t) => t.id === `project_${workspaceId}`) ||
+          (activeTerminal ? terminals.find((t) => t.id === activeTerminal) : null) ||
+          terminals[0];
 
-        if (!terminals.find((t) => t.id === terminalId)) {
-          pendingRunRef.current = cmdString;
-          sendWS({
-            type: "create",
-            terminalId,
-            workspaceId,
-          });
+        if (targetTerm) {
+          setActiveTerminal(targetTerm.id);
+          setTerminals((prev) =>
+            prev.map((t) =>
+              t.id === targetTerm.id
+                ? { ...t, title: "project" }
+                : t
+            )
+          );
+          sendWS({ type: "input", terminalId: targetTerm.id, data: cmdString });
         } else {
-          setActiveTerminal(terminalId);
-          sendWS({ type: "input", terminalId, data: cmdString });
+          const terminalId = `term_${Date.now()}`;
+          pendingRunRef.current = cmdString;
+          createTerminal(terminalId, "bash", true, "project");
         }
       } else if (data.error) {
         console.warn("Run project error:", data.error);
@@ -878,6 +888,7 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
   return (
     <WorkspaceContext.Provider
       value={{
+        workspaceId,
         tree,
         openTabs,
         activeFile,
@@ -888,6 +899,8 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
         setActiveTerminal,
         createTerminal,
         killTerminal,
+        clearTerminal,
+        restartTerminal,
         socketRef,
         addFile,
         addFolder,

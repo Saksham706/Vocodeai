@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import TerminalTabs from "./TerminalTabs";
 import TerminalPanel from "./TerminalPanel";
 import { X } from "lucide-react";
@@ -15,6 +14,8 @@ export default function WorkspaceTerminalSection({
   onSplitTerminal,
   isSplitActive,
   onClearTerminal,
+  onRestartTerminal,
+  onKillTerminal,
   sessions,
   activeSessionId,
   onSelectSession,
@@ -38,12 +39,6 @@ export default function WorkspaceTerminalSection({
   handleCloseSplit,
   theme,
 }) {
-  // Automatically spawn a real interactive terminal if none is active
-  useEffect(() => {
-    if (activeTermTab === "terminal" && !activeTerminal && onNewTerminal) {
-      onNewTerminal();
-    }
-  }, [activeTermTab, activeTerminal]);
   return (
     <div
       className={`ide-terminal-section ${isTermMaximized ? "maximized" : ""}`}
@@ -62,6 +57,8 @@ export default function WorkspaceTerminalSection({
         onSplitTerminal={onSplitTerminal}
         isSplit={isSplitActive}
         onClearTerminal={onClearTerminal}
+        onRestartTerminal={onRestartTerminal}
+        onKillTerminal={onKillTerminal}
         onToggleMaximize={() => setIsTermMaximized((prev) => !prev)}
         isMaximized={isTermMaximized}
         onClosePanel={() => setShowTerminal(false)}

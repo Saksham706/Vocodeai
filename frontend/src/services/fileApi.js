@@ -201,3 +201,54 @@ export async function emptyRecycleBin(token) {
   }
   return res.json();
 }
+
+/* ================= SEARCH FILES ================= */
+export async function searchFiles(token, workspaceId, options = {}) {
+  const {
+    query = "",
+    isCaseSensitive = false,
+    isRegex = false,
+    isWholeWord = false,
+    includePattern = "",
+    excludePattern = "",
+  } = options;
+
+  if (!query) return { results: [], totalMatches: 0 };
+
+  const params = new URLSearchParams({
+    workspaceId,
+    query,
+    isCaseSensitive: String(isCaseSensitive),
+    isRegex: String(isRegex),
+    isWholeWord: String(isWholeWord),
+    includePattern,
+    excludePattern,
+  });
+
+  const res = await fetch(`${BASE}/search?${params.toString()}`, {
+    headers: authHeaders(token, false),
+  });
+
+  if (!res.ok) {
+    return { results: [], totalMatches: 0 };
+  }
+  return res.json();
+}
+
+/* ================= REPLACE IN FILES ================= */
+export async function replaceInFiles(token, workspaceId, options = {}) {
+  const res = await fetch(`${BASE}/replace`, {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify({
+      workspaceId,
+      ...options,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to replace in files");
+  }
+  return res.json();
+}

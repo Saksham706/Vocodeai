@@ -439,12 +439,173 @@ export async function loadTree(req, res) {
         },
       },
     })
+      .select("path type workspaceId")
       .sort({ path: 1 })
       .lean();
 
     res.json(nodes);
   } catch (err) {
     console.error("LOAD TREE ERROR:", err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/* ========== SEARCH IN WORKSPACE FILES ========== */
+export async function searchFiles(req, res) {
+  try {
+    const {
+      workspaceId,
+      query,
+      isCaseSensitive = "false",
+      isRegex = "false",
+      isWholeWord = "false",
+      includePattern = "",
+      excludePattern = "",
+    } = req.query;
+
+    if (!workspaceId || !query) {
+      return res.json({ results: [], totalMatches: 0 });
+    }
+
+    const wsQuery = buildWsQuery(workspaceId);
+    const caseSensitive = isCaseSensitive === "true";
+    const useRegex = isRegex === "true";
+    const wholeWord = isWholeWord === "true";
+
+    const queryFilter = {
+      ...wsQuery,
+      type: "file",
+      path: {
+        $not: {
+          $regex: "\\.(class|out|o|obj|exe|pyc|so|dll|png|jpg|jpeg|gif|ico|svg|wasm|zip|tar|gz)$|(^|/)a\\.out$",
+          $options: "i",
+        },
+      },
+    };
+
+    const files = await FileNode.find(queryFilter).select("path content").lean();
+
+    let pattern = query;
+    if (!useRegex) {
+      pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+    if (wholeWord) {
+      pattern = `\\b${pattern}\\b`;
+    }
+
+    let flags = "g";
+    if (!caseSensitive) flags += "i";
+
+    let searchRegex;
+    try {
+      searchRegex = new RegExp(pattern, flags);
+    } catch {
+      return res.status(400).json({ error: "Invalid regular expression" });
+    }
+
+    const results = [];
+    let totalMatches = 0;
+
+    for (const file of files) {
+      if (includePattern && !file.path.toLowerCase().includes(includePattern.toLowerCase())) {
+        continue;
+      }
+      if (excludePattern && file.path.toLowerCase().includes(excludePattern.toLowerCase())) {
+        continue;
+      }
+
+      let content = file.content;
+      if (!content || content.length === 0) {
+        try {
+          content = fsService.readFile(req.user.id, workspaceId, file.path) || "";
+        } catch {
+          content = "";
+        }
+      }
+
+      const lines = content.split("\n");
+      const fileMatches = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        searchRegex.lastIndex = 0;
+        let match;
+
+        while ((match = searchRegex.exec(line)) !== null) {
+          fileMatches.push({
+            lineNumber: i + 1,
+            lineText: line,
+            matchIndex: match.index,
+            matchLength: match[0].length,
+          });
+          totalMatches++;
+          if (!searchRegex.global) break;
+        }
+      }
+
+      if (fileMatches.length > 0) {
+        results.push({
+          path: file.path,
+          fileName: file.path.split("/").pop(),
+          matches: fileMatches,
+        });
+      }
+    }
+
+    res.json({ results, totalMatches });
+  } catch (err) {
+    console.error("SEARCH FILES ERROR:", err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/* ========== REPLACE IN WORKSPACE FILES ========== */
+export async function replaceInFiles(req, res) {
+  try {
+    const {
+      workspaceId,
+      query,
+      replaceText = "",
+      filePath,
+      isCaseSensitive = false,
+      isRegex = false,
+      isWholeWord = false,
+    } = req.body;
+
+    if (!workspaceId || !query) {
+      return res.status(400).json({ error: "workspaceId and query are required" });
+    }
+
+    const wsQuery = buildWsQuery(workspaceId);
+    let pattern = query;
+    if (!isRegex) {
+      pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+    if (isWholeWord) {
+      pattern = `\\b${pattern}\\b`;
+    }
+    const flags = isCaseSensitive ? "g" : "gi";
+    const regex = new RegExp(pattern, flags);
+
+    const filter = { ...wsQuery, type: "file" };
+    if (filePath) filter.path = filePath;
+
+    const files = await FileNode.find(filter);
+    let modifiedFilesCount = 0;
+
+    for (const file of files) {
+      if (regex.test(file.content || "")) {
+        const updated = (file.content || "").replace(regex, replaceText);
+        file.content = updated;
+        await file.save();
+        fsService.saveFile(req.user.id, workspaceId, file.path, updated);
+        modifiedFilesCount++;
+      }
+    }
+
+    res.json({ success: true, modifiedFilesCount });
+  } catch (err) {
+    console.error("REPLACE IN FILES ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 }

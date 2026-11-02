@@ -23,4 +23,6 @@ const workspaceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+workspaceSchema.index({ userId: 1, isPinned: -1, createdAt: -1 });
+
 export default mongoose.model("Workspace", workspaceSchema);

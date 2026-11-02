@@ -45,10 +45,12 @@ export async function createWorkspace(req, res) {
 /* LIST */
 export async function listWorkspaces(req, res) {
   try {
-    const workspaces = await Workspace.find({ userId: req.user.id }).sort({
-      isPinned: -1,
-      createdAt: -1,
-    });
+    const workspaces = await Workspace.find({ userId: req.user.id })
+      .sort({
+        isPinned: -1,
+        createdAt: -1,
+      })
+      .lean();
     res.json(workspaces);
   } catch (err) {
     console.error("LIST WORKSPACES ERROR:", err);

@@ -16,7 +16,7 @@ const MASCOT_QUOTES = [
 export default function RobotMascot() {
   const location = useLocation();
 
-  // Hide mascot when entering the coding workspace (as requested: "Make that robot until that dashboard page")
+  // Hide mascot when entering the coding workspace
   const isWorkspace = location.pathname.startsWith("/workspace");
 
   // Position state (persisted in localStorage)
@@ -32,7 +32,6 @@ export default function RobotMascot() {
     } catch {
       // ignore
     }
-    // Default: Bottom-right corner
     const initW = typeof window !== "undefined" ? window.innerWidth : 1200;
     const initH = typeof window !== "undefined" ? window.innerHeight : 800;
     return {
@@ -46,10 +45,6 @@ export default function RobotMascot() {
   const [speechText, setSpeechText] = useState(null);
   const [quoteIndex, setQuoteIndex] = useState(0);
 
-  // Eye pupil offsets and 3D tilt
-  const [pupilOffset, setPupilOffset] = useState({ x: 0, y: 0 });
-  const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
-
   const mascotRef = useRef(null);
   const dragStartRef = useRef({ startX: 0, startY: 0, origX: 0, origY: 0, hasMoved: false });
   const posRef = useRef(pos);
@@ -57,6 +52,7 @@ export default function RobotMascot() {
 
   const speechTimeoutRef = useRef(null);
   const mouseIdleTimeoutRef = useRef(null);
+  const rAFRef = useRef(null);
 
   // 1. Boundary clamping helper
   const clampPos = useCallback((x, y) => {
@@ -70,7 +66,7 @@ export default function RobotMascot() {
     };
   }, []);
 
-  // 2. Adjust position on window resize to ensure mascot stays on screen
+  // 2. Adjust position on window resize
   useEffect(() => {
     const handleResize = () => {
       setPos((prev) => {
@@ -79,7 +75,7 @@ export default function RobotMascot() {
         return clamped;
       });
     };
-    window.addEventListener("resize", handleResize);
+    window.addEventListener("resize", handleResize, { passive: true });
     return () => window.removeEventListener("resize", handleResize);
   }, [clampPos]);
 
@@ -89,7 +85,6 @@ export default function RobotMascot() {
 
     let blinkTimeout = null;
     const scheduleNextBlink = () => {
-      // Random interval between 3.5s and 6.5s
       const delay = 3500 + Math.random() * 3000;
       blinkTimeout = setTimeout(() => {
         setIsBlinking(true);
@@ -106,53 +101,62 @@ export default function RobotMascot() {
     };
   }, [isWorkspace]);
 
-  // 4. Interactive Eye Tracking & 3D Tilt based on mouse cursor
+  // 4. Ultra-smooth, 0-rerender 3D Eye Tracking via direct CSS custom properties
   useEffect(() => {
     if (isWorkspace) return;
 
     const handleMouseMove = (e) => {
       if (!mascotRef.current) return;
-      const rect = mascotRef.current.getBoundingClientRect();
-      const mascotCenterX = rect.left + rect.width / 2;
-      const mascotCenterY = rect.top + rect.height / 2;
 
-      const deltaX = e.clientX - mascotCenterX;
-      const deltaY = e.clientY - mascotCenterY;
-      const distance = Math.hypot(deltaX, deltaY);
+      if (rAFRef.current) cancelAnimationFrame(rAFRef.current);
+      rAFRef.current = requestAnimationFrame(() => {
+        if (!mascotRef.current) return;
+        const rect = mascotRef.current.getBoundingClientRect();
+        const mascotCenterX = rect.left + rect.width / 2;
+        const mascotCenterY = rect.top + rect.height / 2;
 
-      if (distance > 0) {
-        // Max pupil offset of 3.2px
-        const maxOffset = 3.2;
-        const normalizedDist = Math.min(distance / 250, 1);
-        const pupilX = (deltaX / distance) * maxOffset * normalizedDist;
-        const pupilY = (deltaY / distance) * maxOffset * normalizedDist;
-        setPupilOffset({ x: pupilX, y: pupilY });
+        const deltaX = e.clientX - mascotCenterX;
+        const deltaY = e.clientY - mascotCenterY;
+        const distance = Math.hypot(deltaX, deltaY);
 
-        // Subtle 3D tilt (max 8 degrees)
-        const tiltMax = 8;
-        const tiltX = -Math.max(-tiltMax, Math.min(tiltMax, (deltaY / window.innerHeight) * 16));
-        const tiltY = Math.max(-tiltMax, Math.min(tiltMax, (deltaX / window.innerWidth) * 16));
-        setTilt({ rx: tiltX, ry: tiltY });
-      }
+        if (distance > 0) {
+          const maxOffset = 3.2;
+          const normalizedDist = Math.min(distance / 250, 1);
+          const pupilX = (deltaX / distance) * maxOffset * normalizedDist;
+          const pupilY = (deltaY / distance) * maxOffset * normalizedDist;
 
-      // Reset to center smoothly when cursor stops moving
-      if (mouseIdleTimeoutRef.current) clearTimeout(mouseIdleTimeoutRef.current);
-      mouseIdleTimeoutRef.current = setTimeout(() => {
-        setPupilOffset({ x: 0, y: 0 });
-        setTilt({ rx: 0, ry: 0 });
-      }, 1600);
+          const tiltMax = 8;
+          const tiltX = -Math.max(-tiltMax, Math.min(tiltMax, (deltaY / window.innerHeight) * 16));
+          const tiltY = Math.max(-tiltMax, Math.min(tiltMax, (deltaX / window.innerWidth) * 16));
+
+          mascotRef.current.style.setProperty("--pupil-x", `${pupilX.toFixed(2)}px`);
+          mascotRef.current.style.setProperty("--pupil-y", `${pupilY.toFixed(2)}px`);
+          mascotRef.current.style.setProperty("--tilt-x", `${tiltX.toFixed(2)}deg`);
+          mascotRef.current.style.setProperty("--tilt-y", `${tiltY.toFixed(2)}deg`);
+        }
+
+        if (mouseIdleTimeoutRef.current) clearTimeout(mouseIdleTimeoutRef.current);
+        mouseIdleTimeoutRef.current = setTimeout(() => {
+          if (mascotRef.current) {
+            mascotRef.current.style.setProperty("--pupil-x", "0px");
+            mascotRef.current.style.setProperty("--pupil-y", "0px");
+            mascotRef.current.style.setProperty("--tilt-x", "0deg");
+            mascotRef.current.style.setProperty("--tilt-y", "0deg");
+          }
+        }, 1600);
+      });
     };
 
     window.addEventListener("pointermove", handleMouseMove, { passive: true });
     return () => {
       window.removeEventListener("pointermove", handleMouseMove);
+      if (rAFRef.current) cancelAnimationFrame(rAFRef.current);
       if (mouseIdleTimeoutRef.current) clearTimeout(mouseIdleTimeoutRef.current);
     };
   }, [isWorkspace]);
 
-  // 5. Drag & Drop Handlers (Mouse & Touch via PointerEvents)
+  // 5. Drag & Drop Handlers
   const handlePointerDown = (e) => {
-    // Only primary button
     if (e.button !== 0 && e.pointerType === "mouse") return;
 
     e.preventDefault();
@@ -175,51 +179,44 @@ export default function RobotMascot() {
     const deltaX = e.clientX - dragStartRef.current.startX;
     const deltaY = e.clientY - dragStartRef.current.startY;
 
-    // Detect intentional drag movement
     if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
       dragStartRef.current.hasMoved = true;
     }
 
-    const nextX = dragStartRef.current.origX + deltaX;
-    const nextY = dragStartRef.current.origY + deltaY;
+    const newX = dragStartRef.current.origX + deltaX;
+    const newY = dragStartRef.current.origY + deltaY;
 
-    const clamped = clampPos(nextX, nextY);
+    const clamped = clampPos(newX, newY);
     setPos(clamped);
   };
 
   const handlePointerUp = (e) => {
     if (!isDragging) return;
-    setIsDragging(false);
 
+    setIsDragging(false);
     try {
       mascotRef.current?.releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
+    } catch {}
 
-    // Save final position to localStorage
-    const finalClamped = clampPos(posRef.current.x, posRef.current.y);
-    setPos(finalClamped);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(finalClamped));
-
-    // If user merely clicked without dragging, trigger friendly speech bubble
-    if (!dragStartRef.current.hasMoved) {
-      triggerSpeechBubble();
+    if (dragStartRef.current.hasMoved) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(posRef.current));
+    } else {
+      handleMascotClick();
     }
   };
 
-  const triggerSpeechBubble = () => {
-    const nextMsg = MASCOT_QUOTES[quoteIndex % MASCOT_QUOTES.length];
-    setSpeechText(nextMsg);
+  // 6. Speech bubble on click
+  const handleMascotClick = () => {
+    const quote = MASCOT_QUOTES[quoteIndex % MASCOT_QUOTES.length];
+    setSpeechText(quote);
     setQuoteIndex((prev) => prev + 1);
 
     if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
     speechTimeoutRef.current = setTimeout(() => {
       setSpeechText(null);
-    }, 4000);
+    }, 4500);
   };
 
-  // If in coding workspace, don't render mascot
   if (isWorkspace) {
     return null;
   }
@@ -256,7 +253,7 @@ export default function RobotMascot() {
         <div
           className="robot-mascot-card"
           style={{
-            transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`,
+            transform: "rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))",
           }}
         >
           {/* Subtle Ambient Glowing Aura */}
@@ -272,22 +269,22 @@ export default function RobotMascot() {
 
           {/* Interactive Pupil / Eye Tracking Layer */}
           <div className={`robot-eyes-layer ${isBlinking ? "is-blinking" : ""}`}>
-            {/* Green Eye Socket (Right eye of owl, viewer's left) */}
+            {/* Green Eye Socket */}
             <div className="robot-eye-socket-green">
               <div
                 className="robot-pupil-green"
                 style={{
-                  transform: `translate(${pupilOffset.x}px, ${pupilOffset.y}px)`,
+                  transform: "translate(var(--pupil-x, 0px), var(--pupil-y, 0px))",
                 }}
               />
             </div>
 
-            {/* Golden Eye Socket (Left eye of owl, viewer's right) */}
+            {/* Golden Eye Socket */}
             <div className="robot-eye-socket-gold">
               <div
                 className="robot-pupil-gold"
                 style={{
-                  transform: `translate(${pupilOffset.x}px, ${pupilOffset.y}px)`,
+                  transform: "translate(var(--pupil-x, 0px), var(--pupil-y, 0px))",
                 }}
               />
             </div>
@@ -297,4 +294,3 @@ export default function RobotMascot() {
     </div>
   );
 }
-

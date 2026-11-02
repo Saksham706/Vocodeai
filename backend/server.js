@@ -9,6 +9,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import passport from "./config/passport.js";
+import compression from "compression";
 
 import { connectDB } from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -27,6 +28,7 @@ import { startCodeWorker } from "./workers/codeWorker.js";
 
 const app = express();
 app.set("trust proxy", 1);
+app.use(compression());
 
 /* ================= CORS & SECURITY ================= */
 

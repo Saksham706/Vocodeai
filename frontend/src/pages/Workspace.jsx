@@ -9,6 +9,8 @@ import { getWorkspace } from "../services/workspaceApi";
 
 import ActivityBar from "../components/layout/ActivityBar";
 import Sidebar from "../components/layout/Sidebar";
+import GlobalSearch from "../components/explorer/GlobalSearch";
+import RunDebugPanel from "../components/explorer/RunDebugPanel";
 import Navbar from "../components/layout/navbar";
 import WorkspaceEditorSection from "../components/editor/WorkspaceEditorSection";
 import WorkspaceTerminalSection from "../components/terminal/WorkspaceTerminalSection";
@@ -38,6 +40,8 @@ function WorkspaceLayout() {
     activeTerminal,
     setActiveTerminal,
     killTerminal,
+    clearTerminal,
+    restartTerminal,
     openNewTerminal,
     previewUrl,
     activeFile,
@@ -68,11 +72,57 @@ function WorkspaceLayout() {
   // Settings Panel State
   const [showSettings, setShowSettings] = useState(false);
 
-  // Ctrl+, keyboard shortcut to toggle Settings
+  // Activity Bar Tab & Explorer State (must be initialized before keyboard shortcuts hook)
+  const [activityTab, setActivityTab] = useState("explorer");
+  const [isExplorerOpen, setIsExplorerOpen] = useState(true);
+  const toggleExplorer = () => {
+    setIsExplorerOpen((prev) => !prev);
+  };
+
+  // VS Code Global Keyboard Shortcuts (Ctrl+Shift+F, Ctrl+Shift+D, Ctrl+Shift+E, Ctrl+Shift+G, Ctrl+,)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ctrl+Shift+G / Cmd+Shift+G: Toggle Source Control
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "g") {
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+      const key = (e.key || "").toLowerCase();
+
+      // Ctrl+Shift+F: Global Search
+      if (isCmdOrCtrl && e.shiftKey && key === "f") {
+        e.preventDefault();
+        if (activityTab === "search" && isExplorerOpen) {
+          setIsExplorerOpen(false);
+        } else {
+          setActivityTab("search");
+          setIsExplorerOpen(true);
+        }
+        return;
+      }
+
+      // Ctrl+Shift+D: Run and Debug
+      if (isCmdOrCtrl && e.shiftKey && key === "d") {
+        e.preventDefault();
+        if ((activityTab === "debug" || activityTab === "run") && isExplorerOpen) {
+          setIsExplorerOpen(false);
+        } else {
+          setActivityTab("debug");
+          setIsExplorerOpen(true);
+        }
+        return;
+      }
+
+      // Ctrl+Shift+E: Explorer
+      if (isCmdOrCtrl && e.shiftKey && key === "e") {
+        e.preventDefault();
+        if (activityTab === "explorer" && isExplorerOpen) {
+          setIsExplorerOpen(false);
+        } else {
+          setActivityTab("explorer");
+          setIsExplorerOpen(true);
+        }
+        return;
+      }
+
+      // Ctrl+Shift+G: Source Control
+      if (isCmdOrCtrl && e.shiftKey && key === "g") {
         e.preventDefault();
         if (activityTab === "git" && isExplorerOpen) {
           setIsExplorerOpen(false);
@@ -80,15 +130,19 @@ function WorkspaceLayout() {
           setActivityTab("git");
           setIsExplorerOpen(true);
         }
+        return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+
+      // Ctrl+, : Toggle Settings
+      if (isCmdOrCtrl && e.key === ",") {
         e.preventDefault();
         setShowSettings((prev) => !prev);
+        return;
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [activityTab, isExplorerOpen]);
 
   // 1. Shared Theme State (Synced with localStorage & document attribute)
   const [theme, setTheme] = useState(() => {
@@ -105,8 +159,7 @@ function WorkspaceLayout() {
     localStorage.setItem("vocode_theme", nextTheme);
   };
 
-  // 2. Activity Bar Tab State
-  const [activityTab, setActivityTab] = useState("explorer");
+  // 2. Diff & Git Changes State
   const [activeDiff, setActiveDiff] = useState(null);
   const [gitChangesCount, setGitChangesCount] = useState(0);
 
@@ -160,12 +213,6 @@ function WorkspaceLayout() {
       setIsExplorerOpen(true);
     }
   }, [location.search]);
-
-  // 3. Persistent Left File Explorer State (Open by default)
-  const [isExplorerOpen, setIsExplorerOpen] = useState(true);
-  const toggleExplorer = () => {
-    setIsExplorerOpen((prev) => !prev);
-  };
 
   // 4. AI Assistant Panel State (Toggleable, default false on Welcome screen)
   const [showAI, setShowAI] = useState(false);
@@ -359,8 +406,24 @@ function WorkspaceLayout() {
     resizingAi.current = false;
   };
 
-  // Clear or reset terminal output
+  // Clear terminal screen
   const handleClearTerminal = () => {
+    const target = activeTerminal || (terminals && terminals[0]?.id);
+    if (target) {
+      clearTerminal(target);
+    }
+  };
+
+  // Restart active terminal session
+  const handleRestartTerminal = () => {
+    const target = activeTerminal || (terminals && terminals[0]?.id);
+    if (target) {
+      restartTerminal(target);
+    }
+  };
+
+  // Kill active terminal session
+  const handleKillTerminal = () => {
     const target = activeTerminal || (terminals && terminals[0]?.id);
     if (target) {
       if (splitTerminalId === target) {
@@ -450,6 +513,18 @@ function WorkspaceLayout() {
                 onOpenDiff={(diffData) => setActiveDiff(diffData)}
                 onCloseSidebar={() => setIsExplorerOpen(false)}
               />
+            ) : activityTab === "search" ? (
+              <GlobalSearch
+                workspaceId={workspaceId || currentProject}
+                onClose={() => setIsExplorerOpen(false)}
+              />
+            ) : activityTab === "debug" || activityTab === "run" ? (
+              <RunDebugPanel
+                onRun={handleMainRun}
+                onClearTerminal={handleClearTerminal}
+                onRestartTerminal={handleRestartTerminal}
+                onKillTerminal={handleKillTerminal}
+              />
             ) : (
               <Sidebar onClose={() => setIsExplorerOpen(false)} />
             )}
@@ -525,6 +600,8 @@ function WorkspaceLayout() {
               onSplitTerminal={handleSplitTerminal}
               isSplitActive={isSplitActive}
               onClearTerminal={handleClearTerminal}
+              onRestartTerminal={handleRestartTerminal}
+              onKillTerminal={handleKillTerminal}
               sessions={sessions}
               activeSessionId={activeSessionId}
               onSelectSession={handleSelectSession}
