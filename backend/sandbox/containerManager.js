@@ -7,6 +7,7 @@ import {
   touchContainer,
   removeContainer,
 } from "./containerRegistry.js";
+import User from "../models/User.js";
 
 const docker = new Docker();
 
@@ -18,8 +19,37 @@ export function getSanitizedContainerName(workspaceKey) {
   return `vocodeai-${workspaceKey.replace(/[^a-zA-Z0-9_.-]/g, "_")}`;
 }
 
-export async function configureContainerEnvironment(container) {
+export async function configureContainerEnvironment(container, workspaceKey) {
   try {
+    let gitUser = "";
+    let gitEmail = "";
+    let gitCreds = "";
+
+    if (workspaceKey) {
+      try {
+        const userId = workspaceKey.split("-")[0];
+        const user = await User.findById(userId).lean();
+        if (user) {
+          gitUser = user.githubUsername || user.firstName || "VocodeAI Developer";
+          gitEmail = user.email || "developer@vocodeai.com";
+
+          if (user.githubAccessToken) {
+            const cleanToken = user.githubAccessToken.trim();
+            const ghUser = user.githubUsername || "oauth2";
+            gitCreds = `
+git config --global credential.helper store 2>/dev/null || true
+cat << 'EOFCRED' > /root/.git-credentials
+https://${ghUser}:${cleanToken}@github.com
+EOFCRED
+chmod 600 /root/.git-credentials 2>/dev/null || true
+`;
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load user for container git configuration:", err.message);
+      }
+    }
+
     const setupScript = `
 printf '#!/bin/sh\\nclear\\n' > /usr/local/bin/cls
 chmod +x /usr/local/bin/cls
@@ -32,6 +62,20 @@ sed -i '/vocode/d' /etc/bash.bashrc 2>/dev/null || true
 sed -i '/vocode/d' /root/.bashrc 2>/dev/null || true
 echo ". /etc/vocode_bashrc" >> /etc/bash.bashrc
 echo ". /etc/vocode_bashrc" >> /root/.bashrc
+
+git config --system --add safe.directory '*' 2>/dev/null || true
+git config --global --add safe.directory '*' 2>/dev/null || true
+git config --system core.filemode false 2>/dev/null || true
+git config --global core.filemode false 2>/dev/null || true
+git config --system init.defaultBranch main 2>/dev/null || true
+git config --global init.defaultBranch main 2>/dev/null || true
+if [ -n "${gitUser}" ]; then
+  git config --global user.name "${gitUser}" 2>/dev/null || true
+fi
+if [ -n "${gitEmail}" ]; then
+  git config --global user.email "${gitEmail}" 2>/dev/null || true
+fi
+${gitCreds}
 `;
     const exec = await container.exec({
       Cmd: ["bash", "-c", setupScript],
@@ -59,12 +103,12 @@ export async function getOrCreateContainer({
       const inspectData = await existing.container.inspect();
       if (inspectData.State.Running) {
         touchContainer(workspaceKey);
-        configureContainerEnvironment(existing.container);
+        configureContainerEnvironment(existing.container, workspaceKey);
         return existing.container;
       } else {
         await existing.container.start();
         touchContainer(workspaceKey);
-        configureContainerEnvironment(existing.container);
+        configureContainerEnvironment(existing.container, workspaceKey);
         return existing.container;
       }
     } catch {
@@ -82,7 +126,7 @@ export async function getOrCreateContainer({
     }
     registerContainer(workspaceKey, existingDocker);
     touchContainer(workspaceKey);
-    configureContainerEnvironment(existingDocker);
+    configureContainerEnvironment(existingDocker, workspaceKey);
     return existingDocker;
   } catch {
     // Container does not exist yet in Docker daemon
@@ -109,7 +153,7 @@ export async function getOrCreateContainer({
   await container.start();
   registerContainer(workspaceKey, container);
   touchContainer(workspaceKey);
-  configureContainerEnvironment(container);
+  configureContainerEnvironment(container, workspaceKey);
 
   return container;
 }

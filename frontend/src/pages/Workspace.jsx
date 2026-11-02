@@ -16,6 +16,14 @@ import LivePreview from "../components/preview/LivePreview";
 import AIChat from "../components/ai/AIChat";
 import WelcomeDashboard from "../components/dashboard/WelcomeDashboard";
 import SettingsView from "../components/settings/SettingsView";
+import SourceControl from "../components/git/SourceControl";
+import GitDiffEditor from "../components/git/GitDiffEditor";
+import {
+  getGitStatus,
+  stageGitFiles,
+  unstageGitFiles,
+  discardGitChanges,
+} from "../services/gitApi";
 
 import { AIProvider } from "../context/AIContext";
 import { X } from "lucide-react";
@@ -55,6 +63,7 @@ function WorkspaceLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { id: workspaceId } = useParams();
+  const { accessToken } = useAuth();
 
   // Settings Panel State
   const [showSettings, setShowSettings] = useState(false);
@@ -62,6 +71,16 @@ function WorkspaceLayout() {
   // Ctrl+, keyboard shortcut to toggle Settings
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ctrl+Shift+G / Cmd+Shift+G: Toggle Source Control
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        if (activityTab === "git" && isExplorerOpen) {
+          setIsExplorerOpen(false);
+        } else {
+          setActivityTab("git");
+          setIsExplorerOpen(true);
+        }
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === ",") {
         e.preventDefault();
         setShowSettings((prev) => !prev);
@@ -88,6 +107,59 @@ function WorkspaceLayout() {
 
   // 2. Activity Bar Tab State
   const [activityTab, setActivityTab] = useState("explorer");
+  const [activeDiff, setActiveDiff] = useState(null);
+  const [gitChangesCount, setGitChangesCount] = useState(0);
+
+  const updateGitChangesCount = async () => {
+    const wsId = workspaceId || currentProject;
+    if (!accessToken || !wsId) return;
+    try {
+      const data = await getGitStatus(accessToken, wsId);
+      if (data?.isRepo) {
+        const count = (data.staged?.length || 0) + (data.unstaged?.length || 0) + (data.untracked?.length || 0);
+        setGitChangesCount(count);
+      } else {
+        setGitChangesCount(0);
+      }
+    } catch {
+      setGitChangesCount(0);
+    }
+  };
+
+  useEffect(() => {
+    updateGitChangesCount();
+    const timer = setInterval(updateGitChangesCount, 8000);
+    return () => clearInterval(timer);
+  }, [accessToken, workspaceId, currentProject]);
+
+  const handleDiffStage = async (filePath) => {
+    const wsId = workspaceId || currentProject;
+    await stageGitFiles(accessToken, wsId, [filePath]);
+    updateGitChangesCount();
+    setActiveDiff((prev) => (prev ? { ...prev, isStaged: true } : null));
+  };
+
+  const handleDiffUnstage = async (filePath) => {
+    const wsId = workspaceId || currentProject;
+    await unstageGitFiles(accessToken, wsId, [filePath]);
+    updateGitChangesCount();
+    setActiveDiff((prev) => (prev ? { ...prev, isStaged: false } : null));
+  };
+
+  const handleDiffDiscard = async (filePath) => {
+    const wsId = workspaceId || currentProject;
+    await discardGitChanges(accessToken, wsId, [filePath]);
+    updateGitChangesCount();
+    setActiveDiff(null);
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("github") === "connected") {
+      setActivityTab("git");
+      setIsExplorerOpen(true);
+    }
+  }, [location.search]);
 
   // 3. Persistent Left File Explorer State (Open by default)
   const [isExplorerOpen, setIsExplorerOpen] = useState(true);
@@ -328,6 +400,14 @@ function WorkspaceLayout() {
         showAI={showAI}
         toggleAI={toggleAI}
         onRun={handleMainRun}
+        onToggleGit={() => {
+          if (activityTab === "git" && isExplorerOpen) {
+            setIsExplorerOpen(false);
+          } else {
+            setActivityTab("git");
+            setIsExplorerOpen(true);
+          }
+        }}
       />
 
       {/* 2. MAIN WORKSPACE CONTAINER */}
@@ -358,12 +438,21 @@ function WorkspaceLayout() {
           onOpenSettings={() => setShowSettings((prev) => !prev)}
           onRun={handleMainRun}
           isSettingsOpen={showSettings}
+          gitChangesCount={gitChangesCount}
         />
 
         {/* ===== LEFT PERSISTENT FILE EXPLORER ===== */}
         {isExplorerOpen && (
           <div className="ide-sidebar-wrapper" style={{ width: sidebarWidth }}>
-            <Sidebar onClose={() => setIsExplorerOpen(false)} />
+            {activityTab === "git" ? (
+              <SourceControl
+                workspaceId={workspaceId || currentProject}
+                onOpenDiff={(diffData) => setActiveDiff(diffData)}
+                onCloseSidebar={() => setIsExplorerOpen(false)}
+              />
+            ) : (
+              <Sidebar onClose={() => setIsExplorerOpen(false)} />
+            )}
             <div
               className="ide-sidebar-resizer"
               onMouseDown={startSidebarResize}
@@ -378,6 +467,15 @@ function WorkspaceLayout() {
             <SettingsView
               workspaceId={workspaceId || currentProject}
               onBack={() => setShowSettings(false)}
+            />
+          ) : activeDiff ? (
+            <GitDiffEditor
+              diffData={activeDiff}
+              onClose={() => setActiveDiff(null)}
+              onStage={handleDiffStage}
+              onUnstage={handleDiffUnstage}
+              onDiscard={handleDiffDiscard}
+              theme={theme}
             />
           ) : activeFile ? (
             <WorkspaceEditorSection
@@ -503,7 +601,7 @@ export default function Workspace() {
   if (!user || !accessToken) return null;
 
   return (
-    <WorkspaceProvider key={workspaceId} userId={user.id} workspaceId={workspaceId}>
+    <WorkspaceProvider key={workspaceId} userId={user.id || user._id} workspaceId={workspaceId}>
       <AIProvider>
         <WorkspaceLoader
           workspaceId={workspaceId}

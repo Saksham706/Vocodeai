@@ -7,14 +7,21 @@ import {
   resetPassword,
   refreshToken,
   logout,
+  githubAuth,
+  githubCallback,
+  getGithubStatus,
+  disconnectGithub,
+  connectGithubToken,
 } from "../controllers/authController.js";
 import { generateAccessToken, generateRefreshToken } from "../utils/token.js";
+import { auth } from "../middleware/auth.js";
 
 const router = express.Router();
 
 router.post("/signup", signup);
 router.post("/login", login);
 
+/* ================= GOOGLE OAUTH ================= */
 router.get("/google", (req, res, next) => {
   const origin =
     req.query.origin ||
@@ -82,6 +89,14 @@ router.get(
   }
 );
 
+/* ================= GITHUB OAUTH (VS CODE STYLE) ================= */
+router.get("/github", githubAuth);
+router.get("/github/callback", githubCallback);
+router.get("/github/status", auth, getGithubStatus);
+router.post("/github/disconnect", auth, disconnectGithub);
+router.post("/github/connect-token", auth, connectGithubToken);
+
+/* ================= ACCOUNT MANAGEMENT ================= */
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.post("/refresh-token", refreshToken);

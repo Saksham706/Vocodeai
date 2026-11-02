@@ -46,6 +46,7 @@ export default function Navbar({
   showAI,
   toggleAI,
   onRun,
+  onToggleGit,
 }) {
   const navigate = useNavigate();
   const {
@@ -357,6 +358,16 @@ export default function Navbar({
                       >
                         <span>Toggle Explorer</span>
                         <kbd>Ctrl+B</kbd>
+                      </button>
+                      <button
+                        className="ide-menu-entry"
+                        onClick={() => {
+                          closeMenu();
+                          if (onToggleGit) onToggleGit();
+                        }}
+                      >
+                        <span>Toggle Source Control</span>
+                        <kbd>Ctrl+Shift+G</kbd>
                       </button>
                       <button
                         className="ide-menu-entry"

@@ -17,16 +17,14 @@ export default function ActivityBar({
   onOpenSettings,
   onRun,
   isSettingsOpen = false,
+  gitChangesCount = 0,
 }) {
   const handleItemClick = (id) => {
-    if (id === "explorer") {
-      if (activeTab === "explorer") {
-        toggleExplorer();
-      } else {
-        if (!isExplorerOpen) toggleExplorer();
-        setActiveTab("explorer");
-      }
+    if (id === activeTab && isExplorerOpen) {
+      // Toggle sidebar off if already active
+      toggleExplorer();
     } else {
+      if (!isExplorerOpen) toggleExplorer();
       setActiveTab(id);
       if (id === "run" && onRun) {
         onRun();
@@ -62,12 +60,17 @@ export default function ActivityBar({
 
         {/* 3. Source Control */}
         <button
-          className={`activity-bar-btn ${activeTab === "git" ? "active" : ""}`}
+          className={`activity-bar-btn ${activeTab === "git" && isExplorerOpen ? "active" : ""}`}
           onClick={() => handleItemClick("git")}
           title="Source Control (Ctrl+Shift+G)"
           aria-label="Source Control"
         >
           <GitBranch size={20} strokeWidth={1.8} />
+          {gitChangesCount > 0 && (
+            <span className="activity-bar-badge" title={`${gitChangesCount} pending changes`}>
+              {gitChangesCount > 99 ? "99+" : gitChangesCount}
+            </span>
+          )}
         </button>
 
         {/* 4. Run and Debug */}

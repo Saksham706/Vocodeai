@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import TerminalTabs from "./TerminalTabs";
 import TerminalPanel from "./TerminalPanel";
 import { X } from "lucide-react";
@@ -37,6 +38,12 @@ export default function WorkspaceTerminalSection({
   handleCloseSplit,
   theme,
 }) {
+  // Automatically spawn a real interactive terminal if none is active
+  useEffect(() => {
+    if (activeTermTab === "terminal" && !activeTerminal && onNewTerminal) {
+      onNewTerminal();
+    }
+  }, [activeTermTab, activeTerminal]);
   return (
     <div
       className={`ide-terminal-section ${isTermMaximized ? "maximized" : ""}`}
@@ -130,20 +137,22 @@ export default function WorkspaceTerminalSection({
                 </div>
               </div>
             </div>
-          ) : activeTerminal ? (
+          ) : (activeTerminal || primaryTermId) ? (
             <TerminalPanel
-              key={activeTerminal}
-              terminalId={activeTerminal}
+              key={activeTerminal || primaryTermId}
+              terminalId={activeTerminal || primaryTermId}
               theme={theme}
             />
           ) : (
-            <div className="term-shell-session">
-              <div className="term-block">
-                <div className="term-line">
-                  <span className="term-prompt-user">saksham@vocodeai:</span>
-                  <span className="term-prompt-path">~$</span>
-                  <span className="term-cursor">█</span>
-                </div>
+            <div
+              className="term-shell-session"
+              onClick={onNewTerminal}
+              style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}
+              title="Click to launch interactive terminal"
+            >
+              <div style={{ color: "#43E65C", display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" }}>
+                <span style={{ display: "inline-block", width: "8px", height: "8px", borderRadius: "50%", background: "#43E65C" }} />
+                <span>Initializing interactive terminal session... Click to launch</span>
               </div>
             </div>
           )

@@ -235,7 +235,7 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
 
   /* ================= WEBSOCKET ================= */
   useEffect(() => {
-    if (!userId || !workspaceId || !accessToken) return;
+    if (!workspaceId || !accessToken) return;
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const host = backendUrl.replace(/^https?:\/\//, "");
@@ -251,6 +251,28 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
       if (pendingCreateRef.current) {
         ws.send(JSON.stringify(pendingCreateRef.current));
         pendingCreateRef.current = null;
+      } else {
+        // Auto-create initial default terminal if none exists
+        setTimeout(() => {
+          setTerminals((prev) => {
+            if (prev.length === 0) {
+              const defaultId = `term_default_${Date.now()}`;
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(
+                  JSON.stringify({
+                    type: "create",
+                    terminalId: defaultId,
+                    workspaceId,
+                    shell: "bash",
+                    setAsActive: true,
+                    title: "bash",
+                  })
+                );
+              }
+            }
+            return prev;
+          });
+        }, 100);
       }
     };
 
@@ -268,6 +290,14 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
           window.dispatchEvent(
             new CustomEvent("terminal-buffer", { detail: msg })
           );
+        }
+
+        if (msg.type === "dead") {
+          sendWS({
+            type: "create",
+            terminalId: msg.terminalId,
+            workspaceId,
+          });
         }
 
         if (msg.type === "created") {

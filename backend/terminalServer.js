@@ -212,7 +212,10 @@ export function setupTerminalServer(server) {
       /* ================================================= */
       if (msg.type === "attach") {
         const entry = getTerminal(msg.terminalId);
-        if (!entry) return;
+        if (!entry) {
+          ws.send(JSON.stringify({ type: "dead", terminalId: msg.terminalId }));
+          return;
+        }
 
         ws.send(
           JSON.stringify({
@@ -228,7 +231,10 @@ export function setupTerminalServer(server) {
       /* ================================================= */
       if (msg.type === "input") {
         const entry = getTerminal(msg.terminalId);
-        if (!entry) return;
+        if (!entry) {
+          ws.send(JSON.stringify({ type: "dead", terminalId: msg.terminalId }));
+          return;
+        }
 
         const command = msg.data.trim();
 

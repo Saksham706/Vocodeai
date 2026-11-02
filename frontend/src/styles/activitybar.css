@@ -84,3 +84,25 @@
   box-shadow: var(--activity-active-glow);
 }
 
+.activity-bar-btn {
+  position: relative;
+}
+
+.activity-bar-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  background-color: #FF9B3D;
+  color: #0B110E;
+  font-size: 9px;
+  font-weight: 800;
+  min-width: 14px;
+  height: 14px;
+  line-height: 14px;
+  border-radius: 7px;
+  text-align: center;
+  padding: 0 3px;
+  box-sizing: border-box;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+

@@ -11,6 +11,12 @@ const userSchema = new mongoose.Schema(
 
     googleId: String,
 
+    // GitHub Integration
+    githubId: String,
+    githubUsername: String,
+    githubAccessToken: String,
+    githubAvatar: String,
+
     isVerified: { type: Boolean, default: false },
 
     refreshToken: String,
