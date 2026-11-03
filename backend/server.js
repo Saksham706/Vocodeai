@@ -97,11 +97,30 @@ startContainerReaper();
 startCodeWorker();
 
 app.get("/", (req, res) => {
-  res.json({
-    status: "ok",
-    name: "Vocodeai Backend",
-    message: "VocodeAI Backend is running with Docker Container Engine and AI Voice integration",
+  const proxyReq = http.request(
+    "http://127.0.0.1:8005/",
+    { method: "GET", timeout: 400 },
+    (proxyRes) => {
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.pipe(res);
+    }
+  );
+  proxyReq.on("error", () => {
+    res.json({
+      status: "ok",
+      name: "Vocodeai Backend",
+      message: "VocodeAI Backend is running with Docker Container Engine and AI Voice integration",
+    });
   });
+  proxyReq.on("timeout", () => {
+    proxyReq.destroy();
+    res.json({
+      status: "ok",
+      name: "Vocodeai Backend",
+      message: "VocodeAI Backend is running with Docker Container Engine and AI Voice integration",
+    });
+  });
+  proxyReq.end();
 });
 
 /* ================= ROUTES ================= */

@@ -1,5 +1,6 @@
 import Docker from "dockerode";
 import path from "path";
+import fs from "fs";
 import net from "net";
 import { getImageForWorkspace } from "./imageResolver.js";
 import {
@@ -135,40 +136,215 @@ ${gitCreds}
   }
 }
 
+const STANDARD_DEV_PORTS = [
+  3000, 3001, 3002,
+  4000, 4001, 4200,
+  5000, 5001, 5002,
+  5174, 5175,
+  8000, 8001, 8008, 8080, 8081,
+  8888,
+  9000, 9001
+];
+
+const RESERVED_HOST_PORTS = new Set([
+  Number(process.env.PORT) || 8000,
+  5173, // Vite Frontend
+  6379, // Redis
+  27017, // MongoDB
+]);
+
+export function detectWorkspacePorts(workspacePath) {
+  const detected = new Set();
+  if (!workspacePath) return Array.from(detected);
+
+  try {
+    const absPath = path.resolve(workspacePath);
+    if (!fs.existsSync(absPath)) return Array.from(detected);
+
+    // 1. Scan .env
+    const envFile = path.join(absPath, ".env");
+    if (fs.existsSync(envFile)) {
+      const txt = fs.readFileSync(envFile, "utf-8");
+      const matches = txt.matchAll(/(?:PORT|APP_PORT|SERVER_PORT)\s*=\s*(\d{2,5})/gi);
+      for (const m of matches) {
+        const p = parseInt(m[1], 10);
+        if (p >= 1024 && p <= 65535) detected.add(p);
+      }
+    }
+
+    // 2. Scan package.json
+    const pkgFile = path.join(absPath, "package.json");
+    if (fs.existsSync(pkgFile)) {
+      const txt = fs.readFileSync(pkgFile, "utf-8");
+      const matches = txt.matchAll(/(?:--port|-p|PORT=)\s*(\d{2,5})/gi);
+      for (const m of matches) {
+        const p = parseInt(m[1], 10);
+        if (p >= 1024 && p <= 65535) detected.add(p);
+      }
+    }
+
+    // 3. Scan common source files
+    const candidateFiles = [
+      "server.js",
+      "app.js",
+      "index.js",
+      "main.py",
+      "app.py",
+      "server.py",
+      "application.properties",
+      "application.yml",
+    ];
+
+    for (const f of candidateFiles) {
+      const fp = path.join(absPath, f);
+      if (fs.existsSync(fp)) {
+        const txt = fs.readFileSync(fp, "utf-8");
+        const matches = txt.matchAll(
+          /(?:listen\s*\(\s*|PORT\s*=\s*(?:process\.env\.PORT\s*\|\|\s*)?|server\.port\s*=\s*|port\s*=\s*)(\d{2,5})/gi
+        );
+        for (const m of matches) {
+          const p = parseInt(m[1], 10);
+          if (p >= 1024 && p <= 65535) detected.add(p);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Could not detect workspace ports:", err.message);
+  }
+
+  return Array.from(detected);
+}
+
+async function getDockerBoundPorts(excludeContainerName) {
+  try {
+    const containers = await docker.listContainers();
+    const bound = new Set();
+    for (const c of containers) {
+      const names = c.Names || [];
+      if (excludeContainerName && names.some((n) => n.replace(/^\//, "") === excludeContainerName)) {
+        continue;
+      }
+      for (const p of c.Ports || []) {
+        if (p.PublicPort) {
+          bound.add(p.PublicPort);
+        }
+      }
+    }
+    return bound;
+  } catch {
+    return new Set();
+  }
+}
+
 function isPortAvailable(port) {
+  if (RESERVED_HOST_PORTS.has(port)) return false;
   return new Promise((resolve) => {
-    const tester = net
-      .createServer()
-      .once("error", () => resolve(false))
-      .once("listening", () => {
-        tester.once("close", () => resolve(true)).close();
-      })
-      .listen(port, "0.0.0.0");
+    const s4 = net.createServer();
+    s4.once("error", () => resolve(false));
+    s4.once("listening", () => {
+      const s6 = net.createServer();
+      s6.once("error", () => {
+        s4.close();
+        resolve(false);
+      });
+      s6.once("listening", () => {
+        s6.close();
+        s4.close();
+        resolve(true);
+      });
+      s6.listen({ port, host: "::", exclusive: true });
+    });
+    s4.listen({ port, host: "0.0.0.0", exclusive: true });
   });
 }
 
-export async function getAvailableDevPortBindings() {
-  const exposedPorts = {
-    "5000/tcp": {},
-  };
-  const portBindings = {
-    "5000/tcp": [{ HostPort: "5000" }],
-  };
+function isContainerUsable(inspectData, workspacePath = null) {
+  if (!inspectData || !inspectData.HostConfig) return false;
+  const pb = inspectData.HostConfig.PortBindings || {};
 
-  return { exposedPorts, portBindings };
+  // Check if any explicitly detected workspace port is missing from PortBindings
+  if (workspacePath) {
+    const neededPorts = detectWorkspacePorts(workspacePath);
+    for (const p of neededPorts) {
+      const key = `${p}/tcp`;
+      if (!pb[key] || pb[key].length === 0) {
+        return false;
+      }
+    }
+  }
+
+  // Ensure dev ports are bound
+  const hasDevPort = Object.keys(pb).some((k) => pb[k] && pb[k].length > 0);
+  if (!hasDevPort) return false;
+
+  if (inspectData.State?.Running) {
+    const networks = inspectData.NetworkSettings?.Networks;
+    const ports = inspectData.NetworkSettings?.Ports;
+    if (!networks || Object.keys(networks).length === 0) {
+      return false;
+    }
+    if (!ports || Object.keys(ports).length === 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export async function getAvailableDevPortBindings(workspacePath = null, containerName = null) {
+  const exposedPorts = {};
+  const portBindings = {};
+  const assignedHostPorts = new Set();
+
+  const detectedPorts = workspacePath ? detectWorkspacePorts(workspacePath) : [];
+  const candidatePorts = Array.from(new Set([...detectedPorts, ...STANDARD_DEV_PORTS]));
+
+  const dockerBound = await getDockerBoundPorts(containerName);
+
+  for (const port of candidatePorts) {
+    // If user's project wants port 8000 while host 8000 is occupied by VocodeAI backend:
+    if (port === 8000 && RESERVED_HOST_PORTS.has(8000)) {
+      for (const alt of [8005, 8008, 8085]) {
+        if (!assignedHostPorts.has(alt) && !dockerBound.has(alt) && (await isPortAvailable(alt))) {
+          exposedPorts["8000/tcp"] = {};
+          portBindings["8000/tcp"] = [{ HostPort: String(alt) }];
+          assignedHostPorts.add(alt);
+          break;
+        }
+      }
+      continue;
+    }
+
+    if (!assignedHostPorts.has(port) && !dockerBound.has(port) && (await isPortAvailable(port))) {
+      exposedPorts[`${port}/tcp`] = {};
+      portBindings[`${port}/tcp`] = [{ HostPort: String(port) }];
+      assignedHostPorts.add(port);
+    }
+  }
+
+  // Ensure port 5000 is always at least exposed as fallback if not bound
+  if (!exposedPorts["5000/tcp"]) {
+    exposedPorts["5000/tcp"] = {};
+    if (!assignedHostPorts.has(5000) && !dockerBound.has(5000) && (await isPortAvailable(5000))) {
+      portBindings["5000/tcp"] = [{ HostPort: "5000" }];
+      assignedHostPorts.add(5000);
+    }
+  }
+
+  return { exposedPorts, portBindings, detectedPorts };
 }
 
 export async function getOrCreateContainer({
   workspaceKey,
   workspacePath,
 }) {
+  const containerName = getSanitizedContainerName(workspaceKey);
+
   // 1. Check in-memory registry first
   const existing = getContainerEntry(workspaceKey);
   if (existing) {
     try {
       const inspectData = await existing.container.inspect();
-      const hasPort5000 = inspectData.HostConfig?.PortBindings?.["5000/tcp"];
-      if (!hasPort5000) {
+      if (!isContainerUsable(inspectData, workspacePath)) {
         await existing.container.stop({ t: 1 }).catch(() => {});
         await existing.container.remove({ force: true }).catch(() => {});
         removeContainer(workspaceKey);
@@ -188,14 +364,13 @@ export async function getOrCreateContainer({
   }
 
   // 2. Check if a container with this predictable name already exists in Docker daemon
-  const containerName = getSanitizedContainerName(workspaceKey);
   try {
     const existingDocker = docker.getContainer(containerName);
     const data = await existingDocker.inspect();
-    const hasPort5000 = data.HostConfig?.PortBindings?.["5000/tcp"];
-    if (!hasPort5000) {
+    if (!isContainerUsable(data, workspacePath)) {
       await existingDocker.stop({ t: 1 }).catch(() => {});
       await existingDocker.remove({ force: true }).catch(() => {});
+      removeContainer(workspaceKey);
     } else {
       if (!data.State.Running) {
         await existingDocker.start();
@@ -209,10 +384,20 @@ export async function getOrCreateContainer({
     // Container does not exist yet in Docker daemon
   }
 
-  // 3. Create a fresh container with volume mount and automatic port forwarding
+  // 3. Ensure any conflicting container is cleaned up before creating fresh
+  try {
+    const leftover = docker.getContainer(containerName);
+    await leftover.stop({ t: 1 }).catch(() => {});
+    await leftover.remove({ force: true }).catch(() => {});
+  } catch {}
+
+  // 4. Create a fresh container with volume mount and dynamic port forwarding
   const image = getImageForWorkspace();
   const absolutePath = path.resolve(workspacePath);
-  const { exposedPorts, portBindings } = await getAvailableDevPortBindings();
+  const { exposedPorts, portBindings } = await getAvailableDevPortBindings(
+    absolutePath,
+    containerName
+  );
 
   const container = await docker.createContainer({
     name: containerName,
