@@ -25,6 +25,7 @@ import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import DashboardHeader from "../components/dashboard/DashboardHeader";
 import WorkspaceCardGrid from "../components/dashboard/WorkspaceCardGrid";
 import DashboardPlaceholderTab from "../components/dashboard/DashboardPlaceholderTab";
+import CloudTerminalView from "../components/dashboard/CloudTerminalView";
 import RecycleBinView from "../components/dashboard/RecycleBinView";
 import RenameWorkspaceModal from "../components/dashboard/RenameWorkspaceModal";
 import DeleteWorkspaceModal from "../components/dashboard/DeleteWorkspaceModal";
@@ -919,9 +920,17 @@ export default function Dashboard() {
           />
         )}
 
-        {["templates", "terminal"].includes(activeTab) && (
+        {activeTab === "terminal" && (
+          <CloudTerminalView
+            theme={theme}
+            workspaces={workspaces}
+            onNavigateToWorkspace={(wsId) => navigate(`/workspace/${wsId}`)}
+          />
+        )}
+
+        {activeTab === "templates" && (
           <DashboardPlaceholderTab
-            activeTab={activeTab}
+            activeTab="templates"
             onBack={() => setActiveTab("workspaces")}
           />
         )}

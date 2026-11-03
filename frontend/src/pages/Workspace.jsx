@@ -577,9 +577,9 @@ function WorkspaceLayout() {
                 onOpenTerminal={() => {
                   if (terminals.length === 0) {
                     openNewTerminal("bash");
-                  } else {
-                    setShowTerminal(true);
                   }
+                  setShowTerminal(true);
+                  setActiveTermTab("terminal");
                 }}
                 onOpenSettings={() => setShowSettings(true)}
               />

@@ -1,10 +1,14 @@
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, ".env") });
 dotenv.config();
 
 import express from "express";
 import cors from "cors";
 import http from "http";
-import path from "path";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
@@ -186,7 +190,7 @@ app.use((err, req, res, next) => {
 const server = http.createServer(app);
 setupTerminalServer(server);
 
-const PORT = Number(process.env.PORT);
+const PORT = Number(process.env.PORT) || 8000;
 server.listen(PORT, () => {
   console.log(`🚀 VocodeAI Backend running on http://localhost:${PORT}`);
 });

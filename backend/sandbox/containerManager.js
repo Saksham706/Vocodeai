@@ -1,5 +1,6 @@
 import Docker from "dockerode";
 import path from "path";
+import net from "net";
 import { getImageForWorkspace } from "./imageResolver.js";
 import {
   registerContainer,
@@ -134,6 +135,29 @@ ${gitCreds}
   }
 }
 
+function isPortAvailable(port) {
+  return new Promise((resolve) => {
+    const tester = net
+      .createServer()
+      .once("error", () => resolve(false))
+      .once("listening", () => {
+        tester.once("close", () => resolve(true)).close();
+      })
+      .listen(port, "0.0.0.0");
+  });
+}
+
+export async function getAvailableDevPortBindings() {
+  const exposedPorts = {
+    "5000/tcp": {},
+  };
+  const portBindings = {
+    "5000/tcp": [{ HostPort: "5000" }],
+  };
+
+  return { exposedPorts, portBindings };
+}
+
 export async function getOrCreateContainer({
   workspaceKey,
   workspacePath,
@@ -143,7 +167,12 @@ export async function getOrCreateContainer({
   if (existing) {
     try {
       const inspectData = await existing.container.inspect();
-      if (inspectData.State.Running) {
+      const hasPort5000 = inspectData.HostConfig?.PortBindings?.["5000/tcp"];
+      if (!hasPort5000) {
+        await existing.container.stop({ t: 1 }).catch(() => {});
+        await existing.container.remove({ force: true }).catch(() => {});
+        removeContainer(workspaceKey);
+      } else if (inspectData.State.Running) {
         touchContainer(workspaceKey);
         configureContainerEnvironment(existing.container, workspaceKey);
         return existing.container;
@@ -163,20 +192,27 @@ export async function getOrCreateContainer({
   try {
     const existingDocker = docker.getContainer(containerName);
     const data = await existingDocker.inspect();
-    if (!data.State.Running) {
-      await existingDocker.start();
+    const hasPort5000 = data.HostConfig?.PortBindings?.["5000/tcp"];
+    if (!hasPort5000) {
+      await existingDocker.stop({ t: 1 }).catch(() => {});
+      await existingDocker.remove({ force: true }).catch(() => {});
+    } else {
+      if (!data.State.Running) {
+        await existingDocker.start();
+      }
+      registerContainer(workspaceKey, existingDocker);
+      touchContainer(workspaceKey);
+      configureContainerEnvironment(existingDocker, workspaceKey);
+      return existingDocker;
     }
-    registerContainer(workspaceKey, existingDocker);
-    touchContainer(workspaceKey);
-    configureContainerEnvironment(existingDocker, workspaceKey);
-    return existingDocker;
   } catch {
     // Container does not exist yet in Docker daemon
   }
 
-  // 3. Create a fresh container with volume mount
+  // 3. Create a fresh container with volume mount and automatic port forwarding
   const image = getImageForWorkspace();
   const absolutePath = path.resolve(workspacePath);
+  const { exposedPorts, portBindings } = await getAvailableDevPortBindings();
 
   const container = await docker.createContainer({
     name: containerName,
@@ -184,8 +220,10 @@ export async function getOrCreateContainer({
     Tty: true,
     OpenStdin: true,
     WorkingDir: "/workspace",
+    ExposedPorts: exposedPorts,
     HostConfig: {
       Binds: [`${absolutePath}:/workspace`],
+      PortBindings: portBindings,
       Memory: 1024 * 1024 * 1024,
       CpuShares: 512,
       PidsLimit: 256,

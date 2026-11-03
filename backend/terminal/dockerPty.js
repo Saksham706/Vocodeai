@@ -41,11 +41,15 @@ export function createDockerPty(
     execArgs.push("-l");
   }
 
-  return pty.spawn("docker", execArgs, {
+  const isWindows = process.platform === "win32";
+  const dockerCmd = isWindows ? "docker.exe" : "docker";
+
+  return pty.spawn(dockerCmd, execArgs, {
     name: "xterm-256color",
     cols: termCols,
     rows: termRows,
     cwd: process.cwd(),
+    useConpty: false,
     env: {
       ...process.env,
       TERM: "xterm-256color",
@@ -79,6 +83,7 @@ export function createLocalPty(
     cols: termCols,
     rows: termRows,
     cwd: workspacePath || process.cwd(),
+    useConpty: false,
     env: {
       ...process.env,
       TERM: "xterm-256color",
