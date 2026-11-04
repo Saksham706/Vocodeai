@@ -1,8 +1,9 @@
-export function connectTerminal(userId, workspaceId) {
-  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+import { BACKEND_URL } from "../config/apiConfig";
 
+export function connectTerminal(userId, workspaceId) {
+  const host = BACKEND_URL.replace(/^https?:\/\//, "");
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  const socket = new WebSocket(`${protocol}://${backendUrl}`);
+  const socket = new WebSocket(`${protocol}://${host}`);
 
   socket.onopen = () => {
     console.log("Terminal connected");

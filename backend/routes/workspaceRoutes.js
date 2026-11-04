@@ -12,11 +12,13 @@ import {
   exportWorkspaces,
   scanLocalFolder,
   getCommonFolders,
+  getTemplates,
 } from "../controllers/workspaceController.js";
 import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
 
 const router = express.Router();
 
+router.get("/templates", getTemplates);
 router.get("/", auth, listWorkspaces);
 router.post("/", auth, createWorkspace);
 router.post("/import", auth, importWorkspace);

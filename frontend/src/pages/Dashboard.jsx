@@ -25,6 +25,7 @@ import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import DashboardHeader from "../components/dashboard/DashboardHeader";
 import WorkspaceCardGrid from "../components/dashboard/WorkspaceCardGrid";
 import DashboardPlaceholderTab from "../components/dashboard/DashboardPlaceholderTab";
+import TemplatesView from "../components/dashboard/TemplatesView";
 import CloudTerminalView from "../components/dashboard/CloudTerminalView";
 import RecycleBinView from "../components/dashboard/RecycleBinView";
 import RenameWorkspaceModal from "../components/dashboard/RenameWorkspaceModal";
@@ -38,6 +39,7 @@ import UploadConfirmModal from "../components/dashboard/UploadConfirmModal";
 import ExportWorkspacesModal from "../components/dashboard/ExportWorkspacesModal";
 import SettingsView from "../components/settings/SettingsView";
 import "../styles/dashboard.css";
+import "../styles/templates.css";
 
 export default function Dashboard() {
   const { accessToken, user, logout } = useAuth();
@@ -77,6 +79,7 @@ export default function Dashboard() {
   const [deleteModalWs, setDeleteModalWs] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState(null);
+  const [isCreatingTemplateWs, setIsCreatingTemplateWs] = useState(false);
   const [toast, setToast] = useState(null);
 
   const showToast = (message, type = "success") => {
@@ -683,6 +686,35 @@ export default function Dashboard() {
     }
   };
 
+  /* USE TEMPLATE TO CREATE WORKSPACE */
+  const handleUseTemplate = async (templateId, customName) => {
+    try {
+      setIsCreatingTemplateWs(true);
+      const name = customName?.trim() || "Starter Workspace";
+      if (accessToken) {
+        const ws = await createWorkspace(accessToken, name, templateId);
+        setWorkspaces((prev) => [ws, ...prev]);
+        showToast(`Created workspace from template "${ws.name}"`);
+        navigate(`/workspace/${ws._id}`);
+      } else {
+        const newWs = {
+          _id: `ws-${Date.now()}`,
+          name,
+          updatedAt: new Date().toISOString(),
+          isPinned: false,
+        };
+        setWorkspaces((prev) => [newWs, ...prev]);
+        showToast(`Created workspace "${name}"`);
+        setActiveTab("workspaces");
+      }
+    } catch (err) {
+      console.error("Failed to create template workspace:", err);
+      showToast(err.message || "Failed to create workspace from template", "error");
+    } finally {
+      setIsCreatingTemplateWs(false);
+    }
+  };
+
   /* RENAME WORKSPACE */
   const openRenameModal = (ws) => {
     setRenameModalWs(ws);
@@ -940,9 +972,10 @@ export default function Dashboard() {
         </div>
 
         {activeTab === "templates" && (
-          <DashboardPlaceholderTab
-            activeTab="templates"
+          <TemplatesView
+            onUseTemplate={handleUseTemplate}
             onBack={() => setActiveTab("workspaces")}
+            isCreating={isCreatingTemplateWs}
           />
         )}
 

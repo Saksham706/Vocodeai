@@ -15,13 +15,45 @@ import {
 import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
 import { getWorkspacesRoot } from "../config/paths.js";
 import { scanLocalDirectory } from "../utils/scanLocalFolder.js";
+import { STARTER_TEMPLATES, getTemplateById } from "../templates/starterTemplates.js";
+
+/* GET STARTER TEMPLATES */
+export async function getTemplates(req, res) {
+  try {
+    const list = STARTER_TEMPLATES.map((t) => ({
+      id: t.id,
+      title: t.title,
+      subtitle: t.subtitle,
+      description: t.description,
+      category: t.category,
+      badge: t.badge,
+      icon: t.icon,
+      color: t.color,
+      tags: t.tags,
+      recommendedFile: t.recommendedFile,
+      fileCount: t.files?.length || 0,
+      files: t.files?.map((f) => ({ path: f.path, type: f.type, content: f.content })) || [],
+    }));
+    res.json(list);
+  } catch (err) {
+    console.error("GET TEMPLATES ERROR:", err);
+    res.status(500).json({ error: err.message });
+  }
+}
 
 /* CREATE */
 export async function createWorkspace(req, res) {
   try {
+    const templateId = req.body.templateId;
+    const template = templateId ? getTemplateById(templateId) : null;
+
+    const defaultName = template ? `${template.title}` : "Untitled Workspace";
+    const wsName =
+      req.body.name && req.body.name.trim() ? req.body.name.trim() : defaultName;
+
     const ws = await Workspace.create({
       userId: req.user.id,
-      name: req.body.name || "Untitled Workspace",
+      name: wsName,
     });
 
     ensureWorkspace(req.user.id, ws._id.toString());
@@ -34,6 +66,29 @@ export async function createWorkspace(req, res) {
         content: DEFAULT_GITIGNORE,
       });
     } catch {}
+
+    // Seed starter template files if requested
+    if (template && Array.isArray(template.files)) {
+      for (const f of template.files) {
+        try {
+          await FileNode.create({
+            workspaceId: ws._id.toString(),
+            path: f.path,
+            type: f.type || "file",
+            content: f.content || "",
+          });
+        } catch (fileErr) {
+          console.warn(`Template seed file error [${f.path}]:`, fileErr.message);
+        }
+      }
+
+      // Immediately hydrate to disk
+      try {
+        await hydrateWorkspace(req.user.id, ws._id.toString());
+      } catch (hydrateErr) {
+        console.warn("Template hydrate warning:", hydrateErr.message);
+      }
+    }
 
     res.json(ws);
   } catch (err) {

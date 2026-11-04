@@ -1,5 +1,6 @@
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
-const BASE = `${backendUrl}/api/files`;
+import { BACKEND_URL } from "../config/apiConfig";
+
+const BASE = `${BACKEND_URL}/api/files`;
 
 /* ================= AUTH HELPER ================= */
 

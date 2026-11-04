@@ -1,7 +1,7 @@
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+import { BACKEND_URL } from "../config/apiConfig";
 
 export async function askAI(token, message, workspaceId, activeFile, attachments = []) {
-  const res = await fetch(`${backendUrl}/api/ai`, {
+  const res = await fetch(`${BACKEND_URL}/api/ai`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

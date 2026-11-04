@@ -1,5 +1,6 @@
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
-const BASE = `${backendUrl}/api/workspaces`;
+import { BACKEND_URL } from "../config/apiConfig";
+
+const BASE = `${BACKEND_URL}/api/workspaces`;
 
 const authHeaders = (token) => ({
   Authorization: `Bearer ${token}`,
@@ -21,14 +22,17 @@ export async function listWorkspaces(token) {
 }
 
 /* CREATE */
-export async function createWorkspace(token, name) {
+export async function createWorkspace(token, name, templateId = null) {
+  const payload = { name };
+  if (templateId) payload.templateId = templateId;
+
   const res = await fetch(BASE, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
@@ -38,6 +42,19 @@ export async function createWorkspace(token, name) {
   }
 
   return res.json();
+}
+
+/* LIST STARTER TEMPLATES */
+export async function getStarterTemplates() {
+  try {
+    const res = await fetch(`${BASE}/templates`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.error("getStarterTemplates error:", err);
+    return [];
+  }
 }
 
 /* DELETE */
