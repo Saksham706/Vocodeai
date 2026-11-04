@@ -340,3 +340,57 @@
   background-color: #E11D48;
   color: #FFFFFF;
 }
+
+/* ========================================================
+   RESPONSIVE IDE NAVBAR FOR MOBILE & TABLET DEVICES
+   ======================================================== */
+@media (max-width: 768px) {
+  .ide-navbar {
+    padding: 0 8px;
+    overflow-x: hidden;
+  }
+
+  .ide-desktop-menubar {
+    display: none;
+  }
+
+  .ide-nav-center {
+    display: none;
+  }
+
+  .ide-window-controls {
+    display: none;
+  }
+
+  .ide-brand-logo-img {
+    height: 24px;
+    max-width: 100px;
+  }
+
+  .ide-nav-run-btn {
+    height: 24px;
+    padding: 0 8px;
+    font-size: 11px;
+    margin-right: 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ide-navbar {
+    padding: 0 6px;
+  }
+
+  .ide-nav-right {
+    gap: 3px;
+  }
+
+  .ide-nav-icon-btn {
+    width: 24px;
+    height: 24px;
+  }
+
+  .ide-brand-logo-img {
+    height: 20px;
+    max-width: 80px;
+  }
+}

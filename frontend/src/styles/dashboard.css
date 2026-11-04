@@ -992,6 +992,43 @@
   }
 }
 
+@media (max-width: 480px) {
+  .dashboard-main {
+    padding: 16px 12px;
+  }
+
+  .dash-main-title {
+    font-size: 22px;
+  }
+
+  .dash-sub-title {
+    font-size: 12.5px;
+  }
+
+  .dashboard-topbar {
+    gap: 12px;
+  }
+
+  .btn-new-workspace {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .workspace-card {
+    padding: 14px 12px;
+  }
+
+  .card-top-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .card-actions-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
 /* =========================================================
    RECYCLE BIN VIEW STYLES
    ========================================================= */

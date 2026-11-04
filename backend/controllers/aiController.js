@@ -191,3 +191,52 @@ export async function deleteChatHistory(req, res) {
     res.status(500).json({ error: "Failed to delete chat history: " + err.message });
   }
 }
+
+/* ================= VOCA MASCOT ASSISTANT ================= */
+export async function handleVocaAI(req, res) {
+  try {
+    const { message, history = [], currentPageContext } = req.body;
+    if (!message || typeof message !== "string" || !message.trim()) {
+      return res.status(400).json({ error: "Message is required." });
+    }
+
+    const pageInfo = currentPageContext
+      ? `CURRENT USER PAGE & SCREEN CONTEXT:
+The user is currently viewing the page: "${currentPageContext.pageName || 'Unknown'}" at route "${currentPageContext.route || '/'}".
+Page Summary: ${currentPageContext.summary || ''}
+Page Features on screen: ${(currentPageContext.features || []).join(', ')}
+What user can do here: ${currentPageContext.actions || ''}
+CRITICAL: When the user asks what page they are on, the name of their current page, or asks about what is on their screen, answer specifically about this active screen!`
+      : `CURRENT USER ROUTE: Unknown.`;
+
+    const vocaSystemPrompt = `You are Voca, the official robotic mascot, intelligent companion, and expert guide for VocodeAI.
+VocodeAI is an autonomous, cloud-native developer studio and voice-driven pair programmer engineered for zero local installation and complete hardware freedom.
+
+${pageInfo}
+
+Key VocodeAI features & architecture:
+1. Voice-to-Code: Developers can speak natural commands or dictate code using multimodal AI. Background noise is filtered, and code is directly written or refactored into Monaco Editor without touching the keyboard.
+2. Cloud Micro-VMs & Persistence: Every workspace runs in an isolated cloud Docker container with PTY terminals (Node.js, Python, C++, Java, etc.). Every edit is continuously auto-saved to cloud storage with sub-second sync—zero lost progress.
+3. Universal Hardware: Runs smoothly on Chromebooks, iPads, mobile smartphones, old laptops, Mac, and Windows with 0MB local install.
+4. Integrated Developer Suite: Monaco Editor (multi-tab, syntax highlighting), xterm.js Cloud Terminal, Live Web/HTML sandboxed iframe preview, AI Chat pair programmer, and Workspace Templates (Node.js, Python, Web, Java, C++, React).
+5. Shortcuts: Ctrl+K (Quick Search / Command Palette), Ctrl+S (Save/Sync), Ctrl+\` (Toggle Terminal), Ctrl+Enter (Run code).
+Persona: Friendly, witty, concise, highly encouraging, tech-savvy. You can use markdown, emojis, bullet points, and code snippets where relevant. Always keep answers focused, readable, and well-structured.`;
+
+    const aiReply = await askAI({
+      message: message.trim(),
+      history,
+      systemPromptOverride: vocaSystemPrompt,
+    });
+
+    return res.json({
+      success: true,
+      reply: aiReply,
+    });
+  } catch (err) {
+    console.error("VOCA AI ERROR:", err.message);
+    return res.status(500).json({
+      error: "Voca AI service temporary error",
+      details: err.message,
+    });
+  }
+}

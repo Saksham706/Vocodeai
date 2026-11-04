@@ -16,6 +16,9 @@ import {
   registerTerminal,
   getTerminal,
   removeTerminal,
+  addTerminalSubscriber,
+  removeTerminalSubscriber,
+  removeSubscriberFromAll,
 } from "./sandbox/terminalRegistry.js";
 
 function getContainerKey(userId, workspaceId) {
@@ -95,6 +98,140 @@ export function setupTerminalServer(server) {
       syncTimeouts.set(workspaceId, timer);
     };
 
+    /* ================= HELPER: SPAWN PTY ================= */
+    const spawnSession = async (terminalId, workspaceId, shell, cols, rows, title, file) => {
+      const workspacePath = path.join(
+        getWorkspacesRoot(),
+        String(userId),
+        String(workspaceId)
+      );
+
+      // 1. Ensure files from MongoDB exist on disk before mounting container
+      await hydrateWorkspace(userId, workspaceId);
+
+      let ptyProcess = null;
+      let fallbackNotice = null;
+
+      // 2. Start or attach Docker container with graceful local PTY fallback
+      try {
+        const key = getContainerKey(userId, workspaceId);
+        const container = await getOrCreateContainer({
+          workspaceKey: key,
+          workspacePath,
+        });
+
+        touchContainer(key);
+
+        // 3. Spawn real PTY session connected to container with client's exact dimensions
+        ptyProcess = createDockerPty(container.id, shell, username, cols, rows);
+      } catch (dockerErr) {
+        console.warn("Docker container spawn unavailable, using local PTY fallback:", dockerErr.message);
+        ptyProcess = createLocalPty(workspacePath, shell, cols, rows);
+        fallbackNotice = `\r\n\x1b[33m⚡ [VocodeAI] Docker offline (${dockerErr.message.slice(0, 40)}...). Connected to native terminal in /workspace.\x1b[0m\r\n`;
+      }
+
+      const subscribers = new Set([ws]);
+      registerTerminal(terminalId, {
+        pty: ptyProcess,
+        workspaceId,
+        userId,
+        shell: shell || "bash",
+        title: title || shell || "bash",
+        file: file || null,
+        buffer: "",
+        cols: cols || 120,
+        rows: rows || 30,
+        sockets: subscribers,
+      });
+
+      /* ---------- FILE WATCHER ---------- */
+      if (!watchers.has(workspaceId)) {
+        const watcher = chokidar.watch(workspacePath, {
+          ignoreInitial: true,
+          persistent: true,
+          depth: 10,
+          ignored: [
+            /(^|[\/\\])\../, // dotfiles
+            /node_modules/,
+            /__pycache__/,
+            /dist/,
+            /build/,
+            /\.git/,
+          ],
+        });
+
+        watcher.on("all", () => {
+          debounceSync(workspaceId);
+        });
+
+        watchers.set(workspaceId, watcher);
+      }
+
+      /* ---------- TERMINAL OUTPUT MULTICAST ---------- */
+      ptyProcess.onData((data) => {
+        const entry = getTerminal(terminalId);
+        if (entry) {
+          entry.buffer = (entry.buffer + data).slice(-40000); // keep last 40k chars
+          const payload = JSON.stringify({
+            type: "output",
+            terminalId,
+            data,
+          });
+
+          if (entry.sockets) {
+            for (const sock of entry.sockets) {
+              if (sock.readyState === 1 /* OPEN */) {
+                sock.send(payload);
+              }
+            }
+          }
+        }
+      });
+
+      /* ---------- EXIT HANDLER ---------- */
+      ptyProcess.onExit(async () => {
+        const entry = getTerminal(terminalId);
+        const closePayload = JSON.stringify({
+          type: "closed",
+          terminalId,
+        });
+
+        if (entry?.sockets) {
+          for (const sock of entry.sockets) {
+            if (sock.readyState === 1 /* OPEN */) {
+              sock.send(closePayload);
+            }
+          }
+        }
+
+        removeTerminal(terminalId);
+        debounceSync(workspaceId);
+      });
+
+      if (ws.readyState === ws.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: "created",
+            terminalId,
+            title: title || shell || "bash",
+            shell: shell || "bash",
+            file: file || null,
+            setAsActive: true,
+          })
+        );
+
+        if (fallbackNotice) {
+          ws.send(
+            JSON.stringify({
+              type: "output",
+              terminalId,
+              data: fallbackNotice,
+            })
+          );
+        }
+      }
+    };
+
     /* ================= MESSAGE HANDLER ================= */
     ws.on("message", async (raw) => {
       let msg;
@@ -113,124 +250,57 @@ export function setupTerminalServer(server) {
         if (!terminalId || !workspaceId) return;
 
         try {
-          const workspacePath = path.join(
-            getWorkspacesRoot(),
-            userId,
-            workspaceId
-          );
+          const existing = getTerminal(terminalId);
+          // If session already exists with the same target workspace, reuse & attach
+          if (existing && existing.pty && String(existing.workspaceId) === String(workspaceId)) {
+            addTerminalSubscriber(terminalId, ws);
 
-          // 1. Ensure files from MongoDB exist on disk before mounting container
-          await hydrateWorkspace(userId, workspaceId);
-
-          let ptyProcess = null;
-          let fallbackNotice = null;
-
-          // 2. Start or attach Docker container with graceful local PTY fallback
-          try {
-            const key = getContainerKey(userId, workspaceId);
-            const container = await getOrCreateContainer({
-              workspaceKey: key,
-              workspacePath,
-            });
-
-            touchContainer(key);
-
-            // 3. Spawn real PTY session connected to container with client's exact dimensions
-            ptyProcess = createDockerPty(container.id, shell, username, cols, rows);
-          } catch (dockerErr) {
-            console.warn("Docker container spawn unavailable, using local PTY fallback:", dockerErr.message);
-            ptyProcess = createLocalPty(workspacePath, shell, cols, rows);
-            fallbackNotice = `\r\n\x1b[33m⚡ [VocodeAI] Docker offline (${dockerErr.message.slice(0, 40)}...). Connected to native terminal in /workspace.\x1b[0m\r\n`;
-          }
-
-          registerTerminal(terminalId, {
-            pty: ptyProcess,
-            workspaceId,
-            userId,
-            shell: shell || "bash",
-            title: msg.title || shell || "bash",
-            file: msg.file || null,
-            buffer: "",
-            cols: cols || 120,
-            rows: rows || 30,
-          });
-
-          /* ---------- FILE WATCHER ---------- */
-          if (!watchers.has(workspaceId)) {
-            const watcher = chokidar.watch(workspacePath, {
-              ignoreInitial: true,
-              persistent: true,
-              depth: 10,
-              ignored: [
-                /(^|[\/\\])\../, // dotfiles
-                /node_modules/,
-                /__pycache__/,
-                /dist/,
-                /build/,
-                /\.git/,
-              ],
-            });
-
-            watcher.on("all", () => {
-              debounceSync(workspaceId);
-            });
-
-            watchers.set(workspaceId, watcher);
-          }
-
-          /* ---------- TERMINAL OUTPUT ---------- */
-          ptyProcess.onData((data) => {
-            const entry = getTerminal(terminalId);
-            if (entry) {
-              entry.buffer = (entry.buffer + data).slice(-20000); // keep last 20k chars
+            if (cols && rows) {
+              try {
+                existing.pty.resize(Math.max(20, cols), Math.max(5, rows));
+              } catch {}
             }
 
             if (ws.readyState === ws.OPEN) {
               ws.send(
                 JSON.stringify({
-                  type: "output",
+                  type: "created",
                   terminalId,
-                  data,
+                  title: existing.title || shell || "bash",
+                  shell: existing.shell || "bash",
+                  file: existing.file || null,
+                  setAsActive: msg.setAsActive !== false,
                 })
               );
-            }
-          });
 
-          /* ---------- EXIT HANDLER ---------- */
-          ptyProcess.onExit(async () => {
+              // Replay buffer so all previous output and history is completely preserved!
+              if (existing.buffer) {
+                ws.send(
+                  JSON.stringify({
+                    type: "buffer",
+                    terminalId,
+                    data: existing.buffer,
+                  })
+                );
+              }
+            }
+            return;
+          }
+
+          // If switching to a new workspace environment, clean up the previous session
+          if (existing) {
             removeTerminal(terminalId);
-            debounceSync(workspaceId);
-
-            if (ws.readyState === ws.OPEN) {
-              ws.send(
-                JSON.stringify({
-                  type: "closed",
-                  terminalId,
-                })
-              );
-            }
-          });
-
-          ws.send(
-            JSON.stringify({
-              type: "created",
-              terminalId,
-              title: msg.title || shell || "bash",
-              shell: shell || "bash",
-              file: msg.file || null,
-              setAsActive: msg.setAsActive !== false,
-            })
-          );
-
-          if (fallbackNotice && ws.readyState === ws.OPEN) {
-            ws.send(
-              JSON.stringify({
-                type: "output",
-                terminalId,
-                data: fallbackNotice,
-              })
-            );
           }
+
+          await spawnSession(
+            terminalId,
+            workspaceId,
+            shell || "bash",
+            cols || 120,
+            rows || 32,
+            msg.title,
+            msg.file
+          );
         } catch (err) {
           console.error("Terminal creation failed:", err);
           if (ws.readyState === ws.OPEN) {
@@ -251,17 +321,36 @@ export function setupTerminalServer(server) {
       if (msg.type === "attach") {
         const entry = getTerminal(msg.terminalId);
         if (!entry) {
-          ws.send(JSON.stringify({ type: "dead", terminalId: msg.terminalId }));
+          if (ws.readyState === ws.OPEN) {
+            ws.send(JSON.stringify({ type: "dead", terminalId: msg.terminalId }));
+          }
           return;
         }
 
-        ws.send(
-          JSON.stringify({
-            type: "buffer",
-            terminalId: msg.terminalId,
-            data: entry.buffer,
-          })
-        );
+        addTerminalSubscriber(msg.terminalId, ws);
+
+        if (ws.readyState === ws.OPEN) {
+          ws.send(
+            JSON.stringify({
+              type: "created",
+              terminalId: msg.terminalId,
+              title: entry.title || entry.shell || "bash",
+              shell: entry.shell || "bash",
+              file: entry.file || null,
+              setAsActive: true,
+            })
+          );
+
+          if (entry.buffer) {
+            ws.send(
+              JSON.stringify({
+                type: "buffer",
+                terminalId: msg.terminalId,
+                data: entry.buffer,
+              })
+            );
+          }
+        }
       }
 
       /* ================================================= */
@@ -270,7 +359,9 @@ export function setupTerminalServer(server) {
       if (msg.type === "input") {
         const entry = getTerminal(msg.terminalId);
         if (!entry) {
-          ws.send(JSON.stringify({ type: "dead", terminalId: msg.terminalId }));
+          if (ws.readyState === ws.OPEN) {
+            ws.send(JSON.stringify({ type: "dead", terminalId: msg.terminalId }));
+          }
           return;
         }
 
@@ -290,7 +381,10 @@ export function setupTerminalServer(server) {
         const entry = getTerminal(msg.terminalId);
         if (entry && msg.cols && msg.rows) {
           try {
-            entry.pty.resize(msg.cols, msg.rows);
+            entry.pty.resize(
+              Math.max(20, Math.min(Number(msg.cols) || 120, 500)),
+              Math.max(5, Math.min(Number(msg.rows) || 30, 200))
+            );
           } catch {}
         }
       }
@@ -302,7 +396,9 @@ export function setupTerminalServer(server) {
         const entry = getTerminal(msg.terminalId);
         if (entry) {
           entry.buffer = "";
-          entry.pty.write("clear\n");
+          try {
+            entry.pty.write("clear\r");
+          } catch {}
         }
       }
 
@@ -311,64 +407,26 @@ export function setupTerminalServer(server) {
       /* ================================================= */
       if (msg.type === "restart") {
         const entry = getTerminal(msg.terminalId);
-        if (!entry) return;
+        const wsId = entry?.workspaceId || msg.workspaceId || "cloud-sandbox";
+        const shell = entry?.shell || msg.shell || "bash";
+        const cols = entry?.cols || msg.cols || 120;
+        const rows = entry?.rows || msg.rows || 32;
 
-        const { workspaceId } = entry;
-
-        try {
-          entry.pty.kill();
-        } catch {}
         removeTerminal(msg.terminalId);
 
-        const workspacePath = path.join(
-          getWorkspacesRoot(),
-          userId,
-          workspaceId
-        );
-
-        const key = getContainerKey(userId, workspaceId);
-
-        const container = await getOrCreateContainer({
-          workspaceKey: key,
-          workspacePath,
-        });
-
-        const newPty = createDockerPty(container.id, entry.shell || "bash", username);
-
-        registerTerminal(msg.terminalId, {
-          pty: newPty,
-          workspaceId,
-          userId,
-          buffer: "",
-        });
-
-        newPty.onData((data) => {
-          const tEntry = getTerminal(msg.terminalId);
-          if (tEntry) tEntry.buffer = (tEntry.buffer + data).slice(-20000);
-
-          if (ws.readyState === ws.OPEN) {
-            ws.send(
-              JSON.stringify({
-                type: "output",
-                terminalId: msg.terminalId,
-                data,
-              })
-            );
-          }
-        });
-
-        newPty.onExit(() => {
-          removeTerminal(msg.terminalId);
-          debounceSync(workspaceId);
-          if (ws.readyState === ws.OPEN) {
-            ws.send(
-              JSON.stringify({
-                type: "closed",
-                terminalId: msg.terminalId,
-              })
-            );
-          }
-        });
+        try {
+          await spawnSession(
+            msg.terminalId,
+            wsId,
+            shell,
+            cols,
+            rows,
+            entry?.title,
+            entry?.file
+          );
+        } catch (err) {
+          console.error("Terminal restart failed:", err);
+        }
       }
 
       /* ================================================= */
@@ -383,11 +441,7 @@ export function setupTerminalServer(server) {
           return;
         }
 
-        try {
-          entry.pty.kill();
-        } catch {}
         removeTerminal(msg.terminalId);
-
         debounceSync(entry.workspaceId);
 
         if (ws.readyState === ws.OPEN) {
@@ -405,6 +459,9 @@ export function setupTerminalServer(server) {
     /* ================= SOCKET CLOSE ================== */
     /* ================================================= */
     ws.on("close", async () => {
+      // Remove this socket as a listener from all sessions, but DO NOT kill PTY
+      removeSubscriberFromAll(ws);
+
       try {
         for (const [wsId, timer] of syncTimeouts.entries()) {
           clearTimeout(timer);

@@ -9,14 +9,35 @@
 }
 
 html,
-body,
-#root {
+body {
   width: 100%;
+  max-width: 100%;
   min-height: 100%;
   margin: 0;
   padding: 0;
-  overflow-x: clip;
+  overflow-x: hidden !important;
   background: #010d0a;
+  position: relative;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background: #010d0a;
+  position: relative;
+}
+
+/* Prevent media and embeds from overflowing parent containers */
+img,
+svg,
+video,
+canvas,
+iframe {
+  max-width: 100%;
 }
 
 body {

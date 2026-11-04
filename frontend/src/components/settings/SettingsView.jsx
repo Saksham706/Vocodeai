@@ -21,6 +21,13 @@ import {
   Sliders,
   ArrowLeft,
   Settings as SettingsIcon,
+  Layers,
+  ShieldCheck,
+  CheckCircle2,
+  Bookmark,
+  Lightbulb,
+  Zap,
+  HardDrive,
 } from "lucide-react";
 import {
   DEFAULT_SETTINGS,
@@ -50,7 +57,25 @@ const ICON_MAP = {
   Keyboard,
   User,
   Activity,
+  Zap,
+  HardDrive,
 };
+
+// Logical grouping matching Docs Knowledge Base structure
+const SETTINGS_GROUPS = [
+  {
+    group: "EDITOR & WORKBENCH",
+    categoryIds: ["editor", "preview", "workbench"],
+  },
+  {
+    group: "AI & RUNTIME",
+    categoryIds: ["vocode.ai", "terminal.integrated", "runner"],
+  },
+  {
+    group: "SYSTEM & ENVIRONMENT",
+    categoryIds: ["files", "shortcuts", "account", "telemetry"],
+  },
+];
 
 export default function SettingsView({ workspaceId = null, onBack = null }) {
   // Scope: 'user' (global) or 'workspace' (current project)
@@ -79,46 +104,6 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
 
   const searchInputRef = useRef(null);
   const contentRef = useRef(null);
-
-    // ScrollSpy to dynamically highlight the category when scrolling down
-  useEffect(() => {
-    if (isJsonMode || searchQuery) return;
-    const scrollContainer = contentRef.current;
-    if (!scrollContainer) return;
-
-    let timeoutId = null;
-    const handleScroll = () => {
-      if (timeoutId) return;
-      timeoutId = setTimeout(() => {
-        timeoutId = null;
-        const sections = SETTINGS_METADATA.map((cat) =>
-          document.getElementById(`section-${cat.id}`)
-        ).filter(Boolean);
-
-        const containerTop = scrollContainer.getBoundingClientRect().top;
-        let currentId = null;
-
-        for (const section of sections) {
-          const rect = section.getBoundingClientRect();
-          const relativeTop = rect.top - containerTop;
-          if (relativeTop <= 100 && relativeTop + rect.height > 30) {
-            currentId = section.id.replace("section-", "");
-            break;
-          }
-        }
-
-        if (currentId) {
-          setActiveCategory(currentId);
-        }
-      }, 50);
-    };
-
-    scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      scrollContainer.removeEventListener("scroll", handleScroll);
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [isJsonMode, searchQuery]);
 
   // Effective settings based on active scope
   const activeSettings = useMemo(() => {
@@ -154,16 +139,24 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isJsonMode]);
 
-  const handleCategoryClick = (catId) => {
+  // Category selection: immediately displays that category & smoothly scrolls to top (Docs style)
+  const handleSelectCategory = (catId) => {
     setActiveCategory(catId);
-    const el = document.getElementById(`section-${catId}`);
+    setSearchQuery("");
+    if (contentRef.current) {
+      contentRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // Jump to specific setting card within current category
+  const handleJumpToSetting = (itemKey) => {
+    const el = document.getElementById(`setting-card-${itemKey}`);
     if (el && contentRef.current) {
-      const containerTop = contentRef.current.getBoundingClientRect().top;
-      const targetTop = el.getBoundingClientRect().top;
-      contentRef.current.scrollBy({
-        top: targetTop - containerTop - 12,
-        behavior: "smooth",
-      });
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("setting-card-highlighted");
+      setTimeout(() => {
+        el.classList.remove("setting-card-highlighted");
+      }, 1500);
     }
   };
 
@@ -243,18 +236,17 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Filter settings by search query
-  const filteredCategories = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return SETTINGS_METADATA;
-    }
+  // Filter settings by search query (if any)
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return null;
     const q = searchQuery.toLowerCase().trim();
+
     return SETTINGS_METADATA.map((cat) => {
       const matchingItems = cat.items.filter(
         (item) =>
           item.label.toLowerCase().includes(q) ||
           item.key.toLowerCase().includes(q) ||
-          item.description.toLowerCase().includes(q)
+          (item.description && item.description.toLowerCase().includes(q))
       );
       return {
         ...cat,
@@ -264,8 +256,19 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
   }, [searchQuery]);
 
   const totalMatches = useMemo(() => {
-    return filteredCategories.reduce((acc, cat) => acc + cat.items.length, 0);
-  }, [filteredCategories]);
+    if (!searchResults) return 0;
+    return searchResults.reduce((acc, cat) => acc + cat.items.length, 0);
+  }, [searchResults]);
+
+  // Current active category metadata
+  const currentCategory = useMemo(() => {
+    return (
+      SETTINGS_METADATA.find((c) => c.id === activeCategory) ||
+      SETTINGS_METADATA[0]
+    );
+  }, [activeCategory]);
+
+  const CurrentCategoryIcon = ICON_MAP[currentCategory.icon] || Sliders;
 
   return (
     <div className="vocode-settings-container">
@@ -291,6 +294,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
             {/* Scope Switcher: User vs Workspace */}
             <div className="settings-scope-switcher">
               <button
+                type="button"
                 className={`scope-btn ${scope === "user" ? "active" : ""}`}
                 onClick={() => setScope("user")}
                 title="Global preferences across all workspaces"
@@ -298,6 +302,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
                 User
               </button>
               <button
+                type="button"
                 className={`scope-btn ${scope === "workspace" ? "active" : ""}`}
                 onClick={() => setScope("workspace")}
                 disabled={!workspaceId}
@@ -314,6 +319,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
 
           <div className="settings-actions-group">
             <button
+              type="button"
               className={`settings-action-btn ${isJsonMode ? "active" : ""}`}
               onClick={handleToggleJsonMode}
               title="Toggle settings.json view"
@@ -338,6 +344,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
             />
             {searchQuery && (
               <button
+                type="button"
                 className="settings-search-clear"
                 onClick={() => setSearchQuery("")}
                 title="Clear search"
@@ -373,6 +380,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
                 </span>
               )}
               <button
+                type="button"
                 className="settings-action-btn"
                 onClick={handleCopyJson}
                 title="Copy JSON to Clipboard"
@@ -381,6 +389,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
                 <span>{copied ? "Copied" : "Copy"}</span>
               </button>
               <button
+                type="button"
                 className="settings-action-btn active"
                 onClick={handleSaveJson}
                 title="Save changes to settings"
@@ -402,289 +411,362 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
           />
         </div>
       ) : (
-        /* STANDARD VS CODE UI VIEW */
+        /* DOCS-STYLE DEDICATED CATEGORY VIEW (NO SLIDING) */
         <div className="settings-body">
-          {/* Left Category Sidebar */}
+          {/* Left Category Sidebar (Docs Guide Tree Style) */}
           <aside className="settings-sidebar">
-            {SETTINGS_METADATA.map((cat) => {
-              const IconComp = ICON_MAP[cat.icon] || Sliders;
-              const isMatch = filteredCategories.some((c) => c.id === cat.id);
-              const isActive = activeCategory === cat.id;
+            <div className="settings-sidebar-header">
+              <Sliders size={14} className="settings-sidebar-icon" />
+              <span>PREFERENCES</span>
+            </div>
 
-              return (
-                <button
-                  key={cat.id}
-                  className={`settings-nav-item ${isActive ? "active" : ""} ${
-                    !isMatch && searchQuery ? "opacity-40" : ""
-                  }`}
-                  onClick={() => handleCategoryClick(cat.id)}
-                >
-                  <IconComp className="settings-nav-icon" />
-                  <span className="settings-nav-label">{cat.label}</span>
-                </button>
-              );
-            })}
+            <div className="settings-sidebar-categories">
+              {SETTINGS_GROUPS.map((grp) => (
+                <div key={grp.group} className="settings-category-group">
+                  <span className="settings-group-title">{grp.group}</span>
+                  <div className="settings-group-links">
+                    {grp.categoryIds.map((catId) => {
+                      const cat = SETTINGS_METADATA.find((c) => c.id === catId);
+                      if (!cat) return null;
+                      const IconComp = ICON_MAP[cat.icon] || Sliders;
+                      const isActive = activeCategory === cat.id && !searchQuery;
+
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          className={`settings-nav-item ${isActive ? "active" : ""}`}
+                          onClick={() => handleSelectCategory(cat.id)}
+                        >
+                          <IconComp className="settings-nav-icon" />
+                          <span className="settings-nav-label">{cat.label}</span>
+                          <span className="settings-nav-badge">{cat.items.length}</span>
+                          {isActive && <span className="active-indicator" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Sidebar Footer Card (Docs Studio Style) */}
+            <div className="settings-sidebar-footer">
+              <div className="settings-footer-card">
+                <Sparkles size={16} className="settings-card-glow-icon" />
+                <div className="settings-card-text">
+                  <strong>{scope === "workspace" ? "Workspace Profile" : "Global User Profile"}</strong>
+                  <p>
+                    {scope === "workspace"
+                      ? "Custom overrides for this project."
+                      : "Synchronized with your cloud developer account."}
+                  </p>
+                </div>
+              </div>
+            </div>
           </aside>
 
-          {/* Right Scrollable Settings Content Area */}
+          {/* Right Scrollable Settings Content Area (Middle Part Only Scrolling) */}
           <main className="settings-content" ref={contentRef}>
-            {filteredCategories.length === 0 ? (
-              <div className="settings-no-results">
-                <Search size={36} />
-                <h4>No settings found</h4>
-                <p>No settings matching "{searchQuery}". Try a different keyword.</p>
+            {/* Search Results Mode */}
+            {searchResults ? (
+              <div className="settings-search-results-container animate-fade-in">
+                <div className="settings-search-header-badge">
+                  <Search size={14} />
+                  <span>
+                    Found {totalMatches} setting{totalMatches === 1 ? "" : "s"} matching "{searchQuery}"
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-clear-search-link"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    Clear search
+                  </button>
+                </div>
+
+                {searchResults.length === 0 ? (
+                  <div className="settings-no-results">
+                    <Search size={36} />
+                    <h4>No settings found</h4>
+                    <p>No settings matching "{searchQuery}". Try a different keyword.</p>
+                  </div>
+                ) : (
+                  searchResults.map((category) => {
+                    const CategoryIcon = ICON_MAP[category.icon] || Sliders;
+                    return (
+                      <div key={category.id} className="settings-search-group">
+                        <div className="settings-search-group-title">
+                          <CategoryIcon size={16} className="text-accent" />
+                          <span>{category.label}</span>
+                        </div>
+                        <div className="settings-items-list">
+                          {category.items.map((item) => renderSettingCard(item))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             ) : (
-              filteredCategories.map((category) => {
-                const CategoryIcon = ICON_MAP[category.icon] || Sliders;
+              /* Dedicated Active Category View (Docs Topic Style - Instant & Direct) */
+              <div className="settings-category-body animate-fade-in" key={currentCategory.id}>
+                {/* Docs-Style Breadcrumb Navigation */}
+                <nav className="docs-breadcrumb" aria-label="Breadcrumb">
+                  <span className="crumb-item" onClick={onBack || undefined}>
+                    VocodeAI
+                  </span>
+                  <ChevronRight size={13} className="crumb-sep" />
+                  <span className="crumb-item">Settings</span>
+                  <ChevronRight size={13} className="crumb-sep" />
+                  <span className="crumb-item cat-label">
+                    {scope === "workspace" ? "Workspace" : "User Preferences"}
+                  </span>
+                  <ChevronRight size={13} className="crumb-sep" />
+                  <span className="crumb-item active">{currentCategory.label}</span>
+                </nav>
 
-                return (
-                  <section
-                    key={category.id}
-                    id={`section-${category.id}`}
-                    className="settings-category-section"
-                  >
-                    <div className="settings-section-header">
-                      <h3 className="settings-section-title">
-                        <CategoryIcon size={18} className="text-accent" />
-                        <span>{category.label}</span>
-                      </h3>
-                      <p className="settings-section-desc">
-                        {category.description}
-                      </p>
+                {/* Docs-Style Active Header */}
+                <div className="settings-active-header">
+                  <div className="settings-section-tag">
+                    <CurrentCategoryIcon size={13} />
+                    <span>PREFERENCES</span>
+                  </div>
+                  <h1 className="settings-h1">{currentCategory.label}</h1>
+                  <p className="settings-lead-desc">{currentCategory.description}</p>
+                  <div className="settings-meta-bar">
+                    <span className="meta-badge">{currentCategory.items.length} Settings</span>
+                    <span className="meta-dot">•</span>
+                    <span>{scope === "workspace" ? "Workspace Override Scope" : "Global User Scope"}</span>
+                    <span className="meta-dot">•</span>
+                    <span className="meta-status-chip">
+                      <CheckCircle2 size={12} /> Instant Auto-Sync
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick Section Jump Chips (Docs On-This-Page Style) */}
+                {currentCategory.items.length > 2 && (
+                  <div className="settings-jump-bar">
+                    <span className="jump-bar-label">Jump to:</span>
+                    <div className="settings-jump-chips">
+                      {currentCategory.items.map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          className="settings-jump-chip"
+                          onClick={() => handleJumpToSetting(item.key)}
+                          title={`Jump to ${item.label}`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
                     </div>
+                  </div>
+                )}
 
-                    <div className="settings-items-list" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                      {category.items.map((item) => {
-                        const val =
-                          getNestedValue(activeSettings, item.key) ??
-                          getNestedValue(DEFAULT_SETTINGS, item.key);
-                        const isModified = isSettingModified(item.key);
-
-                        return (
-                          <div key={item.key} className="setting-card">
-                            <div className="setting-card-header">
-                              <div className="setting-title-wrapper">
-                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                  <h4 className="setting-label">{item.label}</h4>
-                                  <span className="setting-key-tag">
-                                    {item.key}
-                                  </span>
-                                </div>
-                                <p className="setting-desc">{item.description}</p>
-                              </div>
-
-                              <div className="setting-actions">
-                                {isModified && (
-                                  <button
-                                    className="setting-reset-btn"
-                                    onClick={() => handleReset(item.key)}
-                                    title="Reset to default value"
-                                  >
-                                    <RotateCcw size={12} />
-                                    <span>Reset</span>
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* CONTROLS */}
-                            <div className="setting-control-area">
-                              {/* 1. BOOLEAN TOGGLE */}
-                              {item.type === "boolean" && (
-                                <label className="setting-switch">
-                                  <input
-                                    type="checkbox"
-                                    className="setting-switch-input"
-                                    checked={Boolean(val)}
-                                    onChange={(e) =>
-                                      handleUpdate(item.key, e.target.checked)
-                                    }
-                                  />
-                                  <span className="setting-switch-slider" />
-                                  <span className="setting-switch-label">
-                                    {val ? "Enabled" : "Disabled"}
-                                  </span>
-                                </label>
-                              )}
-
-                              {/* 2. SELECT DROPDOWN */}
-                              {item.type === "select" && (
-                                <select
-                                  className="setting-select"
-                                  value={val}
-                                  onChange={(e) => {
-                                    const next =
-                                      typeof item.options[0]?.value === "number"
-                                        ? Number(e.target.value)
-                                        : e.target.value;
-                                    handleUpdate(item.key, next);
-                                  }}
-                                >
-                                  {item.options.map((opt) => (
-                                    <option key={opt.value} value={opt.value}>
-                                      {opt.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
-
-                              {/* 3. NUMBER / SLIDER */}
-                              {item.type === "number" && (
-                                <div className="setting-slider-group">
-                                  <input
-                                    type="range"
-                                    className="setting-slider"
-                                    min={item.min ?? 0}
-                                    max={item.max ?? 100}
-                                    step={item.step ?? 1}
-                                    value={val ?? item.min ?? 0}
-                                    onChange={(e) =>
-                                      handleUpdate(
-                                        item.key,
-                                        Number(e.target.value)
-                                      )
-                                    }
-                                  />
-                                  <span className="setting-slider-val">{val}</span>
-                                </div>
-                              )}
-
-                              {/* 4. STRING INPUT */}
-                              {item.type === "string" && (
-                                <input
-                                  type="text"
-                                  className="setting-text-input"
-                                  value={val || ""}
-                                  onChange={(e) =>
-                                    handleUpdate(item.key, e.target.value)
-                                  }
-                                />
-                              )}
-
-                              {/* 5. PASSWORD (API KEYS) */}
-                              {item.type === "password" && (
-                                <div className="setting-password-wrap">
-                                  <input
-                                    type={
-                                      visiblePasswords[item.key]
-                                        ? "text"
-                                        : "password"
-                                    }
-                                    className="setting-text-input"
-                                    placeholder="Enter secret key or leave blank..."
-                                    value={val || ""}
-                                    onChange={(e) =>
-                                      handleUpdate(item.key, e.target.value)
-                                    }
-                                  />
-                                  <button
-                                    type="button"
-                                    className="setting-password-toggle"
-                                    onClick={() =>
-                                      setVisiblePasswords((prev) => ({
-                                        ...prev,
-                                        [item.key]: !prev[item.key],
-                                      }))
-                                    }
-                                  >
-                                    {visiblePasswords[item.key] ? (
-                                      <EyeOff size={14} />
-                                    ) : (
-                                      <Eye size={14} />
-                                    )}
-                                  </button>
-                                </div>
-                              )}
-
-                              {/* 6. STRING ARRAY (CHIPS) */}
-                              {item.type === "stringArray" && (
-                                <div className="setting-chips-container">
-                                  <div className="setting-chips-list">
-                                    {Array.isArray(val) &&
-                                      val.map((itemStr, idx) => (
-                                        <span
-                                          key={idx}
-                                          className="setting-chip"
-                                        >
-                                          {itemStr}
-                                          <button
-                                            type="button"
-                                            className="setting-chip-remove"
-                                            onClick={() => {
-                                              const next = val.filter(
-                                                (_, i) => i !== idx
-                                              );
-                                              handleUpdate(item.key, next);
-                                            }}
-                                          >
-                                            <X size={12} />
-                                          </button>
-                                        </span>
-                                      ))}
-                                  </div>
-                                  <div className="setting-add-chip-row">
-                                    <input
-                                      type="text"
-                                      className="setting-text-input"
-                                      placeholder="Add pattern (e.g. **/temp)..."
-                                      value={newChipVal[item.key] || ""}
-                                      onChange={(e) =>
-                                        setNewChipVal((prev) => ({
-                                          ...prev,
-                                          [item.key]: e.target.value,
-                                        }))
-                                      }
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter" && newChipVal[item.key]?.trim()) {
-                                          e.preventDefault();
-                                          const next = [
-                                            ...(val || []),
-                                            newChipVal[item.key].trim(),
-                                          ];
-                                          handleUpdate(item.key, next);
-                                          setNewChipVal((prev) => ({
-                                            ...prev,
-                                            [item.key]: "",
-                                          }));
-                                        }
-                                      }}
-                                    />
-                                    <button
-                                      type="button"
-                                      className="setting-add-chip-btn"
-                                      onClick={() => {
-                                        if (newChipVal[item.key]?.trim()) {
-                                          const next = [
-                                            ...(val || []),
-                                            newChipVal[item.key].trim(),
-                                          ];
-                                          handleUpdate(item.key, next);
-                                          setNewChipVal((prev) => ({
-                                            ...prev,
-                                            [item.key]: "",
-                                          }));
-                                        }
-                                      }}
-                                    >
-                                      Add
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                );
-              })
+                {/* Setting Cards List */}
+                <div className="settings-items-list">
+                  {currentCategory.items.map((item) => renderSettingCard(item))}
+                </div>
+              </div>
             )}
           </main>
         </div>
       )}
     </div>
   );
-}
 
+  // Helper function to render a single setting card
+  function renderSettingCard(item) {
+    const val =
+      getNestedValue(activeSettings, item.key) ??
+      getNestedValue(DEFAULT_SETTINGS, item.key);
+    const isModified = isSettingModified(item.key);
+
+    return (
+      <div key={item.key} id={`setting-card-${item.key}`} className="setting-card">
+        <div className="setting-card-header">
+          <div className="setting-title-wrapper">
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <h4 className="setting-label">{item.label}</h4>
+              <span className="setting-key-tag">{item.key}</span>
+            </div>
+            <p className="setting-desc">{item.description}</p>
+          </div>
+
+          <div className="setting-actions">
+            {isModified && (
+              <button
+                type="button"
+                className="setting-reset-btn"
+                onClick={() => handleReset(item.key)}
+                title="Reset to default value"
+              >
+                <RotateCcw size={12} />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* CONTROLS */}
+        <div className="setting-control-area">
+          {/* 1. BOOLEAN TOGGLE */}
+          {item.type === "boolean" && (
+            <label className="setting-switch">
+              <input
+                type="checkbox"
+                className="setting-switch-input"
+                checked={Boolean(val)}
+                onChange={(e) => handleUpdate(item.key, e.target.checked)}
+              />
+              <span className="setting-switch-slider" />
+              <span className="setting-switch-label">
+                {val ? "Enabled" : "Disabled"}
+              </span>
+            </label>
+          )}
+
+          {/* 2. SELECT DROPDOWN */}
+          {item.type === "select" && (
+            <select
+              className="setting-select"
+              value={val}
+              onChange={(e) => {
+                const next =
+                  typeof item.options[0]?.value === "number"
+                    ? Number(e.target.value)
+                    : e.target.value;
+                handleUpdate(item.key, next);
+              }}
+            >
+              {item.options.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* 3. NUMBER / SLIDER */}
+          {item.type === "number" && (
+            <div className="setting-slider-group">
+              <input
+                type="range"
+                className="setting-slider"
+                min={item.min ?? 0}
+                max={item.max ?? 100}
+                step={item.step ?? 1}
+                value={val ?? item.min ?? 0}
+                onChange={(e) => handleUpdate(item.key, Number(e.target.value))}
+              />
+              <span className="setting-slider-val">{val}</span>
+            </div>
+          )}
+
+          {/* 4. STRING INPUT */}
+          {item.type === "string" && (
+            <input
+              type="text"
+              className="setting-text-input"
+              value={val || ""}
+              onChange={(e) => handleUpdate(item.key, e.target.value)}
+            />
+          )}
+
+          {/* 5. PASSWORD (API KEYS) */}
+          {item.type === "password" && (
+            <div className="setting-password-wrap">
+              <input
+                type={visiblePasswords[item.key] ? "text" : "password"}
+                className="setting-text-input"
+                placeholder="Enter secret key or leave blank..."
+                value={val || ""}
+                onChange={(e) => handleUpdate(item.key, e.target.value)}
+              />
+              <button
+                type="button"
+                className="setting-password-toggle"
+                onClick={() =>
+                  setVisiblePasswords((prev) => ({
+                    ...prev,
+                    [item.key]: !prev[item.key],
+                  }))
+                }
+                title={visiblePasswords[item.key] ? "Hide Secret" : "Show Secret"}
+              >
+                {visiblePasswords[item.key] ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+          )}
+
+          {/* 6. STRING ARRAY (CHIPS) */}
+          {item.type === "stringArray" && (
+            <div className="setting-chips-container">
+              <div className="setting-chips-list">
+                {Array.isArray(val) &&
+                  val.map((itemStr, idx) => (
+                    <span key={idx} className="setting-chip">
+                      {itemStr}
+                      <button
+                        type="button"
+                        className="setting-chip-remove"
+                        onClick={() => {
+                          const next = val.filter((_, i) => i !== idx);
+                          handleUpdate(item.key, next);
+                        }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+              </div>
+              <div className="setting-add-chip-row">
+                <input
+                  type="text"
+                  className="setting-text-input"
+                  placeholder="Add pattern (e.g. **/temp)..."
+                  value={newChipVal[item.key] || ""}
+                  onChange={(e) =>
+                    setNewChipVal((prev) => ({
+                      ...prev,
+                      [item.key]: e.target.value,
+                    }))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newChipVal[item.key]?.trim()) {
+                      e.preventDefault();
+                      const next = [...(val || []), newChipVal[item.key].trim()];
+                      handleUpdate(item.key, next);
+                      setNewChipVal((prev) => ({
+                        ...prev,
+                        [item.key]: "",
+                      }));
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="setting-add-chip-btn"
+                  onClick={() => {
+                    if (newChipVal[item.key]?.trim()) {
+                      const next = [...(val || []), newChipVal[item.key].trim()];
+                      handleUpdate(item.key, next);
+                      setNewChipVal((prev) => ({
+                        ...prev,
+                        [item.key]: "",
+                      }));
+                    }
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+}

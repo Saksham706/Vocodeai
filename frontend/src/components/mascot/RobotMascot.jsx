@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-import { Sparkles } from "lucide-react";
+import { Sparkles, MessageSquare } from "lucide-react";
+import VocaChatbot from "./VocaChatbot";
 import "../../styles/RobotMascot.css";
 
 const STORAGE_KEY = "vocode_mascot_pos";
 
 const MASCOT_QUOTES = [
-  "🦉 Vocode AI ready! Drag me anywhere on your screen!",
-  "🚀 Real-time coding, voice & automation companion!",
-  "💡 Tip: Press Ctrl + K on the dashboard to quick-search!",
-  "⚡ Connected & keeping an eye on your workspaces!",
-  "✨ Ask me anything or command hands-free with voice!",
+  "🦉 Hi, I'm Voca! Click me to chat about VocodeAI!",
+  "🚀 Ask me anything about voice coding & cloud persistence!",
+  "💡 Tip: Press Ctrl + K to quick-search on the dashboard!",
+  "📱 Did you know? You can code hands-free from an iPad or phone!",
+  "✨ Click me anytime to open the Voca AI Guide!",
 ];
 
 export default function RobotMascot() {
@@ -19,24 +20,46 @@ export default function RobotMascot() {
   // Hide mascot when entering the coding workspace
   const isWorkspace = location.pathname.startsWith("/workspace");
 
-  // Position state (persisted in localStorage)
+  // 1. Boundary clamping helper
+  const clampPos = useCallback((x, y) => {
+    const curW = typeof window !== "undefined" ? window.innerWidth : 1200;
+    const curH = typeof window !== "undefined" ? window.innerHeight : 800;
+    const mascotSize = curW <= 480 ? 80 : curW <= 768 ? 88 : 112;
+    const margin = curW <= 480 ? 8 : 14;
+    const maxX = Math.max(margin, curW - mascotSize - margin);
+    const maxY = Math.max(margin, curH - mascotSize - margin);
+    return {
+      x: Math.min(Math.max(margin, x), maxX),
+      y: Math.min(Math.max(margin, y), maxY),
+    };
+  }, []);
+
+  // Position state (persisted in localStorage and strictly clamped to current viewport)
   const [pos, setPos] = useState(() => {
+    const initW = typeof window !== "undefined" ? window.innerWidth : 1200;
+    const initH = typeof window !== "undefined" ? window.innerHeight : 800;
+    const mascotSize = initW <= 480 ? 80 : initW <= 768 ? 88 : 112;
+    const margin = initW <= 480 ? 8 : 14;
+    const maxX = Math.max(margin, initW - mascotSize - margin);
+    const maxY = Math.max(margin, initH - mascotSize - margin);
+
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (typeof parsed.x === "number" && typeof parsed.y === "number") {
-          return parsed;
+          return {
+            x: Math.min(Math.max(margin, parsed.x), maxX),
+            y: Math.min(Math.max(margin, parsed.y), maxY),
+          };
         }
       }
     } catch {
       // ignore
     }
-    const initW = typeof window !== "undefined" ? window.innerWidth : 1200;
-    const initH = typeof window !== "undefined" ? window.innerHeight : 800;
     return {
-      x: Math.max(16, initW - 120),
-      y: Math.max(16, initH - 120),
+      x: maxX,
+      y: maxY,
     };
   });
 
@@ -44,6 +67,7 @@ export default function RobotMascot() {
   const [isBlinking, setIsBlinking] = useState(false);
   const [speechText, setSpeechText] = useState(null);
   const [quoteIndex, setQuoteIndex] = useState(0);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const mascotRef = useRef(null);
   const dragStartRef = useRef({ startX: 0, startY: 0, origX: 0, origY: 0, hasMoved: false });
@@ -54,20 +78,26 @@ export default function RobotMascot() {
   const mouseIdleTimeoutRef = useRef(null);
   const rAFRef = useRef(null);
 
-  // 1. Boundary clamping helper
-  const clampPos = useCallback((x, y) => {
-    const mascotSize = window.innerWidth <= 768 ? 72 : 96;
-    const margin = 12;
-    const maxX = Math.max(margin, window.innerWidth - mascotSize - margin);
-    const maxY = Math.max(margin, window.innerHeight - mascotSize - margin);
-    return {
-      x: Math.min(Math.max(margin, x), maxX),
-      y: Math.min(Math.max(margin, y), maxY),
+  // Friendly greeting tooltip on initial load
+  useEffect(() => {
+    const initialGreetingTimer = setTimeout(() => {
+      setSpeechText("🦉 Hi! I'm Voca! Click me to chat!");
+      speechTimeoutRef.current = setTimeout(() => {
+        setSpeechText(null);
+      }, 5500);
+    }, 1500);
+
+    return () => {
+      clearTimeout(initialGreetingTimer);
+      if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
     };
   }, []);
 
-  // 2. Adjust position on window resize
+  // 2. Adjust position on mount and window resize
   useEffect(() => {
+    // Re-verify clamp on mount for active viewport size
+    setPos((prev) => clampPos(prev.x, prev.y));
+
     const handleResize = () => {
       setPos((prev) => {
         const clamped = clampPos(prev.x, prev.y);
@@ -205,16 +235,20 @@ export default function RobotMascot() {
     }
   };
 
-  // 6. Speech bubble on click
+  // 6. Click mascot: toggle Voca Chatbot
   const handleMascotClick = () => {
-    const quote = MASCOT_QUOTES[quoteIndex % MASCOT_QUOTES.length];
-    setSpeechText(quote);
-    setQuoteIndex((prev) => prev + 1);
-
+    setIsChatOpen((prev) => !prev);
     if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
-    speechTimeoutRef.current = setTimeout(() => {
-      setSpeechText(null);
-    }, 4500);
+    setSpeechText(null);
+  };
+
+  // 7. Dragging from chatbot header moves the robot & chat together
+  const handleChatDragMove = (deltaX, deltaY) => {
+    setPos((prev) => {
+      const clamped = clampPos(prev.x + deltaX, prev.y + deltaY);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(clamped));
+      return clamped;
+    });
   };
 
   if (isWorkspace) {
@@ -222,75 +256,85 @@ export default function RobotMascot() {
   }
 
   return (
-    <div
-      ref={mascotRef}
-      className={`robot-mascot-wrapper ${isDragging ? "is-dragging" : ""}`}
-      style={{
-        left: `${pos.x}px`,
-        top: `${pos.y}px`,
-      }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
-      title="VocodeAI 3D Mascot (Drag me anywhere!)"
-      aria-label="VocodeAI Mascot"
-    >
-      {/* Speech Bubble on Click */}
-      {speechText && (
-        <div className="robot-mascot-speech" role="status">
-          <span className="robot-speech-badge">
-            <Sparkles size={10} style={{ display: "inline", marginRight: 4 }} />
-            VocodeAI Mascot
-          </span>
-          <p className="robot-speech-text">{speechText}</p>
-        </div>
-      )}
+    <>
+      <div
+        ref={mascotRef}
+        className={`robot-mascot-wrapper ${isDragging ? "is-dragging" : ""} ${isChatOpen ? "is-chat-active" : ""}`}
+        style={{
+          left: `${pos.x}px`,
+          top: `${pos.y}px`,
+        }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        title="Voca — VocodeAI 3D Mascot & Assistant (Click to chat, drag to move!)"
+        aria-label="Voca Robot Mascot"
+      >
+        {/* Speech Bubble Tooltip when chat is closed */}
+        {!isChatOpen && speechText && (
+          <div className="robot-mascot-speech" role="status">
+            <span className="robot-speech-badge">
+              <Sparkles size={10} style={{ display: "inline", marginRight: 4 }} />
+              Voca Assistant
+            </span>
+            <p className="robot-speech-text">{speechText}</p>
+          </div>
+        )}
 
-      {/* Outer Floating Bobber */}
-      <div className="robot-mascot-bobber">
-        {/* 3D Tilt Card */}
-        <div
-          className="robot-mascot-card"
-          style={{
-            transform: "rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))",
-          }}
-        >
-          {/* Subtle Ambient Glowing Aura */}
-          <div className="robot-mascot-aura" />
+        {/* Outer Floating Bobber */}
+        <div className="robot-mascot-bobber">
+          {/* 3D Tilt Card */}
+          <div
+            className="robot-mascot-card"
+            style={{
+              transform: "rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))",
+            }}
+          >
+            {/* Subtle Ambient Glowing Aura */}
+            <div className={`robot-mascot-aura ${isChatOpen ? "aura-active" : ""}`} />
 
-          {/* Exact 3D Robotic Owl Image Asset */}
-          <img
-            src="/mascot.png"
-            alt="VocodeAI 3D Robot Owl Mascot"
-            className="robot-mascot-img"
-            draggable={false}
-          />
+            {/* Exact 3D Robotic Owl Image Asset */}
+            <img
+              src="/mascot.png"
+              alt="Voca VocodeAI 3D Robot Owl Mascot"
+              className="robot-mascot-img"
+              draggable={false}
+            />
 
-          {/* Interactive Pupil / Eye Tracking Layer */}
-          <div className={`robot-eyes-layer ${isBlinking ? "is-blinking" : ""}`}>
-            {/* Green Eye Socket */}
-            <div className="robot-eye-socket-green">
-              <div
-                className="robot-pupil-green"
-                style={{
-                  transform: "translate(var(--pupil-x, 0px), var(--pupil-y, 0px))",
-                }}
-              />
-            </div>
+            {/* Interactive Pupil / Eye Tracking Layer */}
+            <div className={`robot-eyes-layer ${isBlinking ? "is-blinking" : ""}`}>
+              {/* Green Eye Socket */}
+              <div className="robot-eye-socket-green">
+                <div
+                  className="robot-pupil-green"
+                  style={{
+                    transform: "translate(var(--pupil-x, 0px), var(--pupil-y, 0px))",
+                  }}
+                />
+              </div>
 
-            {/* Golden Eye Socket */}
-            <div className="robot-eye-socket-gold">
-              <div
-                className="robot-pupil-gold"
-                style={{
-                  transform: "translate(var(--pupil-x, 0px), var(--pupil-y, 0px))",
-                }}
-              />
+              {/* Golden Eye Socket */}
+              <div className="robot-eye-socket-gold">
+                <div
+                  className="robot-pupil-gold"
+                  style={{
+                    transform: "translate(var(--pupil-x, 0px), var(--pupil-y, 0px))",
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Interactive Voca Chatbot Window (Anchored & Draggable with Robot) */}
+      <VocaChatbot
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        anchorPos={pos}
+        onDragMove={handleChatDragMove}
+      />
+    </>
   );
 }

@@ -106,3 +106,17 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
+@media (max-width: 480px) {
+  .ide-activity-bar {
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    padding: 8px 0;
+  }
+
+  .activity-bar-btn {
+    width: 32px;
+    height: 32px;
+  }
+}
+

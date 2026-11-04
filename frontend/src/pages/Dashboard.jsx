@@ -920,13 +920,24 @@ export default function Dashboard() {
           />
         )}
 
-        {activeTab === "terminal" && (
+        {/* CLOUD TERMINAL TAB VIEW (Persistent Container) */}
+        <div
+          className="dashboard-terminal-tab-container"
+          style={{
+            display: activeTab === "terminal" ? "flex" : "none",
+            flexDirection: "column",
+            flex: 1,
+            width: "100%",
+            minHeight: 0,
+          }}
+        >
           <CloudTerminalView
             theme={theme}
             workspaces={workspaces}
+            isVisible={activeTab === "terminal"}
             onNavigateToWorkspace={(wsId) => navigate(`/workspace/${wsId}`)}
           />
-        )}
+        </div>
 
         {activeTab === "templates" && (
           <DashboardPlaceholderTab

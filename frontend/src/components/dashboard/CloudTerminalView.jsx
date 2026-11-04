@@ -7,7 +7,6 @@ import {
   SquareTerminal,
   Plus,
   Trash2,
-  RotateCw,
   Maximize2,
   Minimize2,
   FolderCode,
@@ -18,6 +17,7 @@ import {
   Check,
   Copy,
   RefreshCw,
+  RotateCw,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getEffectiveSettings } from "../../utils/settingsStorage";
@@ -25,23 +25,27 @@ import { DEFAULT_SETTINGS } from "../../config/defaultSettings";
 import "../../styles/cloudterminal.css";
 
 const QUICK_COMMANDS = [
-  { label: "ls -la", cmd: "ls -la\r" },
-  { label: "pwd", cmd: "pwd\r" },
-  { label: "node -v", cmd: "node -v\r" },
-  { label: "python3 --version", cmd: "python3 --version || python --version\r" },
-  { label: "git --version", cmd: "git --version\r" },
-  { label: "java --version", cmd: "java --version\r" },
-  { label: "whoami", cmd: "whoami\r" },
+  { label: "ls -la", cmd: "ls -la\r\n" },
+  { label: "pwd", cmd: "pwd\r\n" },
+  { label: "node -v", cmd: "node -v\r\n" },
+  { label: "python3 --version", cmd: "python3 --version || python --version\r\n" },
+  { label: "git --version", cmd: "git --version\r\n" },
+  { label: "java --version", cmd: "java --version\r\n" },
+  { label: "whoami", cmd: "whoami\r\n" },
 ];
+
+// Persistent session buffer cache across component mounts/tab switching
+const terminalOutputCache = new Map();
 
 export default function CloudTerminalView({
   theme = "dark",
   workspaces = [],
   onNavigateToWorkspace,
+  isVisible = true,
 }) {
   const { accessToken, user } = useAuth();
 
-  // Environment State
+  // Environment State: prefer first active workspace if available
   const [selectedEnv, setSelectedEnv] = useState(() => {
     if (workspaces && workspaces.length > 0) {
       return workspaces[0]._id;
@@ -71,6 +75,35 @@ export default function CloudTerminalView({
 
   const currentWorkspace = workspaces.find((w) => w._id === selectedEnv);
 
+  // Synchronize environment selection when workspaces finish loading
+  useEffect(() => {
+    if (workspaces && workspaces.length > 0) {
+      if (selectedEnv === "cloud-sandbox" || !workspaces.some((w) => w._id === selectedEnv)) {
+        const targetId = workspaces[0]._id;
+        setSelectedEnv(targetId);
+        selectedEnvRef.current = targetId;
+
+        if (termRef.current) {
+          termRef.current.clear();
+        }
+        terminalOutputCache.delete(activeSessionRef.current);
+
+        if (socketRef.current?.readyState === WebSocket.OPEN) {
+          socketRef.current.send(
+            JSON.stringify({
+              type: "create",
+              terminalId: activeSessionRef.current,
+              workspaceId: targetId,
+              shell: "bash",
+              cols: termRef.current?.cols || 120,
+              rows: termRef.current?.rows || 32,
+            })
+          );
+        }
+      }
+    }
+  }, [workspaces]);
+
   // Close dropdown on click outside
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -83,6 +116,19 @@ export default function CloudTerminalView({
     }
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [isEnvDropdownOpen]);
+
+  // Handle Visibility change: refit and focus terminal
+  useEffect(() => {
+    if (isVisible && fitAddonRef.current && termRef.current) {
+      const timer = setTimeout(() => {
+        try {
+          fitAddonRef.current?.fit();
+          termRef.current?.focus();
+        } catch {}
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible]);
 
   // Send input helper
   const sendInput = useCallback((data) => {
@@ -186,6 +232,12 @@ export default function CloudTerminalView({
 
     term.open(containerRef.current);
 
+    // If we have cached output for this session, restore it immediately
+    const cached = terminalOutputCache.get(activeSessionRef.current);
+    if (cached) {
+      term.write(cached);
+    }
+
     const fitTerm = () => {
       try {
         if (containerRef.current && containerRef.current.clientWidth > 50) {
@@ -213,7 +265,7 @@ export default function CloudTerminalView({
     setTimeout(() => {
       fitTerm();
       term.focus();
-    }, 100);
+    }, 80);
 
     const resizeObserver = new ResizeObserver(() => {
       requestAnimationFrame(fitTerm);
@@ -299,7 +351,7 @@ export default function CloudTerminalView({
     ws.onopen = () => {
       setConnectionStatus("connected");
 
-      // Spawn initial terminal session in selected workspace / sandbox
+      // Spawn or attach initial terminal session in selected workspace / sandbox
       ws.send(
         JSON.stringify({
           type: "create",
@@ -321,8 +373,14 @@ export default function CloudTerminalView({
         const msg = JSON.parse(event.data);
         if (msg.type === "output" && msg.terminalId === activeSessionRef.current) {
           term.write(msg.data);
+          terminalOutputCache.set(
+            msg.terminalId,
+            (terminalOutputCache.get(msg.terminalId) || "") + msg.data
+          );
         } else if (msg.type === "buffer" && msg.terminalId === activeSessionRef.current) {
+          term.clear();
           term.write(msg.data);
+          terminalOutputCache.set(msg.terminalId, msg.data);
         } else if (msg.type === "created" && msg.terminalId === activeSessionRef.current) {
           term.focus();
         } else if (msg.type === "dead") {
@@ -364,13 +422,14 @@ export default function CloudTerminalView({
     selectedEnvRef.current = envId;
     setIsEnvDropdownOpen(false);
 
+    const envName = envId === "cloud-sandbox" ? "Global Sandbox" : (workspaces.find((w) => w._id === envId)?.name || envId);
+
     if (termRef.current) {
       termRef.current.clear();
-      termRef.current.writeln(`\r\n\x1b[33m⚡ Switching environment to ${envId === "cloud-sandbox" ? "Global Sandbox" : (workspaces.find(w => w._id === envId)?.name || envId)}...\x1b[0m\r\n`);
     }
+    terminalOutputCache.delete(activeSessionRef.current);
 
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      // Re-create terminal session in the target workspace
       socketRef.current.send(
         JSON.stringify({
           type: "create",
@@ -394,6 +453,11 @@ export default function CloudTerminalView({
     activeSessionRef.current = sessionId;
     termRef.current?.clear();
 
+    const cached = terminalOutputCache.get(sessionId);
+    if (cached) {
+      termRef.current?.write(cached);
+    }
+
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(
         JSON.stringify({
@@ -412,6 +476,8 @@ export default function CloudTerminalView({
     setSessions((prev) => [...prev, newSession]);
     setActiveSessionId(newId);
     activeSessionRef.current = newId;
+
+    termRef.current?.clear();
 
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(
@@ -442,6 +508,7 @@ export default function CloudTerminalView({
       );
     }
 
+    terminalOutputCache.delete(sessionId);
     const remaining = sessions.filter((s) => s.id !== sessionId);
     setSessions(remaining);
     if (activeSessionId === sessionId) {
@@ -449,6 +516,12 @@ export default function CloudTerminalView({
       setActiveSessionId(nextSession.id);
       activeSessionRef.current = nextSession.id;
       termRef.current?.clear();
+
+      const cached = terminalOutputCache.get(nextSession.id);
+      if (cached) {
+        termRef.current?.write(cached);
+      }
+
       if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
         socketRef.current.send(
           JSON.stringify({
@@ -468,7 +541,11 @@ export default function CloudTerminalView({
 
   // Clear Terminal
   const handleClear = () => {
-    termRef.current?.clear();
+    if (termRef.current) {
+      termRef.current.clear();
+    }
+    terminalOutputCache.set(activeSessionRef.current, "");
+
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(
         JSON.stringify({
@@ -484,29 +561,24 @@ export default function CloudTerminalView({
   const handleRestart = () => {
     if (termRef.current) {
       termRef.current.clear();
-      termRef.current.writeln("\r\n\x1b[33m⚡ Restarting Cloud Terminal session...\x1b[0m\r\n");
     }
+    terminalOutputCache.set(activeSessionRef.current, "");
 
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(
         JSON.stringify({
-          type: "kill",
+          type: "restart",
           terminalId: activeSessionRef.current,
+          workspaceId: selectedEnvRef.current,
+          shell: "bash",
+          cols: termRef.current?.cols || 120,
+          rows: termRef.current?.rows || 32,
         })
       );
-
-      setTimeout(() => {
-        socketRef.current.send(
-          JSON.stringify({
-            type: "create",
-            terminalId: activeSessionRef.current,
-            workspaceId: selectedEnvRef.current,
-            shell: "bash",
-          })
-        );
-        termRef.current?.focus();
-      }, 250);
     }
+    setTimeout(() => {
+      termRef.current?.focus();
+    }, 150);
   };
 
   // Copy selection

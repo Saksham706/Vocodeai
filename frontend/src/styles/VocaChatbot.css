@@ -1,0 +1,749 @@
+/* =========================================================
+   VOCODEAI - VOCA ROBOT CHATBOT COMPANION STYLES
+   Compact, Draggable Glassmorphic AI Chat Panel
+   ========================================================= */
+
+.voca-chatbot-panel {
+  position: fixed;
+  z-index: 99998;
+  width: 350px;
+  max-width: calc(100vw - 20px);
+  height: 480px;
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+
+  /* Frosted Obsidian Glass (Matches Landing & Dashboard Palette) */
+  background: rgba(4, 15, 18, 0.94);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-top: 1px solid rgba(0, 240, 152, 0.4);
+  border-radius: 16px;
+
+  box-shadow:
+    0 16px 45px rgba(0, 0, 0, 0.65),
+    0 0 25px rgba(0, 240, 152, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+  overflow: hidden;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #F3F8F6;
+  animation: vocaCompactPop 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: transform 0.08s ease-out, box-shadow 0.2s ease;
+}
+
+@keyframes vocaCompactPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Light Theme Overrides */
+.light .voca-chatbot-panel,
+[data-theme="light"] .voca-chatbot-panel {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  border-top: 1px solid rgba(232, 76, 47, 0.45);
+  color: #0A161B;
+  box-shadow:
+    0 16px 40px rgba(16, 26, 53, 0.14),
+    0 0 20px rgba(232, 76, 47, 0.06);
+}
+
+/* ---------------------------------------------------------
+   1. DRAGGABLE HEADER
+   --------------------------------------------------------- */
+.voca-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.voca-header:active {
+  cursor: grabbing;
+}
+
+.light .voca-header,
+[data-theme="light"] .voca-header {
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.voca-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.voca-avatar-wrap {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(0, 240, 152, 0.12);
+  border: 1px solid rgba(0, 240, 152, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.voca-header-avatar {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.voca-online-pulse {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00F098;
+  border: 1.5px solid #040F12;
+  box-shadow: 0 0 6px #00F098;
+  animation: vocaPulse 2s infinite;
+}
+
+@keyframes vocaPulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.voca-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.voca-name-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.voca-name {
+  font-size: 13.5px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: #F3F8F6;
+}
+
+.light .voca-name,
+[data-theme="light"] .voca-name {
+  color: #0A161B;
+}
+
+.voca-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  background: rgba(0, 240, 152, 0.14);
+  color: #00F098;
+  border: 1px solid rgba(0, 240, 152, 0.3);
+  letter-spacing: 0.3px;
+}
+
+.light .voca-badge,
+[data-theme="light"] .voca-badge {
+  background: rgba(232, 76, 47, 0.12);
+  color: #E84C2F;
+  border-color: rgba(232, 76, 47, 0.25);
+}
+
+.voca-status-desc {
+  font-size: 10px;
+  color: #8BA89E;
+  margin-top: 0;
+}
+
+.voca-page-indicator {
+  color: #00F098;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+  display: inline-block;
+}
+
+.light .voca-page-indicator,
+[data-theme="light"] .voca-page-indicator {
+  color: #E84C2F;
+}
+
+.light .voca-status-desc,
+[data-theme="light"] .voca-status-desc {
+  color: #64748B;
+}
+
+/* Header Action Buttons */
+.voca-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.voca-btn-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94A3B8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.voca-btn-icon:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #F3F8F6;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.light .voca-btn-icon:hover,
+[data-theme="light"] .voca-btn-icon:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #0A161B;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Sound Button Active Glow */
+.voca-btn-icon.is-active {
+  color: #00F098;
+  background: rgba(0, 240, 152, 0.14);
+  border-color: rgba(0, 240, 152, 0.35);
+  box-shadow: 0 0 10px rgba(0, 240, 152, 0.25);
+}
+
+.light .voca-btn-icon.is-active,
+[data-theme="light"] .voca-btn-icon.is-active {
+  color: #E84C2F;
+  background: rgba(232, 76, 47, 0.12);
+  border-color: rgba(232, 76, 47, 0.3);
+}
+
+.voca-btn-close:hover {
+  color: #FF5A5F;
+  background: rgba(255, 90, 95, 0.12);
+  border-color: rgba(255, 90, 95, 0.25);
+}
+
+/* Drag Handle Pill Hint */
+.voca-drag-hint {
+  font-size: 9px;
+  color: #557268;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 2px;
+}
+
+/* ---------------------------------------------------------
+   2. MESSAGES SCROLL CONTAINER
+   --------------------------------------------------------- */
+.voca-messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scroll-behavior: smooth;
+}
+
+.voca-messages-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+.voca-messages-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.voca-messages-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+}
+
+.voca-message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  max-width: 92%;
+  animation: msgFadeIn 0.18s ease-out;
+}
+
+@keyframes msgFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.voca-message-row.user-row {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.voca-message-row.bot-row {
+  align-self: flex-start;
+}
+
+.voca-msg-avatar {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 50%;
+  background: rgba(0, 240, 152, 0.12);
+  border: 1px solid rgba(0, 240, 152, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.voca-msg-avatar img {
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+}
+
+.voca-user-avatar {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 50%;
+  background: rgba(255, 100, 72, 0.18);
+  border: 1px solid rgba(255, 100, 72, 0.35);
+  color: #FFA043;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+/* Bubbles */
+.voca-bubble {
+  padding: 8px 11px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  box-sizing: border-box;
+  word-break: break-word;
+}
+
+.voca-bubble.user-bubble {
+  background: linear-gradient(135deg, rgba(255, 100, 72, 0.88), rgba(255, 160, 67, 0.92));
+  color: #FFFFFF;
+  border-bottom-right-radius: 2px;
+  box-shadow: 0 3px 10px rgba(255, 100, 72, 0.25);
+}
+
+.voca-bubble.bot-bubble {
+  background: rgba(10, 28, 34, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #E2ECE8;
+  border-bottom-left-radius: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.light .voca-bubble.bot-bubble,
+[data-theme="light"] .voca-bubble.bot-bubble {
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  color: #1E293B;
+}
+
+/* Typography inside bubbles */
+.voca-md-p {
+  margin: 0 0 5px 0;
+}
+
+.voca-md-p:last-child {
+  margin-bottom: 0;
+}
+
+.voca-md-h3 {
+  font-size: 12.5px;
+  font-weight: 750;
+  color: #00F098;
+  margin: 6px 0 3px 0;
+}
+
+.light .voca-md-h3,
+[data-theme="light"] .voca-md-h3 {
+  color: #E84C2F;
+}
+
+.voca-md-h4 {
+  font-size: 12px;
+  font-weight: 700;
+  color: #FFA043;
+  margin: 5px 0 2px 0;
+}
+
+.voca-md-spacer {
+  height: 5px;
+}
+
+.voca-md-bullet {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+
+.voca-bullet-dot {
+  color: #00F098;
+  font-weight: bold;
+}
+
+.voca-bullet-num {
+  color: #FFA043;
+  font-weight: bold;
+  font-size: 11px;
+  min-width: 12px;
+}
+
+.voca-bullet-content {
+  flex: 1;
+}
+
+.voca-inline-code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #00F098;
+}
+
+.light .voca-inline-code,
+[data-theme="light"] .voca-inline-code {
+  background: #E2E8F0;
+  color: #0F172A;
+  border-color: #CBD5E1;
+}
+
+.voca-keycap {
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  padding: 0 4px;
+  color: #FFA043;
+  white-space: nowrap;
+}
+
+/* Meta Footer: Timestamp & Actions */
+.voca-msg-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 5px;
+  padding-top: 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 9.5px;
+  color: #648278;
+}
+
+.voca-bubble.user-bubble .voca-msg-meta {
+  border-top-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.85);
+  justify-content: flex-end;
+}
+
+.voca-msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.voca-mini-btn {
+  background: transparent;
+  border: none;
+  color: #719287;
+  padding: 1px 3px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.voca-mini-btn:hover {
+  color: #F3F8F6;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Typing Indicator Animation */
+.voca-typing-bubble {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 12px;
+}
+
+.voca-typing-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #00F098;
+  animation: vocaTyping 1.4s infinite ease-in-out;
+}
+
+.voca-typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.voca-typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes vocaTyping {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------------
+   3. QUICK SUGGESTION CHIPS BAR
+   --------------------------------------------------------- */
+.voca-suggestions-bar {
+  padding: 5px 8px;
+  background: rgba(2, 10, 13, 0.7);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.light .voca-suggestions-bar,
+[data-theme="light"] .voca-suggestions-bar {
+  background: rgba(248, 250, 252, 0.9);
+  border-color: rgba(0, 0, 0, 0.05);
+}
+
+.voca-suggestions-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #00F098;
+  margin-bottom: 3px;
+  letter-spacing: 0.3px;
+}
+
+.light .voca-suggestions-label,
+[data-theme="light"] .voca-suggestions-label {
+  color: #E84C2F;
+}
+
+.voca-chips-scroll {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 1px;
+  scrollbar-width: none;
+}
+
+.voca-chips-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.voca-chip {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 550;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #C1D6CF;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.voca-chip:hover {
+  background: rgba(0, 240, 152, 0.15);
+  border-color: rgba(0, 240, 152, 0.35);
+  color: #00F098;
+  transform: translateY(-1px);
+}
+
+.light .voca-chip,
+[data-theme="light"] .voca-chip {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  color: #334155;
+}
+
+.light .voca-chip:hover,
+[data-theme="light"] .voca-chip:hover {
+  background: rgba(232, 76, 47, 0.08);
+  border-color: rgba(232, 76, 47, 0.3);
+  color: #E84C2F;
+}
+
+/* ---------------------------------------------------------
+   4. CHAT INPUT BAR
+   --------------------------------------------------------- */
+.voca-input-form {
+  padding: 7px 9px;
+  background: rgba(3, 12, 15, 0.95);
+  flex-shrink: 0;
+}
+
+.light .voca-input-form,
+[data-theme="light"] .voca-input-form {
+  background: #FFFFFF;
+  border-top: 1px solid #E2E8F0;
+}
+
+.voca-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: rgba(8, 25, 30, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 2px 4px 2px 9px;
+  transition: all 0.2s ease;
+}
+
+.light .voca-input-wrapper,
+[data-theme="light"] .voca-input-wrapper {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
+.voca-input-wrapper:focus-within {
+  border-color: #00F098;
+  box-shadow: 0 0 0 2px rgba(0, 240, 152, 0.2);
+}
+
+.light .voca-input-wrapper:focus-within,
+[data-theme="light"] .voca-input-wrapper:focus-within {
+  border-color: #E84C2F;
+  box-shadow: 0 0 0 2px rgba(232, 76, 47, 0.2);
+}
+
+.voca-text-input {
+  flex: 1;
+  height: 32px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  color: #F3F8F6;
+  font-family: inherit;
+  padding-right: 6px;
+}
+
+.light .voca-text-input,
+[data-theme="light"] .voca-text-input {
+  color: #0F172A;
+}
+
+.voca-text-input::placeholder {
+  color: #648278;
+}
+
+.light .voca-text-input::placeholder,
+[data-theme="light"] .voca-text-input::placeholder {
+  color: #94A3B8;
+}
+
+/* Mic Button */
+.voca-mic-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-right: 3px;
+}
+
+.voca-mic-btn:hover {
+  color: #F3F8F6;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.voca-mic-btn.is-recording {
+  color: #FF5A5F;
+  background: rgba(255, 90, 95, 0.18);
+  animation: micPulse 1.2s infinite;
+}
+
+@keyframes micPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* Send Button */
+.voca-send-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #FF6448, #FFA043);
+  border: none;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 3px 10px rgba(255, 100, 72, 0.3);
+}
+
+.voca-send-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 4px 14px rgba(255, 100, 72, 0.45);
+}
+
+.voca-send-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+}

@@ -13,6 +13,11 @@ import {
   Sparkles,
   Sun,
   Moon,
+  ArrowRight,
+  AlertCircle,
+  HardDrive,
+  Laptop,
+  Check,
 } from "lucide-react";
 import AuthBackground from "./AuthBackground";
 import "../styles/auth.css";
@@ -50,6 +55,18 @@ export default function Signup() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Compute password strength (0 to 3)
+  const getPasswordStrength = (pwd) => {
+    if (!pwd) return 0;
+    let score = 0;
+    if (pwd.length >= 8) score++;
+    if (/[A-Z]/.test(pwd) && /[0-9]/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+    return score;
+  };
+
+  const pwdStrength = getPasswordStrength(form.password);
+
   const change = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -64,13 +81,13 @@ export default function Signup() {
       !form.email.trim() ||
       !form.password
     ) {
-      setError("Please fill all required fields");
+      setError("Please fill in all required fields");
       setLoading(false);
       return;
     }
 
     if (!agreeTerms) {
-      setError("Please agree to the Terms of Service and Privacy Policy");
+      setError("Please accept the Terms of Service and Privacy Policy");
       setLoading(false);
       return;
     }
@@ -85,13 +102,13 @@ export default function Signup() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Signup failed");
+        setError(data.error || "Signup failed. Please try again.");
         return;
       }
 
       navigate("/login");
     } catch {
-      setError("Server error. Please try again.");
+      setError("Server connection failed. Please check your network.");
     } finally {
       setLoading(false);
     }
@@ -104,7 +121,7 @@ export default function Signup() {
 
   return (
     <div className={`auth-page-wrapper ${theme}`}>
-      {/* Floating Theme Switcher Button (Just like Landing Page) */}
+      {/* Floating Theme Switcher Button */}
       <button
         type="button"
         className="auth-theme-switch-btn"
@@ -113,9 +130,9 @@ export default function Signup() {
         aria-label="Toggle dark and light mode"
       >
         {theme === "dark" ? (
-          <Sun size={19} className="theme-icon-sun" />
+          <Sun size={18} className="theme-icon-sun" />
         ) : (
-          <Moon size={19} className="theme-icon-moon" />
+          <Moon size={18} className="theme-icon-moon" />
         )}
       </button>
 
@@ -131,13 +148,14 @@ export default function Signup() {
             onClick={() => navigate("/")}
             role="button"
             tabIndex={0}
-            title="Go to Vocodeai Home"
+            title="Vocodeai — Back to Home"
           >
             <img
               src={theme === "light" ? "/vcode-light.png" : "/vcode.png"}
               alt="Vocodeai Logo"
               className="auth-logo-img"
             />
+            <span className="auth-version-pill">v2.0</span>
           </div>
 
           {/* Heading */}
@@ -147,38 +165,38 @@ export default function Signup() {
           </h1>
 
           <p className="auth-hero-subtitle">
-            Create your account and get started with your AI coding workspace.
+            Create your account in seconds. Zero local setup, persistent cloud storage, and AI pair programming.
           </p>
 
           {/* 3 Feature Benefit Badges */}
           <div className="auth-benefits-row">
             <div className="auth-benefit-item">
               <div className="auth-benefit-icon-circle">
-                <Zap size={17} className="auth-benefit-icon" />
-              </div>
-              <div className="auth-benefit-label">
-                <span>Code smarter</span>
-                <span>with AI</span>
-              </div>
-            </div>
-
-            <div className="auth-benefit-item">
-              <div className="auth-benefit-icon-circle">
-                <Cloud size={17} className="auth-benefit-icon" />
-              </div>
-              <div className="auth-benefit-label">
-                <span>Run anywhere</span>
-                <span>in the cloud</span>
-              </div>
-            </div>
-
-            <div className="auth-benefit-item">
-              <div className="auth-benefit-icon-circle">
                 <Mic size={17} className="auth-benefit-icon" />
               </div>
               <div className="auth-benefit-label">
-                <span>Use voice</span>
-                <span>commands</span>
+                <span>Code with voice</span>
+                <span>natural speech</span>
+              </div>
+            </div>
+
+            <div className="auth-benefit-item">
+              <div className="auth-benefit-icon-circle">
+                <Laptop size={17} className="auth-benefit-icon" />
+              </div>
+              <div className="auth-benefit-label">
+                <span>Zero installation</span>
+                <span>Mac, PC, iPad, Phone</span>
+              </div>
+            </div>
+
+            <div className="auth-benefit-item">
+              <div className="auth-benefit-icon-circle">
+                <HardDrive size={17} className="auth-benefit-icon" />
+              </div>
+              <div className="auth-benefit-label">
+                <span>Continuous backup</span>
+                <span>100% cloud storage</span>
               </div>
             </div>
           </div>
@@ -189,21 +207,21 @@ export default function Signup() {
               <span className="auth-dot red" />
               <span className="auth-dot yellow" />
               <span className="auth-dot green" />
+              <span className="auth-term-title">vocode-cloud: provision_workspace</span>
             </div>
             <div className="auth-terminal-inner">
               <div className="auth-terminal-content">
                 <div className="auth-terminal-line-cmd">
-                  <span className="auth-cmd-prompt">&gt;_ $</span> create account
+                  <span className="auth-cmd-prompt">&gt;_ $</span> vocode workspace create --template fullstack
                 </div>
                 <div className="auth-terminal-line-status">
-                  Setting up your workspace...
+                  ✓ Isolated Linux container initialized in 118ms
                 </div>
                 <div className="auth-terminal-line-ready">
                   <Sparkles size={14} className="auth-terminal-star" />
-                  <span>Almost there!</span>
+                  <span>Free Forever Plan activated • Ready to code</span>
                 </div>
               </div>
-              <div className="auth-terminal-divider" />
             </div>
           </div>
         </div>
@@ -211,9 +229,9 @@ export default function Signup() {
         {/* ================= RIGHT COLUMN ================= */}
         <div className="auth-right-column">
           <div className="auth-card-panel">
-            <h2 className="auth-card-title">Create your account</h2>
+            <h2 className="auth-card-title">Create your free account</h2>
             <p className="auth-card-subtitle">
-              Get started with your AI coding workspace.
+              Join developers building the future of software with VocodeAI.
             </p>
 
             {/* Google Sign-in */}
@@ -223,99 +241,106 @@ export default function Signup() {
               onClick={handleGoogleSignIn}
             >
               <img src="/google.png" alt="Google" className="auth-google-icon" />
-              <span>Continue with Google</span>
+              <span>Sign up with Google</span>
             </button>
 
             {/* Divider */}
             <div className="auth-divider">
               <span className="auth-divider-line" />
-              <span className="auth-divider-text">or continue with email</span>
+              <span className="auth-divider-text">or register with email</span>
               <span className="auth-divider-line" />
             </div>
 
             {/* Error Message */}
             {error && (
               <div className="auth-alert-error" role="alert">
+                <AlertCircle size={16} className="auth-alert-icon" />
                 <span>{error}</span>
               </div>
             )}
 
-            {/* Form */}
+            {/* Signup Form */}
             <form onSubmit={submit} className="auth-form" noValidate>
-              <div className="auth-field-group">
-                <div className="auth-input-wrapper">
-                  <UserRound size={17} className="auth-field-icon" />
-                  <input
-                    type="text"
-                    name="firstName"
-                    className="auth-text-input"
-                    placeholder="First name *"
-                    value={form.firstName}
-                    onChange={change}
-                    autoComplete="given-name"
-                    required
-                  />
+              {/* First & Last Name row */}
+              <div className="auth-row-two-col">
+                <div className="auth-field-group">
+                  <label className="auth-field-label">First Name</label>
+                  <div className="auth-input-wrapper">
+                    <UserRound size={16} className="auth-field-icon" />
+                    <input
+                      type="text"
+                      name="firstName"
+                      className="auth-text-input"
+                      placeholder="Jane"
+                      value={form.firstName}
+                      onChange={change}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="auth-field-group">
+                  <label className="auth-field-label">Last Name</label>
+                  <div className="auth-input-wrapper">
+                    <UserRound size={16} className="auth-field-icon" />
+                    <input
+                      type="text"
+                      name="lastName"
+                      className="auth-text-input"
+                      placeholder="Doe"
+                      value={form.lastName}
+                      onChange={change}
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
+              {/* Email Address */}
               <div className="auth-field-group">
+                <label className="auth-field-label">Work or Personal Email</label>
                 <div className="auth-input-wrapper">
-                  <UserRound size={17} className="auth-field-icon" />
-                  <input
-                    type="text"
-                    name="lastName"
-                    className="auth-text-input"
-                    placeholder="Last name *"
-                    value={form.lastName}
-                    onChange={change}
-                    autoComplete="family-name"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="auth-field-group">
-                <div className="auth-input-wrapper">
-                  <Mail size={17} className="auth-field-icon" />
+                  <Mail size={16} className="auth-field-icon" />
                   <input
                     type="email"
                     name="email"
                     className="auth-text-input"
-                    placeholder="you@example.com"
+                    placeholder="jane@example.com"
                     value={form.email}
                     onChange={change}
-                    autoComplete="email"
                     required
                   />
                 </div>
               </div>
 
+              {/* Phone (Optional) */}
               <div className="auth-field-group">
+                <label className="auth-field-label">Phone Number <span className="label-sub">(optional)</span></label>
                 <div className="auth-input-wrapper">
-                  <Phone size={17} className="auth-field-icon" />
+                  <Phone size={16} className="auth-field-icon" />
                   <input
                     type="tel"
                     name="phone"
                     className="auth-text-input"
-                    placeholder="Phone (optional)"
+                    placeholder="+1 (555) 000-0000"
                     value={form.phone}
                     onChange={change}
-                    autoComplete="tel"
                   />
                 </div>
               </div>
 
+              {/* Password */}
               <div className="auth-field-group">
+                <label className="auth-field-label">Password</label>
                 <div className="auth-input-wrapper">
-                  <LockKeyhole size={17} className="auth-field-icon" />
+                  <LockKeyhole size={16} className="auth-field-icon" />
                   <input
                     type={showPassword ? "text" : "password"}
                     name="password"
                     className="auth-text-input"
-                    placeholder="Create password *"
+                    placeholder="Min. 8 characters"
                     value={form.password}
                     onChange={change}
-                    autoComplete="new-password"
                     required
                   />
                   <button
@@ -324,65 +349,52 @@ export default function Signup() {
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
-                    {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+
+                {/* Password Strength Meter */}
+                {form.password && (
+                  <div className="password-meter-wrap">
+                    <div className="meter-bars">
+                      <span className={`meter-bar ${pwdStrength >= 1 ? "active lvl-1" : ""}`} />
+                      <span className={`meter-bar ${pwdStrength >= 2 ? "active lvl-2" : ""}`} />
+                      <span className={`meter-bar ${pwdStrength >= 3 ? "active lvl-3" : ""}`} />
+                    </div>
+                    <span className="meter-label">
+                      {pwdStrength === 0 && "Too short"}
+                      {pwdStrength === 1 && "Weak password"}
+                      {pwdStrength === 2 && "Good password"}
+                      {pwdStrength >= 3 && "Strong password"}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Terms Checkbox */}
-              <div className="auth-terms-row">
-                <label className="auth-checkbox-label">
-                  <input
-                    type="checkbox"
-                    className="auth-checkbox-input"
-                    checked={agreeTerms}
-                    onChange={(e) => setAgreeTerms(e.target.checked)}
-                  />
-                  <span className={`auth-custom-checkbox ${agreeTerms ? "checked" : ""}`}>
-                    {agreeTerms && (
-                      <svg viewBox="0 0 12 10" className="auth-check-icon">
-                        <path
-                          d="M1.5 5L4.5 8L10.5 2"
-                          stroke="#FFFFFF"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          fill="none"
-                        />
-                      </svg>
-                    )}
-                  </span>
-                  <span className="auth-terms-text">
-                    I agree to the{" "}
-                    <span
-                      className="auth-terms-link"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                    >
-                      Terms of Service
-                    </span>{" "}
-                    and{" "}
-                    <span
-                      className="auth-terms-link"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                    >
-                      Privacy Policy
-                    </span>
-                  </span>
-                </label>
-              </div>
+              <label className="auth-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={agreeTerms}
+                  onChange={(e) => setAgreeTerms(e.target.checked)}
+                  className="auth-checkbox"
+                />
+                <span className="checkbox-custom">
+                  {agreeTerms && <Check size={12} strokeWidth={3} />}
+                </span>
+                <span className="checkbox-text">
+                  I agree to the <a href="/docs" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/docs" target="_blank" rel="noreferrer">Privacy Policy</a>.
+                </span>
+              </label>
 
+              {/* Submit Button */}
               <button
                 type="submit"
                 className="auth-submit-button"
                 disabled={loading}
               >
-                <span>{loading ? "Creating account..." : "Sign Up →"}</span>
+                <span>{loading ? "Creating your workspace..." : "Create Free Account"}</span>
+                <ArrowRight size={16} className="btn-arrow" />
               </button>
             </form>
 
