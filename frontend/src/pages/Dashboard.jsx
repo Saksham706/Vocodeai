@@ -876,6 +876,9 @@ export default function Dashboard() {
 
   return (
     <div className={`dashboard-layout ${theme}`}>
+      {/* Unified Background System (Grid, Aurora Orbs & Glowing Curves) */}
+      <DashboardBackground theme={theme} />
+
       {/* Sidebar Navigation */}
       <DashboardSidebar
         theme={theme}
@@ -893,10 +896,6 @@ export default function Dashboard() {
 
       {/* Main Content Area */}
       <main className={`dashboard-main ${activeTab === "settings" ? "settings-active-main" : ""}`}>
-
-        {/* Decorative Background Curves & Glow */}
-        <DashboardBackground theme={theme} />
-
         {/* Top Toolbar */}
         {activeTab === "workspaces" && (
           <DashboardHeader

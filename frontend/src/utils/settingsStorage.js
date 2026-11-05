@@ -28,54 +28,77 @@ function deepMerge(target, source) {
 }
 
 /**
- * Get nested property by dot notation path (e.g. 'editor.minimap.enabled')
+ * Get nested property by dot notation path (e.g. 'editor.minimap.enabled' or 'vocode.ai.defaultModel')
  */
 export function getNestedValue(obj, path) {
   if (!obj || !path) return undefined;
+
+  // 1. Exact match at root
+  if (obj[path] !== undefined) return obj[path];
+
+  // 2. Match against known DEFAULT_SETTINGS top-level keys that may contain dots (e.g., 'vocode.ai', 'terminal.integrated')
+  for (const topKey of Object.keys(DEFAULT_SETTINGS)) {
+    if (path === topKey) return obj[topKey];
+    if (path.startsWith(topKey + ".")) {
+      const remaining = path.slice(topKey.length + 1);
+      const subParts = remaining.split(".");
+      let curr = obj[topKey];
+      for (const p of subParts) {
+        if (curr === undefined || curr === null) return undefined;
+        curr = curr[p];
+      }
+      return curr;
+    }
+  }
+
+  // 3. Fallback standard dot path
   const parts = path.split(".");
   let curr = obj;
-  for (let i = 0; i < parts.length; i++) {
+  for (const p of parts) {
     if (curr === undefined || curr === null) return undefined;
-    // Check if parts up to end exist directly as a key with dot in it (e.g., 'vocode.ai')
-    if (curr[parts.slice(i).join(".")] !== undefined) {
-      return curr[parts.slice(i).join(".")];
-    }
-    // Check next slice combo
-    const remaining = parts.slice(i).join(".");
-    let matchedPrefix = null;
-    for (const key of Object.keys(curr)) {
-      if (remaining.startsWith(key + ".")) {
-        matchedPrefix = key;
-        break;
-      }
-    }
-    if (matchedPrefix) {
-      curr = curr[matchedPrefix];
-      i += matchedPrefix.split(".").length - 1;
-      continue;
-    }
-
-    curr = curr[parts[i]];
+    curr = curr[p];
   }
   return curr;
 }
 
 /**
- * Set nested property by dot notation path
+ * Set nested property by dot notation path with full support for top-level keys with dots
+ * and deeply nested objects like 'editor.minimap.enabled'
  */
 export function setNestedValue(obj, path, value) {
   const root = { ...obj };
-  const parts = path.split(".");
 
-  // Check top-level section match first (e.g., 'vocode.ai', 'terminal.integrated')
-  for (const topKey of Object.keys(DEFAULT_SETTINGS)) {
-    if (path.startsWith(topKey + ".")) {
-      const subPath = path.slice(topKey.length + 1);
-      root[topKey] = { ...root[topKey], [subPath]: value };
+  // Determine if path matches a known top-level key in DEFAULT_SETTINGS
+  let topKey = null;
+  let remainingPath = path;
+
+  for (const k of Object.keys(DEFAULT_SETTINGS)) {
+    if (path === k) {
+      root[k] = value;
       return root;
+    }
+    if (path.startsWith(k + ".")) {
+      topKey = k;
+      remainingPath = path.slice(k.length + 1);
+      break;
     }
   }
 
+  if (topKey) {
+    const subParts = remainingPath.split(".");
+    root[topKey] = root[topKey] && typeof root[topKey] === "object" ? { ...root[topKey] } : {};
+    let curr = root[topKey];
+    for (let i = 0; i < subParts.length - 1; i++) {
+      const p = subParts[i];
+      curr[p] = curr[p] && typeof curr[p] === "object" ? { ...curr[p] } : {};
+      curr = curr[p];
+    }
+    curr[subParts[subParts.length - 1]] = value;
+    return root;
+  }
+
+  // Standard dot path traversal
+  const parts = path.split(".");
   let curr = root;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
@@ -155,21 +178,51 @@ export function getEffectiveSettings(workspaceId) {
 }
 
 /**
- * Broadcast settings change to entire app
+ * Apply live global runtime settings to document and environment
  */
-export function broadcastSettingsChange(settings, workspaceId = null) {
-  // Sync theme attribute on <html> element if workbench.colorTheme is updated
+export function applyRuntimeSettings(settings) {
+  if (!settings) return;
+
+  // 1. Theme
   const colorTheme = settings.workbench?.colorTheme;
   if (colorTheme) {
     document.documentElement.setAttribute("data-theme", colorTheme);
     localStorage.setItem("vocode_theme", colorTheme);
   }
 
+  // 2. Zoom Level
+  const zoomLevel = settings.workbench?.zoomLevel;
+  if (zoomLevel !== undefined && zoomLevel !== null) {
+    document.documentElement.style.zoom = `${zoomLevel}%`;
+  }
+
+  // 3. Layout Density
+  const layoutDensity = settings.workbench?.layoutDensity;
+  if (layoutDensity) {
+    document.documentElement.setAttribute("data-density", layoutDensity);
+  }
+}
+
+/**
+ * Broadcast settings change to entire app
+ */
+export function broadcastSettingsChange(settings, workspaceId = null) {
+  applyRuntimeSettings(settings);
+
   window.dispatchEvent(
     new CustomEvent("vocode-settings-changed", {
       detail: { settings, workspaceId },
     })
   );
+}
+
+// Automatically apply runtime settings on script evaluation
+try {
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    applyRuntimeSettings(getUserSettings());
+  }
+} catch (e) {
+  console.warn("Could not apply initial runtime settings", e);
 }
 
 /**

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import TreeNode from "./TreeNode";
 import { sortTreeNodes } from "../../utils/buildTree";
+import { getEffectiveSettings } from "../../utils/settingsStorage";
 import "../../styles/explorer.css";
 import {
   ChevronDown,
@@ -31,6 +32,21 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
   } = useWorkspace();
 
   const wsKey = currentProject || currentWorkspace?._id || workspaceTitle || "ws_root";
+
+  const [showHiddenFiles, setShowHiddenFiles] = useState(() => {
+    return getEffectiveSettings()?.files?.showHiddenFiles ?? false;
+  });
+
+  useEffect(() => {
+    const handleSettingsChange = (e) => {
+      const hidden =
+        e.detail?.settings?.files?.showHiddenFiles ??
+        getEffectiveSettings()?.files?.showHiddenFiles;
+      if (hidden !== undefined) setShowHiddenFiles(hidden);
+    };
+    window.addEventListener("vocode-settings-changed", handleSettingsChange);
+    return () => window.removeEventListener("vocode-settings-changed", handleSettingsChange);
+  }, []);
 
   const [rootOpen, setRootOpen] = useState(() => {
     try {
@@ -287,15 +303,17 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
             </div>
           )}
 
-          {sortTreeNodes(tree?.children).map((child) => (
-            <TreeNode
-              key={child.name}
-              node={child}
-              path=""
-              depth={1}
-              collapseSignal={collapseSignal}
-            />
-          ))}
+          {sortTreeNodes(tree?.children)
+            .filter((child) => showHiddenFiles || !child.name.startsWith("."))
+            .map((child) => (
+              <TreeNode
+                key={child.name}
+                node={child}
+                path=""
+                depth={1}
+                collapseSignal={collapseSignal}
+              />
+            ))}
         </div>
       )}
     </div>

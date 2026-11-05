@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useAI } from "../../context/AIContext";
 import { useWorkspace } from "../../context/WorkspaceContext";
+import { getEffectiveSettings } from "../../utils/settingsStorage";
 import VoiceInput from "./VoiceInput";
 import { RobotAvatar, RobotIllustration } from "./RobotIllustration";
 import {
@@ -66,7 +67,21 @@ export default function AIChat({
 
   const [activeTab, setActiveTab] = useState("chat");
   const [input, setInput] = useState("");
-  const [selectedModel, setSelectedModel] = useState("GPT-4o");
+  const [selectedModel, setSelectedModel] = useState(() => {
+    return getEffectiveSettings()?.["vocode.ai"]?.defaultModel || "GPT-4o";
+  });
+
+  useEffect(() => {
+    const handleSettingsChange = (e) => {
+      const aiSettings =
+        e.detail?.settings?.["vocode.ai"] || getEffectiveSettings()?.["vocode.ai"];
+      if (aiSettings?.defaultModel) {
+        setSelectedModel(aiSettings.defaultModel);
+      }
+    };
+    window.addEventListener("vocode-settings-changed", handleSettingsChange);
+    return () => window.removeEventListener("vocode-settings-changed", handleSettingsChange);
+  }, []);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [filePickerOpen, setFilePickerOpen] = useState(false);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);

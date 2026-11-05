@@ -11,9 +11,9 @@
    DARK THEME VARIABLES
    ======================================================== */
 [data-theme="dark"], .ide-app.dark {
-  --ide-bg: #020B08;
-  --ide-nav-bg: #020D09;
-  --ide-sidebar-bg: #020B08;
+  --ide-bg: #020708;
+  --ide-nav-bg: rgba(2, 7, 8, 0.82);
+  --ide-sidebar-bg: rgba(2, 7, 8, 0.72);
   --ide-editor-bg: #080F12;
   --ide-terminal-bg: #030C08;
   --ide-card-bg: #04100B;
@@ -86,9 +86,9 @@
    LIGHT THEME VARIABLES
    ======================================================== */
 [data-theme="light"], .ide-app.light {
-  --ide-bg: #FFFAF6;
-  --ide-nav-bg: #FFFAF6;
-  --ide-sidebar-bg: #FFFAF6;
+  --ide-bg: #F8FAFB;
+  --ide-nav-bg: rgba(248, 250, 251, 0.85);
+  --ide-sidebar-bg: rgba(248, 250, 251, 0.78);
   --ide-editor-bg: #FFFFFF;
   --ide-terminal-bg: #FFFDFB;
   --ide-card-bg: #FFFFFF;
@@ -171,20 +171,8 @@
   color: var(--ide-text-primary);
   font-family: var(--ide-font-sans);
   position: relative;
+  isolation: isolate;
   transition: background-color 0.25s ease, color 0.25s ease;
-}
-
-/* Faint ambient background curves */
-.ide-app::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: radial-gradient(circle at 80% 20%, var(--ide-glow-primary) 0%, transparent 40%);
-  pointer-events: none;
-  z-index: 0;
 }
 
 /* ========================================================
@@ -206,6 +194,8 @@
   position: relative;
   flex-shrink: 0;
   background-color: var(--ide-sidebar-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid var(--ide-border);
   transition: border-color 0.2s ease;
 }
@@ -235,6 +225,19 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  background: transparent;
+  z-index: 1;
+}
+
+.ide-welcome-section {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  position: relative;
+  z-index: 1;
 }
 
 /* Work Area (Editor + AI sidebar) */

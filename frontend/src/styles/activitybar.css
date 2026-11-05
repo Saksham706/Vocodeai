@@ -13,7 +13,9 @@
   align-items: center;
   padding: 10px 0 12px 0;
   box-sizing: border-box;
-  background-color: var(--activity-bg, #020805);
+  background-color: var(--activity-bg, rgba(2, 7, 8, 0.82));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-right: 1px solid var(--activity-border, rgba(16, 185, 129, 0.12));
   user-select: none;
   z-index: 10;
@@ -22,7 +24,7 @@
 }
 
 [data-theme="dark"] .ide-activity-bar {
-  --activity-bg: #020805;
+  --activity-bg: rgba(2, 7, 8, 0.82);
   --activity-border: rgba(16, 185, 129, 0.1);
   --activity-icon: #769588;
   --activity-icon-hover: #D1E5DC;
@@ -33,7 +35,7 @@
 }
 
 [data-theme="light"] .ide-activity-bar {
-  --activity-bg: #FFFDFB;
+  --activity-bg: rgba(248, 250, 251, 0.85);
   --activity-border: rgba(230, 215, 205, 0.7);
   --activity-icon: #94857B;
   --activity-icon-hover: #3E3027;

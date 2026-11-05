@@ -13,6 +13,25 @@ export default function TerminalPanel({ terminalId, theme = "dark" }) {
   const termRef = useRef(null);
   const fitAddonRef = useRef(null);
 
+  // Dynamic live terminal settings updates
+  useEffect(() => {
+    const handleSettingsChange = (e) => {
+      const termSettings =
+        e.detail?.settings?.["terminal.integrated"] ||
+        getEffectiveSettings()?.["terminal.integrated"];
+      if (termSettings && termRef.current) {
+        if (termSettings.fontSize) termRef.current.options.fontSize = termSettings.fontSize;
+        if (termSettings.fontFamily) termRef.current.options.fontFamily = termSettings.fontFamily;
+        if (termSettings.cursorStyle) termRef.current.options.cursorStyle = termSettings.cursorStyle;
+        if (termSettings.cursorBlink !== undefined) termRef.current.options.cursorBlink = termSettings.cursorBlink;
+        if (termSettings.scrollback) termRef.current.options.scrollback = termSettings.scrollback;
+        fitAddonRef.current?.fit();
+      }
+    };
+    window.addEventListener("vocode-settings-changed", handleSettingsChange);
+    return () => window.removeEventListener("vocode-settings-changed", handleSettingsChange);
+  }, []);
+
   useEffect(() => {
     if (!terminalId || !containerRef.current) return;
 
@@ -83,6 +102,8 @@ export default function TerminalPanel({ terminalId, theme = "dark" }) {
       cursorWidth: 2,
       scrollback: termSettings.scrollback || 10000,
       smoothScrollDuration: 0,
+      scrollOnUserInput: true,
+      windowsMode: typeof navigator !== "undefined" && navigator.userAgent?.includes("Windows"),
       convertEol: true,
       allowTransparency: true,
       letterSpacing: 0,

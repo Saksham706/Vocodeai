@@ -9,7 +9,7 @@
 :root,
 [data-theme="light"],
 .dashboard-layout.light {
-  --bg-primary: #FFFAF6;
+  --bg-primary: #F8FAFB;
   --bg-secondary: #FFF5EE;
   --surface-primary: #FFFCFA;
   --surface-secondary: #FFF5EF;
@@ -37,7 +37,7 @@
 
 [data-theme="dark"],
 .dashboard-layout.dark {
-  --bg-primary: #020B08;
+  --bg-primary: #020708;
   --bg-secondary: #04140E;
   --surface-primary: #061710;
   --surface-secondary: #092018;
@@ -81,21 +81,6 @@
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* Background Grid Pattern */
-.dashboard-layout::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 260px;
-  right: 0;
-  bottom: 0;
-  background-image:
-    linear-gradient(var(--grid-line-color) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line-color) 1px, transparent 1px);
-  background-size: 36px 36px;
-  pointer-events: none;
-  z-index: 0;
-}
 
 /* Background Flowing Curves (SVG) */
 .dashboard-bg-curves {
@@ -118,14 +103,21 @@
   position: sticky;
   top: 0;
   left: 0;
-  background-color: var(--bg-primary);
-  border-right: 1px solid var(--border-primary);
+  background-color: rgba(2, 7, 8, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   padding: 24px 18px;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   z-index: 10;
   transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+
+.dashboard-layout.light .dashboard-sidebar {
+  background-color: rgba(248, 250, 251, 0.82);
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 /* Brand Logo Section */
@@ -907,10 +899,7 @@
     grid-template-columns: 1fr;
   }
 
-  .dashboard-layout::before {
-    left: 0;
-  }
-
+  
   /* Mobile Top Navbar with hamburger */
   .mobile-dashboard-header {
     display: flex;

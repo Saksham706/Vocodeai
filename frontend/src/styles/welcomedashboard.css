@@ -10,7 +10,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background-color: var(--welcome-bg, #020A07);
+  background-color: transparent !important;
   box-sizing: border-box;
   user-select: none;
 }
@@ -49,6 +49,7 @@
 
 /* Background SVGs */
 .welcome-bg-curves-wrap {
+  display: none;
   position: absolute;
   inset: 0;
   width: 100%;

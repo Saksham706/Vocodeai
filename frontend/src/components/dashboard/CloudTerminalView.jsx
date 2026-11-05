@@ -25,13 +25,13 @@ import { DEFAULT_SETTINGS } from "../../config/defaultSettings";
 import "../../styles/cloudterminal.css";
 
 const QUICK_COMMANDS = [
-  { label: "ls -la", cmd: "ls -la\r\n" },
-  { label: "pwd", cmd: "pwd\r\n" },
-  { label: "node -v", cmd: "node -v\r\n" },
-  { label: "python3 --version", cmd: "python3 --version || python --version\r\n" },
-  { label: "git --version", cmd: "git --version\r\n" },
-  { label: "java --version", cmd: "java --version\r\n" },
-  { label: "whoami", cmd: "whoami\r\n" },
+  { label: "ls -la", cmd: "ls -la\r" },
+  { label: "pwd", cmd: "pwd\r" },
+  { label: "node -v", cmd: "node -v\r" },
+  { label: "python3 --version", cmd: "python3 --version || python --version\r" },
+  { label: "git --version", cmd: "git --version\r" },
+  { label: "java --version", cmd: "java --version\r" },
+  { label: "whoami", cmd: "whoami\r" },
 ];
 
 // Persistent session buffer cache across component mounts/tab switching
@@ -74,6 +74,13 @@ export default function CloudTerminalView({
   selectedEnvRef.current = selectedEnv;
 
   const currentWorkspace = workspaces.find((w) => w._id === selectedEnv);
+  const [hasBeenVisible, setHasBeenVisible] = useState(Boolean(isVisible));
+
+  useEffect(() => {
+    if (isVisible && !hasBeenVisible) {
+      setHasBeenVisible(true);
+    }
+  }, [isVisible, hasBeenVisible]);
 
   // Synchronize environment selection when workspaces finish loading
   useEffect(() => {
@@ -83,12 +90,11 @@ export default function CloudTerminalView({
         setSelectedEnv(targetId);
         selectedEnvRef.current = targetId;
 
-        if (termRef.current) {
-          termRef.current.clear();
-        }
-        terminalOutputCache.delete(activeSessionRef.current);
-
         if (socketRef.current?.readyState === WebSocket.OPEN) {
+          if (termRef.current) {
+            termRef.current.reset();
+          }
+          terminalOutputCache.delete(activeSessionRef.current);
           socketRef.current.send(
             JSON.stringify({
               type: "create",
@@ -143,9 +149,28 @@ export default function CloudTerminalView({
     }
   }, []);
 
+  // Listen to live terminal setting modifications
+  useEffect(() => {
+    const handleSettingsChange = (e) => {
+      const termSettings =
+        e.detail?.settings?.["terminal.integrated"] ||
+        getEffectiveSettings()?.["terminal.integrated"];
+      if (termSettings && termRef.current) {
+        if (termSettings.fontSize) termRef.current.options.fontSize = termSettings.fontSize;
+        if (termSettings.fontFamily) termRef.current.options.fontFamily = termSettings.fontFamily;
+        if (termSettings.cursorStyle) termRef.current.options.cursorStyle = termSettings.cursorStyle;
+        if (termSettings.cursorBlink !== undefined) termRef.current.options.cursorBlink = termSettings.cursorBlink;
+        if (termSettings.scrollback) termRef.current.options.scrollback = termSettings.scrollback;
+        fitAddonRef.current?.fit();
+      }
+    };
+    window.addEventListener("vocode-settings-changed", handleSettingsChange);
+    return () => window.removeEventListener("vocode-settings-changed", handleSettingsChange);
+  }, []);
+
   // UNIFIED TERMINAL & WEBSOCKET LIFECYCLE
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || !hasBeenVisible) return;
 
     // Detect theme
     const isLight =
@@ -206,17 +231,20 @@ export default function CloudTerminalView({
             brightCyan: "#5EEAD4",
             brightWhite: "#FFFFFF",
           },
-      fontSize: 13.5,
+      fontSize: termSettings.fontSize || 13.5,
       fontFamily:
         termSettings.fontFamily ||
         "'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace",
-      cursorStyle: "block",
-      cursorBlink: true,
+      cursorStyle: termSettings.cursorStyle || "block",
+      cursorBlink: termSettings.cursorBlink ?? true,
       cursorWidth: 2,
-      scrollback: 10000,
+      scrollback: termSettings.scrollback || 5000,
       convertEol: true,
       allowTransparency: true,
       lineHeight: 1.25,
+      scrollOnUserInput: true,
+      smoothScrollDuration: 0,
+      windowsMode: typeof navigator !== "undefined" && navigator.userAgent?.includes("Windows"),
     });
 
     termRef.current = term;
@@ -378,7 +406,7 @@ export default function CloudTerminalView({
             (terminalOutputCache.get(msg.terminalId) || "") + msg.data
           );
         } else if (msg.type === "buffer" && msg.terminalId === activeSessionRef.current) {
-          term.clear();
+          term.reset();
           term.write(msg.data);
           terminalOutputCache.set(msg.terminalId, msg.data);
         } else if (msg.type === "created" && msg.terminalId === activeSessionRef.current) {
@@ -414,7 +442,7 @@ export default function CloudTerminalView({
       term.dispose();
       termRef.current = null;
     };
-  }, [theme, accessToken]);
+  }, [theme, accessToken, hasBeenVisible]);
 
   // Handle switching environment / workspace
   const handleSelectEnv = (envId) => {
@@ -425,7 +453,7 @@ export default function CloudTerminalView({
     const envName = envId === "cloud-sandbox" ? "Global Sandbox" : (workspaces.find((w) => w._id === envId)?.name || envId);
 
     if (termRef.current) {
-      termRef.current.clear();
+      termRef.current.reset();
     }
     terminalOutputCache.delete(activeSessionRef.current);
 
@@ -451,7 +479,7 @@ export default function CloudTerminalView({
   const handleSelectSession = (sessionId) => {
     setActiveSessionId(sessionId);
     activeSessionRef.current = sessionId;
-    termRef.current?.clear();
+    termRef.current?.reset();
 
     const cached = terminalOutputCache.get(sessionId);
     if (cached) {
@@ -477,7 +505,7 @@ export default function CloudTerminalView({
     setActiveSessionId(newId);
     activeSessionRef.current = newId;
 
-    termRef.current?.clear();
+    termRef.current?.reset();
 
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(
@@ -515,7 +543,7 @@ export default function CloudTerminalView({
       const nextSession = remaining[remaining.length - 1];
       setActiveSessionId(nextSession.id);
       activeSessionRef.current = nextSession.id;
-      termRef.current?.clear();
+      termRef.current?.reset();
 
       const cached = terminalOutputCache.get(nextSession.id);
       if (cached) {
@@ -542,7 +570,7 @@ export default function CloudTerminalView({
   // Clear Terminal
   const handleClear = () => {
     if (termRef.current) {
-      termRef.current.clear();
+      termRef.current.reset();
     }
     terminalOutputCache.set(activeSessionRef.current, "");
 
@@ -560,7 +588,7 @@ export default function CloudTerminalView({
   // Restart Shell Session
   const handleRestart = () => {
     if (termRef.current) {
-      termRef.current.clear();
+      termRef.current.reset();
     }
     terminalOutputCache.set(activeSessionRef.current, "");
 

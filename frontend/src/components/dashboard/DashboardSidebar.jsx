@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Layers3,
@@ -10,6 +10,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
+import { getEffectiveSettings } from "../../utils/settingsStorage";
 
 export default function DashboardSidebar({
   theme,
@@ -24,8 +25,24 @@ export default function DashboardSidebar({
   setMobileSidebarOpen,
   navigate,
 }) {
+  const [customDisplayName, setCustomDisplayName] = useState(() => {
+    return getEffectiveSettings()?.account?.displayName || "";
+  });
+
+  useEffect(() => {
+    const handleSettingsChange = (e) => {
+      const disp =
+        e.detail?.settings?.account?.displayName ??
+        getEffectiveSettings()?.account?.displayName;
+      if (disp !== undefined) setCustomDisplayName(disp);
+    };
+    window.addEventListener("vocode-settings-changed", handleSettingsChange);
+    return () => window.removeEventListener("vocode-settings-changed", handleSettingsChange);
+  }, []);
+
   const userName =
-    user?.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : user?.name || "User";
+    customDisplayName ||
+    (user?.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : user?.name || "User");
   const userEmail = user?.email || "user@example.com";
   const userInitial = userName.charAt(0).toUpperCase() || "U";
 

@@ -1,0 +1,122 @@
+/* ==========================================================================
+   VOCODEAI — UNIFIED BACKGROUND SYSTEM
+   Shared across Landing, Dashboard, Workspace, and Auth pages
+   Role: Principal UI/UX Architect
+   ========================================================================== */
+
+.app-background-system {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  background-color: transparent;
+}
+
+/* ---------------------------------------------------------
+   1. PRECISION 52PX GEOMETRIC TECHNICAL GRID WITH RADIAL MASK
+   --------------------------------------------------------- */
+.app-background-system .background-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(ellipse 85% 65% at 50% 25%, black 25%, transparent 88%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 65% at 50% 25%, black 25%, transparent 88%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app-background-system.light .background-grid {
+  background-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+  mask-image: radial-gradient(ellipse 85% 65% at 50% 25%, black 25%, transparent 88%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 65% at 50% 25%, black 25%, transparent 88%);
+}
+
+/* ---------------------------------------------------------
+   2. LAYERED FLOATING AMBIENT AURORA GLOW ORBS
+   --------------------------------------------------------- */
+.app-background-system .ambient-aurora {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.45;
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform;
+}
+
+/* Aurora 1: Vibrant Coral Glow (Top Center) */
+.app-background-system .ambient-aurora-1 {
+  top: -160px;
+  left: 20%;
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, rgba(255, 100, 72, 0.28) 0%, transparent 70%);
+  animation: app-aurora-float 18s ease-in-out infinite alternate;
+}
+
+.app-background-system.light .ambient-aurora-1 {
+  background: radial-gradient(circle, rgba(232, 76, 47, 0.18) 0%, transparent 70%);
+}
+
+/* Aurora 2: Electric Emerald Glow (Top Right) */
+.app-background-system .ambient-aurora-2 {
+  top: 15%;
+  right: -100px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(0, 240, 152, 0.22) 0%, transparent 70%);
+  animation: app-aurora-float 22s ease-in-out infinite alternate;
+  animation-delay: -5s;
+}
+
+.app-background-system.light .ambient-aurora-2 {
+  background: radial-gradient(circle, rgba(5, 150, 105, 0.16) 0%, transparent 70%);
+}
+
+/* Aurora 3: Deep Cyber Cyan Glow (Bottom Left) */
+.app-background-system .ambient-aurora-3 {
+  bottom: 12%;
+  left: -150px;
+  width: 650px;
+  height: 650px;
+  background: radial-gradient(circle, rgba(0, 229, 255, 0.20) 0%, transparent 70%);
+  animation: app-aurora-float 26s ease-in-out infinite alternate;
+  animation-delay: -10s;
+}
+
+.app-background-system.light .ambient-aurora-3 {
+  background: radial-gradient(circle, rgba(2, 132, 199, 0.14) 0%, transparent 70%);
+}
+
+@keyframes app-aurora-float {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(35px, 25px) scale(1.08);
+  }
+  100% {
+    transform: translate(-30px, 45px) scale(0.94);
+  }
+}
+
+/* ---------------------------------------------------------
+   3. CYBERNETIC FLOWING ENERGY WAVES (SVG)
+   --------------------------------------------------------- */
+.app-background-system .app-bg-curves {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+

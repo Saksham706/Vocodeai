@@ -9,6 +9,7 @@ import {
 import * as fileApi from "../services/fileApi";
 import { buildTree, isIgnoredArtifact } from "../utils/buildTree";
 import { useAuth } from "../context/AuthContext";
+import { getEffectiveSettings } from "../utils/settingsStorage";
 
 const WorkspaceContext = createContext();
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
@@ -567,6 +568,13 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
 
     clearTimeout(saveTimersRef.current[path]);
 
+    const filesSettings = getEffectiveSettings()?.files;
+    if (filesSettings?.autoSave === "off") {
+      return;
+    }
+
+    const delay = Number(filesSettings?.autoSaveDelayMs) || SAVE_DELAY;
+
     saveTimersRef.current[path] = setTimeout(async () => {
       try {
         await fileApi.saveFile(
@@ -584,7 +592,7 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
       } catch (e) {
         console.error("Save failed", e);
       }
-    }, SAVE_DELAY);
+    }, delay);
   };
 
   const applyFileChange = async (filePath, content) => {

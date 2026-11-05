@@ -56,9 +56,17 @@ chmod 600 /root/.git-credentials 2>/dev/null || true
 printf '#!/bin/sh\\nclear\\n' > /usr/local/bin/cls
 chmod +x /usr/local/bin/cls
 cat << 'EOF' > /etc/vocode_bashrc
+export HOME=/workspace
+export TERM=xterm-256color
+cd /workspace 2>/dev/null || true
 alias cls='clear'
-alias ll='ls -la'
-PROMPT_COMMAND='PS1="\\[\\e[32m\\]\${TERM_USER:-user}@vocodeai\\[\\e[0m\\]:\\[\\e[34;1m\\]\${PWD/#\\/workspace/~}\\[\\e[0m\\]\\$ "'
+alias ll='ls -la --color=auto'
+alias ls='ls --color=auto'
+prompt_func() {
+  local p="\${PWD}"
+  PS1="\\[\\e[32m\\]\${TERM_USER:-user}@vocodeai\\[\\e[0m\\]:\\[\\e[34;1m\\]\${p}\\[\\e[0m\\]\\$ "
+}
+PROMPT_COMMAND=prompt_func
 EOF
 sed -i '/vocode/d' /etc/bash.bashrc 2>/dev/null || true
 sed -i '/vocode/d' /root/.bashrc 2>/dev/null || true

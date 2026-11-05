@@ -381,10 +381,13 @@ export function setupTerminalServer(server) {
         const entry = getTerminal(msg.terminalId);
         if (entry && msg.cols && msg.rows) {
           try {
-            entry.pty.resize(
-              Math.max(20, Math.min(Number(msg.cols) || 120, 500)),
-              Math.max(5, Math.min(Number(msg.rows) || 30, 200))
-            );
+            const cols = Math.max(20, Math.min(Number(msg.cols) || 120, 500));
+            const rows = Math.max(5, Math.min(Number(msg.rows) || 30, 200));
+            if (entry.cols !== cols || entry.rows !== rows) {
+              entry.cols = cols;
+              entry.rows = rows;
+              entry.pty.resize(cols, rows);
+            }
           } catch {}
         }
       }

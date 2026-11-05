@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { VOCA_SUGGESTIONS, queryVocaKnowledge, analyzeCurrentPage } from "./vocaKnowledge";
 import { playVocaSound, speakVocaText, stopVocaSpeech } from "./vocaSounds";
+import { getEffectiveSettings } from "../../utils/settingsStorage";
 import "../../styles/VocaChatbot.css";
 
 const CHAT_WIDTH_DESKTOP = 350;
@@ -53,11 +54,26 @@ Ask me anything about this page or platform:
   const [isTyping, setIsTyping] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(() => {
     try {
+      const fromSettings = getEffectiveSettings()?.["vocode.ai"]?.textToSpeech;
+      if (typeof fromSettings === "boolean") return fromSettings;
       return localStorage.getItem("voca_sound_enabled") === "true";
     } catch {
       return false;
     }
   });
+
+  useEffect(() => {
+    const handleSettingsChange = (e) => {
+      const tts =
+        e.detail?.settings?.["vocode.ai"]?.textToSpeech ??
+        getEffectiveSettings()?.["vocode.ai"]?.textToSpeech;
+      if (typeof tts === "boolean") {
+        setSoundEnabled(tts);
+      }
+    };
+    window.addEventListener("vocode-settings-changed", handleSettingsChange);
+    return () => window.removeEventListener("vocode-settings-changed", handleSettingsChange);
+  }, []);
   const [isListening, setIsListening] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
 

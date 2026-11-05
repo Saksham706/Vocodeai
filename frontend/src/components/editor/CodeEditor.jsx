@@ -40,6 +40,34 @@ export default function CodeEditor({ file }) {
     return () => window.removeEventListener("vocode-settings-changed", handleSettingsChange);
   }, []);
 
+  // Live Monaco Editor options update
+  useEffect(() => {
+    if (!editorRef.current) return;
+    editorRef.current.updateOptions({
+      fontSize: editorSettings.fontSize || 14,
+      fontFamily: editorSettings.fontFamily || "'Fira Code', 'JetBrains Mono', Consolas, monospace",
+      lineHeight: editorSettings.lineHeight || 22,
+      fontLigatures: editorSettings.fontLigatures ?? true,
+      tabSize: editorSettings.tabSize || 2,
+      insertSpaces: editorSettings.insertSpaces ?? true,
+      wordWrap: editorSettings.wordWrap || "on",
+      minimap: {
+        enabled: editorSettings.minimap?.enabled ?? true,
+        renderCharacters: false,
+        scale: editorSettings.minimap?.scale || 1,
+      },
+      lineNumbers: editorSettings.lineNumbers || "on",
+      cursorStyle: editorSettings.cursorStyle || "line",
+      cursorBlinking: editorSettings.cursorBlinking || "smooth",
+      autoClosingBrackets: editorSettings.autoClosingBrackets ? "always" : "never",
+      autoClosingQuotes: editorSettings.autoClosingQuotes ? "always" : "never",
+      bracketPairColorization: { enabled: editorSettings.bracketPairColorization ?? true },
+      renderWhitespace: editorSettings.renderWhitespace || "selection",
+      smoothScrolling: editorSettings.smoothScrolling ?? true,
+      scrollBeyondLastLine: editorSettings.scrollBeyondLastLine ?? false,
+    });
+  }, [editorSettings]);
+
   const [editorTheme, setEditorTheme] = useState(() => {
     return localStorage.getItem("vocode_theme") === "light" ? "light" : "vs-dark";
   });

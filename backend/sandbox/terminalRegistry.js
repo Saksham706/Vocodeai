@@ -16,10 +16,18 @@ export function getTerminal(id) {
 export function removeTerminal(id) {
   const entry = terminalMap.get(id);
   if (entry) {
-    if (entry.pty && typeof entry.pty.kill === "function") {
+    if (entry.pty) {
       try {
-        entry.pty.kill();
+        if (typeof entry.pty.removeAllListeners === "function") {
+          entry.pty.removeAllListeners();
+        }
+        if (typeof entry.pty.kill === "function") {
+          entry.pty.kill();
+        }
       } catch {}
+    }
+    if (entry.sockets) {
+      entry.sockets.clear();
     }
     terminalMap.delete(id);
   }

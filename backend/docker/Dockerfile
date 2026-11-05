@@ -22,7 +22,7 @@ WORKDIR /workspace
 
 # Add cls command & configure dynamic prompt and aliases
 RUN printf '#!/bin/sh\nclear\n' > /usr/local/bin/cls && chmod +x /usr/local/bin/cls
-RUN printf "alias cls='clear'\nalias ll='ls -la'\nPROMPT_COMMAND='PS1=\"\\[\\e[32m\\]\${TERM_USER:-user}@vocodeai\\[\\e[0m\\]:\\[\\e[34;1m\\]\${PWD/#\\/workspace/~\\/workspace}\\[\\e[0m\\]\\$ \"'\n" > /etc/vocode_bashrc && \
+RUN printf "export HOME=/workspace\nexport TERM=xterm-256color\ncd /workspace 2>/dev/null || true\nalias cls='clear'\nalias ll='ls -la --color=auto'\nalias ls='ls --color=auto'\nprompt_func() {\n  local p=\"\${PWD}\"\n  PS1=\"\\[\\e[32m\\]\${TERM_USER:-user}@vocodeai\\[\\e[0m\\]:\\[\\e[34;1m\\]\${p}\\[\\e[0m\\]\\$ \"\n}\nPROMPT_COMMAND=prompt_func\n" > /etc/vocode_bashrc && \
     echo ". /etc/vocode_bashrc" >> /etc/bash.bashrc && \
     echo ". /etc/vocode_bashrc" >> /root/.bashrc
 

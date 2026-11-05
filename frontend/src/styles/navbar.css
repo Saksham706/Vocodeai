@@ -10,7 +10,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 12px;
-  background-color: var(--nav-bg, #020805);
+  background-color: var(--nav-bg, rgba(2, 7, 8, 0.82));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--nav-border, rgba(16, 185, 129, 0.12));
   position: relative;
   z-index: 50;
@@ -20,7 +22,7 @@
 }
 
 [data-theme="dark"] .ide-navbar {
-  --nav-bg: #020805;
+  --nav-bg: rgba(2, 7, 8, 0.82);
   --nav-border: rgba(16, 185, 129, 0.12);
   --nav-text: #D5EDE2;
   --nav-text-muted: #7E9D90;
@@ -32,7 +34,7 @@
 }
 
 [data-theme="light"] .ide-navbar {
-  --nav-bg: #FFFDFB;
+  --nav-bg: rgba(248, 250, 251, 0.85);
   --nav-border: rgba(225, 210, 200, 0.7);
   --nav-text: #211B17;
   --nav-text-muted: #7A6C63;

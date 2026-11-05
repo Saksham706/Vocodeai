@@ -28,6 +28,7 @@ import {
   Lightbulb,
   Zap,
   HardDrive,
+  Terminal,
 } from "lucide-react";
 import {
   DEFAULT_SETTINGS,
@@ -59,6 +60,7 @@ const ICON_MAP = {
   Activity,
   Zap,
   HardDrive,
+  Terminal,
 };
 
 // Logical grouping matching Docs Knowledge Base structure
@@ -69,13 +71,28 @@ const SETTINGS_GROUPS = [
   },
   {
     group: "AI & RUNTIME",
-    categoryIds: ["vocode.ai", "terminal.integrated", "runner"],
+    categoryIds: ["vocode.ai", "terminal", "runner"],
   },
   {
     group: "SYSTEM & ENVIRONMENT",
-    categoryIds: ["files", "shortcuts", "account", "telemetry"],
+    categoryIds: ["files", "keybindings", "account", "telemetry"],
   },
 ];
+
+// Robust category finder that handles aliases ('terminal.integrated', 'shortcuts')
+const findCategory = (catId) => {
+  if (!catId) return SETTINGS_METADATA[0];
+  return (
+    SETTINGS_METADATA.find(
+      (c) =>
+        c.id === catId ||
+        c.id === catId.replace(".integrated", "") ||
+        (catId === "terminal.integrated" && c.id === "terminal") ||
+        (catId === "shortcuts" && c.id === "keybindings") ||
+        (catId === "keybindings" && c.id === "shortcuts")
+    ) || SETTINGS_METADATA[0]
+  );
+};
 
 export default function SettingsView({ workspaceId = null, onBack = null }) {
   // Scope: 'user' (global) or 'workspace' (current project)
@@ -89,6 +106,11 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
   const [workspaceOverrides, setWorkspaceOverrides] = useState(() =>
     getWorkspaceOverrides(workspaceId)
   );
+
+  // Live change indicators & feedback toast
+  const [recentlyChanged, setRecentlyChanged] = useState({});
+  const [activeToast, setActiveToast] = useState(null);
+  const [lastSavedBanner, setLastSavedBanner] = useState(null);
 
   // Password fields show/hide state
   const [visiblePasswords, setVisiblePasswords] = useState({});
@@ -104,6 +126,15 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
 
   const searchInputRef = useRef(null);
   const contentRef = useRef(null);
+
+  // Auto-dismiss toast after 3 seconds
+  useEffect(() => {
+    if (!activeToast) return;
+    const timer = setTimeout(() => {
+      setActiveToast(null);
+    }, 3200);
+    return () => clearTimeout(timer);
+  }, [activeToast]);
 
   // Effective settings based on active scope
   const activeSettings = useMemo(() => {
@@ -139,7 +170,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isJsonMode]);
 
-  // Category selection: immediately displays that category & smoothly scrolls to top (Docs style)
+  // Category selection: immediately displays that category & smoothly scrolls to top
   const handleSelectCategory = (catId) => {
     setActiveCategory(catId);
     setSearchQuery("");
@@ -160,8 +191,8 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
     }
   };
 
-  // Handle setting modification
-  const handleUpdate = (keyPath, newValue) => {
+  // Handle setting modification with instantaneous visual notification
+  const handleUpdate = (keyPath, newValue, itemLabel = "") => {
     if (scope === "workspace" && workspaceId) {
       const updatedOverrides = setNestedValue(
         { ...workspaceOverrides },
@@ -179,15 +210,79 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
       setUserSettings(updatedUser);
       saveUserSettings(updatedUser);
     }
+
+    const label = itemLabel || keyPath.split(".").pop();
+    const displayVal =
+      typeof newValue === "boolean"
+        ? newValue
+          ? "Enabled"
+          : "Disabled"
+        : Array.isArray(newValue)
+        ? `${newValue.length} items`
+        : String(newValue);
+
+    setRecentlyChanged((prev) => ({
+      ...prev,
+      [keyPath]: {
+        label,
+        value: displayVal,
+        time: Date.now(),
+      },
+    }));
+
+    setLastSavedBanner({
+      label,
+      value: displayVal,
+      time: Date.now(),
+    });
+
+    setActiveToast({
+      key: keyPath,
+      label,
+      value: displayVal,
+      id: Date.now(),
+    });
   };
 
-  // Reset single setting
-  const handleReset = (keyPath) => {
+  // Reset single setting with notification
+  const handleReset = (keyPath, itemLabel = "") => {
     resetSettingToDefault(keyPath, workspaceId, scope);
     setUserSettings(getUserSettings());
     if (workspaceId) {
       setWorkspaceOverrides(getWorkspaceOverrides(workspaceId));
     }
+    const defVal = getNestedValue(DEFAULT_SETTINGS, keyPath);
+    const label = itemLabel || keyPath.split(".").pop();
+    const displayVal =
+      typeof defVal === "boolean"
+        ? defVal
+          ? "Enabled"
+          : "Disabled"
+        : Array.isArray(defVal)
+        ? `${defVal.length} items`
+        : String(defVal);
+
+    setRecentlyChanged((prev) => ({
+      ...prev,
+      [keyPath]: {
+        label,
+        value: `Reset to ${displayVal}`,
+        time: Date.now(),
+      },
+    }));
+
+    setLastSavedBanner({
+      label,
+      value: `Reset to ${displayVal}`,
+      time: Date.now(),
+    });
+
+    setActiveToast({
+      key: keyPath,
+      label,
+      value: `Default (${displayVal})`,
+      id: Date.now(),
+    });
   };
 
   // Check if a setting is modified from default
@@ -225,6 +320,12 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
       }
       setJsonSaved(true);
       setTimeout(() => setJsonSaved(false), 2500);
+      setActiveToast({
+        key: "json",
+        label: "settings.json",
+        value: "Saved & Applied",
+        id: Date.now(),
+      });
     } catch (e) {
       setJsonError(e.message);
     }
@@ -248,10 +349,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
           item.key.toLowerCase().includes(q) ||
           (item.description && item.description.toLowerCase().includes(q))
       );
-      return {
-        ...cat,
-        items: matchingItems,
-      };
+      return { ...cat, items: matchingItems };
     }).filter((cat) => cat.items.length > 0);
   }, [searchQuery]);
 
@@ -262,13 +360,164 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
 
   // Current active category metadata
   const currentCategory = useMemo(() => {
-    return (
-      SETTINGS_METADATA.find((c) => c.id === activeCategory) ||
-      SETTINGS_METADATA[0]
-    );
+    return findCategory(activeCategory);
   }, [activeCategory]);
 
   const CurrentCategoryIcon = ICON_MAP[currentCategory.icon] || Sliders;
+
+  // Render live category preview boxes that respond to changing settings
+  const renderLiveCategoryPreview = () => {
+    const catId = currentCategory.id;
+
+    // 1. Text Editor Live Preview
+    if (catId === "editor") {
+      const ed = activeSettings.editor || DEFAULT_SETTINGS.editor;
+      return (
+        <div className="settings-live-preview-box editor-preview animate-fade-in">
+          <div className="preview-top-bar">
+            <div className="preview-dots">
+              <span className="preview-dot red" />
+              <span className="preview-dot yellow" />
+              <span className="preview-dot green" />
+            </div>
+            <span className="preview-title">Live Editor Preview • Monaco Engine</span>
+            <span className="preview-indicator">
+              <span className="live-pulse-dot" />
+              Real-Time Sync
+            </span>
+          </div>
+          <div
+            className="preview-code-body"
+            style={{
+              fontFamily: ed.fontFamily || "'Fira Code', monospace",
+              fontSize: `${ed.fontSize || 14}px`,
+              lineHeight: `${ed.lineHeight || 22}px`,
+            }}
+          >
+            {ed.lineNumbers !== "off" && (
+              <div className="preview-line-nums">
+                <span>1</span>
+                <span>2</span>
+                <span>3</span>
+                <span>4</span>
+                <span>5</span>
+              </div>
+            )}
+            <div className="preview-code-lines">
+              <div className="code-line">
+                <span className="tok-kw">export function</span>{" "}
+                <span className="tok-fn-name">calculateMetrics</span>(
+                <span className="tok-param">data</span>) &#123;
+              </div>
+              <div className="code-line">
+                &nbsp;&nbsp;<span className="tok-kw">const</span> score = data.
+                <span className="tok-method">map</span>(
+                <span className="tok-param">x</span> =&gt; x.val *{" "}
+                <span className="tok-num">2</span>);
+              </div>
+              <div className="code-line">
+                &nbsp;&nbsp;<span className="tok-kw">return</span> score.
+                <span className="tok-method">filter</span>(
+                <span className="tok-param">n</span> =&gt; n &gt;{" "}
+                <span className="tok-num">10</span>);
+              </div>
+              <div className="code-line">&#125;</div>
+              <div className="code-line">
+                <span className="tok-comment">
+                  // Font: {ed.fontSize || 14}px • TabSize: {ed.tabSize || 2} • WordWrap:{" "}
+                  {ed.wordWrap || "on"}
+                </span>
+                <span
+                  className={`preview-cursor preview-cursor-${ed.cursorStyle || "line"}`}
+                />
+              </div>
+            </div>
+            {ed.minimap?.enabled && (
+              <div className="preview-minimap-strip" title="Minimap Enabled">
+                <div className="minimap-bar-1" />
+                <div className="minimap-bar-2" />
+                <div className="minimap-bar-3" />
+                <div className="minimap-bar-4" />
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // 2. Terminal Live Preview
+    if (catId === "terminal" || catId === "terminal.integrated") {
+      const term =
+        activeSettings["terminal.integrated"] ||
+        DEFAULT_SETTINGS["terminal.integrated"];
+      return (
+        <div className="settings-live-preview-box terminal-preview animate-fade-in">
+          <div className="preview-top-bar">
+            <div className="preview-dots">
+              <span className="preview-dot red" />
+              <span className="preview-dot yellow" />
+              <span className="preview-dot green" />
+            </div>
+            <span className="preview-title">Live Terminal Preview • xterm.js Cloud PTY</span>
+            <span className="preview-indicator">
+              <span className="live-pulse-dot" />
+              Real-Time Sync
+            </span>
+          </div>
+          <div
+            className="preview-terminal-body"
+            style={{
+              fontFamily:
+                term.fontFamily ||
+                "'Fira Code', 'JetBrains Mono', Consolas, monospace",
+              fontSize: `${term.fontSize || 13}px`,
+            }}
+          >
+            <div className="term-line prompt-line">
+              <span className="term-prompt">saksham@vocodeai:~$</span> node -v
+            </div>
+            <div className="term-line output-line">v20.18.0</div>
+            <div className="term-line prompt-line">
+              <span className="term-prompt">saksham@vocodeai:~$</span> echo "VocodeAI Cloud Container Ready"
+            </div>
+            <div className="term-line output-line">VocodeAI Cloud Container Ready</div>
+            <div className="term-line prompt-line">
+              <span className="term-prompt">saksham@vocodeai:~$</span>&nbsp;
+              <span
+                className={`preview-cursor term-cursor-${term.cursorStyle || "block"} ${
+                  term.cursorBlink ? "blink" : ""
+                }`}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 3. Workbench & Appearance Preview
+    if (catId === "workbench") {
+      const wb = activeSettings.workbench || DEFAULT_SETTINGS.workbench;
+      return (
+        <div className="settings-live-preview-box workbench-preview animate-fade-in">
+          <div className="preview-top-bar">
+            <span className="preview-title">Workbench Preview • Appearance & Scale</span>
+            <span className="preview-indicator">
+              <span className="live-pulse-dot" />
+              Applied Globally
+            </span>
+          </div>
+          <div className="workbench-preview-row">
+            <div className="wb-badge">Theme: <strong>{wb.colorTheme || "dark"}</strong></div>
+            <div className="wb-badge">Zoom Level: <strong>{wb.zoomLevel || 100}%</strong></div>
+            <div className="wb-badge">Density: <strong>{wb.layoutDensity || "default"}</strong></div>
+            <div className="wb-badge">Tab Sizing: <strong>{wb.tabSizing || "fit"}</strong></div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <div className="vocode-settings-container">
@@ -426,10 +675,14 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
                   <span className="settings-group-title">{grp.group}</span>
                   <div className="settings-group-links">
                     {grp.categoryIds.map((catId) => {
-                      const cat = SETTINGS_METADATA.find((c) => c.id === catId);
+                      const cat = findCategory(catId);
                       if (!cat) return null;
                       const IconComp = ICON_MAP[cat.icon] || Sliders;
-                      const isActive = activeCategory === cat.id && !searchQuery;
+                      const isActive =
+                        (activeCategory === cat.id ||
+                          (cat.id === "terminal" && activeCategory === "terminal.integrated") ||
+                          (cat.id === "keybindings" && activeCategory === "shortcuts")) &&
+                        !searchQuery;
 
                       return (
                         <button
@@ -450,7 +703,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
               ))}
             </div>
 
-            {/* Sidebar Footer Card (Docs Studio Style) */}
+            {/* Sidebar Footer Card */}
             <div className="settings-sidebar-footer">
               <div className="settings-footer-card">
                 <Sparkles size={16} className="settings-card-glow-icon" />
@@ -466,7 +719,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
             </div>
           </aside>
 
-          {/* Right Scrollable Settings Content Area (Middle Part Only Scrolling) */}
+          {/* Right Scrollable Settings Content Area */}
           <main className="settings-content" ref={contentRef}>
             {/* Search Results Mode */}
             {searchResults ? (
@@ -539,9 +792,15 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
                     <span className="meta-dot">•</span>
                     <span>{scope === "workspace" ? "Workspace Override Scope" : "Global User Scope"}</span>
                     <span className="meta-dot">•</span>
-                    <span className="meta-status-chip">
-                      <CheckCircle2 size={12} /> Instant Auto-Sync
-                    </span>
+                    {lastSavedBanner && (Date.now() - lastSavedBanner.time < 4000) ? (
+                      <span className="meta-status-chip saving-pulse">
+                        <Check size={12} className="text-accent" /> Saved: {lastSavedBanner.label} ({lastSavedBanner.value})
+                      </span>
+                    ) : (
+                      <span className="meta-status-chip">
+                        <CheckCircle2 size={12} /> Instant Auto-Sync
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -565,6 +824,9 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
                   </div>
                 )}
 
+                {/* Live Real-Time Previews (Editor / Terminal / Workbench) */}
+                {renderLiveCategoryPreview()}
+
                 {/* Setting Cards List */}
                 <div className="settings-items-list">
                   {currentCategory.items.map((item) => renderSettingCard(item))}
@@ -572,6 +834,21 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
               </div>
             )}
           </main>
+        </div>
+      )}
+
+      {/* Real-time Floating Toast Notification */}
+      {activeToast && (
+        <div className="settings-live-toast animate-slide-up" key={activeToast.id}>
+          <div className="toast-icon-wrap">
+            <CheckCircle2 size={16} />
+          </div>
+          <div className="toast-body">
+            <span className="toast-title">Setting Applied Live</span>
+            <span className="toast-detail">
+              {activeToast.label}: <strong>{activeToast.value}</strong>
+            </span>
+          </div>
         </div>
       )}
     </div>
@@ -584,13 +861,25 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
       getNestedValue(DEFAULT_SETTINGS, item.key);
     const isModified = isSettingModified(item.key);
 
+    const changedInfo = recentlyChanged[item.key];
+    const isRecentlyChanged = changedInfo && (Date.now() - changedInfo.time < 3500);
+
     return (
-      <div key={item.key} id={`setting-card-${item.key}`} className="setting-card">
+      <div
+        key={item.key}
+        id={`setting-card-${item.key}`}
+        className={`setting-card ${isRecentlyChanged ? "just-saved" : ""}`}
+      >
         <div className="setting-card-header">
           <div className="setting-title-wrapper">
             <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
               <h4 className="setting-label">{item.label}</h4>
               <span className="setting-key-tag">{item.key}</span>
+              {isRecentlyChanged && (
+                <span className="setting-saved-badge animate-pop-in">
+                  <Check size={11} /> Saved
+                </span>
+              )}
             </div>
             <p className="setting-desc">{item.description}</p>
           </div>
@@ -600,7 +889,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
               <button
                 type="button"
                 className="setting-reset-btn"
-                onClick={() => handleReset(item.key)}
+                onClick={() => handleReset(item.key, item.label)}
                 title="Reset to default value"
               >
                 <RotateCcw size={12} />
@@ -619,7 +908,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
                 type="checkbox"
                 className="setting-switch-input"
                 checked={Boolean(val)}
-                onChange={(e) => handleUpdate(item.key, e.target.checked)}
+                onChange={(e) => handleUpdate(item.key, e.target.checked, item.label)}
               />
               <span className="setting-switch-slider" />
               <span className="setting-switch-label">
@@ -638,7 +927,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
                   typeof item.options[0]?.value === "number"
                     ? Number(e.target.value)
                     : e.target.value;
-                handleUpdate(item.key, next);
+                handleUpdate(item.key, next, item.label);
               }}
             >
               {item.options.map((opt) => (
@@ -659,9 +948,18 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
                 max={item.max ?? 100}
                 step={item.step ?? 1}
                 value={val ?? item.min ?? 0}
-                onChange={(e) => handleUpdate(item.key, Number(e.target.value))}
+                onChange={(e) => handleUpdate(item.key, Number(e.target.value), item.label)}
               />
-              <span className="setting-slider-val">{val}</span>
+              <span className={`setting-slider-val ${isRecentlyChanged ? "highlight" : ""}`}>
+                {val}
+                {item.key.includes("fontSize") || item.key.includes("lineHeight")
+                  ? "px"
+                  : item.key.includes("Delay") || item.key.includes("Timeout")
+                  ? "ms"
+                  : item.key.includes("Zoom") || item.key.includes("zoomLevel")
+                  ? "%"
+                  : ""}
+              </span>
             </div>
           )}
 
@@ -671,7 +969,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
               type="text"
               className="setting-text-input"
               value={val || ""}
-              onChange={(e) => handleUpdate(item.key, e.target.value)}
+              onChange={(e) => handleUpdate(item.key, e.target.value, item.label)}
             />
           )}
 
@@ -683,7 +981,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
                 className="setting-text-input"
                 placeholder="Enter secret key or leave blank..."
                 value={val || ""}
-                onChange={(e) => handleUpdate(item.key, e.target.value)}
+                onChange={(e) => handleUpdate(item.key, e.target.value, item.label)}
               />
               <button
                 type="button"
@@ -714,7 +1012,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
                         className="setting-chip-remove"
                         onClick={() => {
                           const next = val.filter((_, i) => i !== idx);
-                          handleUpdate(item.key, next);
+                          handleUpdate(item.key, next, item.label);
                         }}
                       >
                         <X size={12} />
@@ -738,7 +1036,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
                     if (e.key === "Enter" && newChipVal[item.key]?.trim()) {
                       e.preventDefault();
                       const next = [...(val || []), newChipVal[item.key].trim()];
-                      handleUpdate(item.key, next);
+                      handleUpdate(item.key, next, item.label);
                       setNewChipVal((prev) => ({
                         ...prev,
                         [item.key]: "",
@@ -752,7 +1050,7 @@ export default function SettingsView({ workspaceId = null, onBack = null }) {
                   onClick={() => {
                     if (newChipVal[item.key]?.trim()) {
                       const next = [...(val || []), newChipVal[item.key].trim()];
-                      handleUpdate(item.key, next);
+                      handleUpdate(item.key, next, item.label);
                       setNewChipVal((prev) => ({
                         ...prev,
                         [item.key]: "",

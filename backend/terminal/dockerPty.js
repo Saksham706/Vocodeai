@@ -29,6 +29,10 @@ export function createDockerPty(
     `LINES=${termRows}`,
     "-e",
     `TERM_USER=${cleanUser}`,
+    "-e",
+    "HOME=/workspace",
+    "-e",
+    "PWD=/workspace",
     containerId,
   ];
 
@@ -38,7 +42,6 @@ export function createDockerPty(
     execArgs.push("sh");
   } else {
     execArgs.push("bash");
-    execArgs.push("-l");
   }
 
   const isWindows = process.platform === "win32";

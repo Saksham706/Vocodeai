@@ -29,6 +29,7 @@ import {
 
 import { AIProvider } from "../context/AIContext";
 import { X } from "lucide-react";
+import DashboardBackground from "../components/DashboardBackground";
 
 import "../styles/workspace.css";
 
@@ -452,6 +453,9 @@ function WorkspaceLayout() {
 
   return (
     <div className={`ide-app ${theme}`}>
+      {/* Unified Background System (Grid, Aurora Orbs & Glowing Curves) */}
+      <DashboardBackground theme={theme} />
+
       {/* 1. PERMANENT TOP NAVIGATION BAR */}
       <Navbar
         theme={theme}
