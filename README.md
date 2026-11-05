@@ -1,8 +1,12 @@
 <div align="center">
 
-<img width="140" height="140" alt="VocodeAI Logo" src="https://github.com/user-attachments/assets/5e238dae-7c27-4aaa-9761-19f27f1e63c9" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./frontend/public/vcode.png">
+  <source media="(prefers-color-scheme: light)" srcset="./frontend/public/vcode-light.png">
+  <img width="280" alt="VocodeAI Logo" src="./frontend/public/vcode.png" />
+</picture>
 
-# ⚡ VOCODEAI
+<br/><br/>
 
 ### **AI-Powered Cloud IDE, Voice Companion & Containerized Micro-VM Development Platform**
 
