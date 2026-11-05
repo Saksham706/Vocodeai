@@ -12,6 +12,10 @@ import {
   getGithubStatus,
   disconnectGithub,
   connectGithubToken,
+  getProfile,
+  updateProfile,
+  changePassword,
+  getStorageUsage,
 } from "../controllers/authController.js";
 import { generateAccessToken, generateRefreshToken } from "../utils/token.js";
 import { auth } from "../middleware/auth.js";
@@ -97,6 +101,10 @@ router.post("/github/disconnect", auth, disconnectGithub);
 router.post("/github/connect-token", auth, connectGithubToken);
 
 /* ================= ACCOUNT MANAGEMENT ================= */
+router.get("/profile", auth, getProfile);
+router.put("/profile", auth, updateProfile);
+router.put("/change-password", auth, changePassword);
+router.get("/storage-usage", auth, getStorageUsage);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.post("/refresh-token", refreshToken);

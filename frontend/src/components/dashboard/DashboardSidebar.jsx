@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   Layers3,
-  SquareTerminal,
   Settings,
   Trash2,
   ChevronRight,
   LogOut,
   Menu,
   X,
+  UserCheck,
+  ArrowLeft,
 } from "lucide-react";
 import { getEffectiveSettings } from "../../utils/settingsStorage";
+import "../../styles/account.css";
 
 export default function DashboardSidebar({
   theme,
@@ -25,8 +27,14 @@ export default function DashboardSidebar({
   setMobileSidebarOpen,
   navigate,
 }) {
+  const userCardRef = useRef(null);
+
   const [customDisplayName, setCustomDisplayName] = useState(() => {
     return getEffectiveSettings()?.account?.displayName || "";
+  });
+
+  const [userAvatar, setUserAvatar] = useState(() => {
+    return localStorage.getItem("vocode_user_avatar") || user?.avatar || "default";
   });
 
   useEffect(() => {
@@ -40,16 +48,77 @@ export default function DashboardSidebar({
     return () => window.removeEventListener("vocode-settings-changed", handleSettingsChange);
   }, []);
 
+  useEffect(() => {
+    const handleAvatarChange = (e) => {
+      const nextAvatar =
+        e.detail?.avatar || localStorage.getItem("vocode_user_avatar") || "default";
+      setUserAvatar(nextAvatar);
+    };
+    window.addEventListener("vocode-avatar-changed", handleAvatarChange);
+    return () => window.removeEventListener("vocode-avatar-changed", handleAvatarChange);
+  }, []);
+
+  useEffect(() => {
+    if (user?.avatar) {
+      setUserAvatar((prev) => localStorage.getItem("vocode_user_avatar") || user.avatar || prev);
+    }
+  }, [user]);
+
+  // Close profile menu on outside click
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (
+        userCardRef.current &&
+        !userCardRef.current.contains(e.target) &&
+        !e.target.closest?.(".user-popover")
+      ) {
+        setProfileMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, [profileMenuOpen, setProfileMenuOpen]);
+
   const userName =
     customDisplayName ||
     (user?.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : user?.name || "User");
   const userEmail = user?.email || "user@example.com";
   const userInitial = userName.charAt(0).toUpperCase() || "U";
 
+  const renderSidebarAvatar = () => {
+    if (!userAvatar || userAvatar === "default" || userAvatar === "initial") {
+      return <span className="user-avatar-initial">{userInitial}</span>;
+    }
+    if (userAvatar.startsWith("data:image/") || userAvatar.startsWith("http")) {
+      return <img src={userAvatar} alt={userName} className="user-avatar-img" />;
+    }
+    const presetMap = {
+      owl: "🦉",
+      cyber: "⚡",
+      terminal: "💻",
+      rocket: "🚀",
+      shield: "🛡️",
+    };
+    if (presetMap[userAvatar]) {
+      return <span className="user-avatar-emoji">{presetMap[userAvatar]}</span>;
+    }
+    return <span className="user-avatar-initial">{userInitial}</span>;
+  };
+
   return (
     <>
       {/* Mobile Top Navbar with Hamburger */}
       <div className="mobile-dashboard-header">
+        <button
+          type="button"
+          className="dash-back-arrow-btn sidebar-back-btn mobile-brand-back-btn"
+          onClick={() => navigate("/")}
+          title="Back to Landing Page"
+          aria-label="Back to Landing Page"
+        >
+          <ArrowLeft size={16} />
+        </button>
         <div className="sidebar-brand" onClick={() => navigate("/")}>
           <img
             src={theme === "light" ? "/vcode-light.png" : "/vcode.png"}
@@ -76,20 +145,31 @@ export default function DashboardSidebar({
 
       {/* Left Sidebar */}
       <aside className={`dashboard-sidebar ${mobileSidebarOpen ? "mobile-open" : ""}`}>
-        {/* Brand Logo */}
-        <div
-          className="sidebar-brand"
-          onClick={() => {
-            setMobileSidebarOpen(false);
-            navigate("/");
-          }}
-          title="Go to Vocodeai Home"
-        >
-          <img
-            src={theme === "light" ? "/vcode-light.png" : "/vcode.png"}
-            alt="Vocodeai Logo"
-            className="sidebar-logo-img"
-          />
+        {/* Brand Logo & Back to Landing */}
+        <div className="sidebar-brand-wrapper">
+          <button
+            type="button"
+            className="dash-back-arrow-btn sidebar-back-btn"
+            onClick={() => navigate("/")}
+            title="Back to Landing Page"
+            aria-label="Back to Landing Page"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div
+            className="sidebar-brand"
+            onClick={() => {
+              setMobileSidebarOpen(false);
+              navigate("/");
+            }}
+            title="Go to Vocodeai Home"
+          >
+            <img
+              src={theme === "light" ? "/vcode-light.png" : "/vcode.png"}
+              alt="Vocodeai Logo"
+              className="sidebar-logo-img"
+            />
+          </div>
         </div>
 
         {/* Navigation Items */}
@@ -116,16 +196,6 @@ export default function DashboardSidebar({
             <span>Templates</span>
           </button>
 
-          <button
-            className={`sidebar-nav-item ${activeTab === "terminal" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("terminal");
-              setMobileSidebarOpen(false);
-            }}
-          >
-            <SquareTerminal className="nav-icon" />
-            <span>Cloud Terminal</span>
-          </button>
 
           <button
             className={`sidebar-nav-item ${activeTab === "settings" ? "active" : ""}`}
@@ -153,41 +223,61 @@ export default function DashboardSidebar({
           </button>
         </nav>
 
-        {/* User Profile Card (Bottom of Sidebar) */}
-        <div
-          className="sidebar-user-card"
-          onClick={(e) => {
-            e.stopPropagation();
-            setProfileMenuOpen(!profileMenuOpen);
-          }}
-        >
-          <div className="user-avatar">{userInitial}</div>
-          <div className="user-info">
-            <span className="user-name">{userName}</span>
-            <span className="user-email">{userEmail}</span>
+        {/* User Profile Container */}
+        <div ref={userCardRef} className="sidebar-profile-container">
+          <div
+            className={`sidebar-user-card ${activeTab === "account" ? "account-active" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setProfileMenuOpen((prev) => !prev);
+            }}
+          >
+            <div className="user-avatar">{renderSidebarAvatar()}</div>
+            <div className="user-info">
+              <span className="user-name">{userName}</span>
+              <span className="user-email">{userEmail}</span>
+            </div>
+            <ChevronRight className={`user-chevron ${profileMenuOpen ? "open" : ""}`} />
           </div>
-          <ChevronRight className="user-chevron" />
 
           {/* Profile Popover Menu */}
           {profileMenuOpen && (
-            <div className="user-popover" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="user-popover animate-scale-in"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
-                className="popover-item"
-                onClick={() => {
+                type="button"
+                className={`popover-item ${activeTab === "account" ? "active" : ""}`}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   setProfileMenuOpen(false);
-                  setActiveTab("settings");
+                  setActiveTab("account");
                 }}
               >
                 <Settings size={15} />
                 <span>Account Settings</span>
               </button>
               <button
+                type="button"
                 className="popover-item danger"
+                onMouseDown={(e) => e.stopPropagation()}
                 onClick={async (e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   setProfileMenuOpen(false);
-                  await logout();
-                  navigate("/login", { replace: true });
+                  try {
+                    await logout();
+                  } catch (err) {
+                    console.warn("Logout error:", err);
+                  } finally {
+                    localStorage.removeItem("accessToken");
+                    localStorage.removeItem("user");
+                    navigate("/login", { replace: true });
+                  }
                 }}
               >
                 <LogOut size={15} />

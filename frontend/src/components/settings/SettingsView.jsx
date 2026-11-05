@@ -94,10 +94,14 @@ const findCategory = (catId) => {
   );
 };
 
-export default function SettingsView({ workspaceId = null, onBack = null }) {
+export default function SettingsView({
+  workspaceId = null,
+  onBack = null,
+  initialCategory = "editor",
+}) {
   // Scope: 'user' (global) or 'workspace' (current project)
   const [scope, setScope] = useState(workspaceId ? "workspace" : "user");
-  const [activeCategory, setActiveCategory] = useState("editor");
+  const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [searchQuery, setSearchQuery] = useState("");
   const [isJsonMode, setIsJsonMode] = useState(false);
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { FolderClosed, Trash2, Check, RotateCcw } from "lucide-react";
+import { FolderClosed, Trash2, Check, RotateCcw, ArrowLeft } from "lucide-react";
 import { getFileIcon } from "../../utils/getFileIcon";
 import { formatRelativeTime } from "../../utils/formatTime";
 
@@ -16,13 +16,26 @@ export default function RecycleBinView({
   return (
     <section className="recycle-bin-container">
       <div className="recycle-bin-header">
-        <div>
-          <h1 className="dash-main-title">
-            Recycle <span className="dash-heading-accent">Bin</span>
-          </h1>
-          <p className="dash-main-subtitle">
-            Restore deleted files and folders back to your workspace or permanently remove them.
-          </p>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "16px" }}>
+          {setActiveTab && (
+            <button
+              type="button"
+              className="dash-back-arrow-btn"
+              onClick={() => setActiveTab("workspaces")}
+              title="Back to Workspaces"
+              aria-label="Back"
+            >
+              <ArrowLeft size={18} />
+            </button>
+          )}
+          <div>
+            <h1 className="dash-main-title">
+              Recycle <span className="dash-heading-accent">Bin</span>
+            </h1>
+            <p className="dash-main-subtitle">
+              Restore deleted files and folders back to your workspace or permanently remove them.
+            </p>
+          </div>
         </div>
 
         {recycleItems.length > 0 && (

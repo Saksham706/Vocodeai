@@ -8,6 +8,7 @@ import {
   Download,
   Trash2,
   Plus,
+  ArrowLeft,
 } from "lucide-react";
 import { formatRelativeTime } from "../../utils/formatTime";
 

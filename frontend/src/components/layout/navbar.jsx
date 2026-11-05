@@ -21,6 +21,7 @@ import {
   Terminal as TerminalIcon,
   HelpCircle,
   ExternalLink,
+  ArrowLeft,
 } from "lucide-react";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import "../../styles/navbar.css";
@@ -212,6 +213,15 @@ export default function Navbar({
     <header className="ide-navbar" aria-label="Desktop IDE Navigation Bar">
       {/* 1. LEFT: VOCODEAI LOGO & 8 DESKTOP MENUS */}
       <div className="ide-nav-left" ref={menuBarRef}>
+        <button
+          type="button"
+          className="dash-back-arrow-btn ide-nav-back-btn"
+          onClick={() => navigate("/dashboard")}
+          title="Back to Dashboard"
+          aria-label="Back to Dashboard"
+        >
+          <ArrowLeft size={15} />
+        </button>
         <div
           className="ide-brand-wrap"
           onClick={() => navigate("/dashboard")}

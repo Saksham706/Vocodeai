@@ -26,7 +26,6 @@ import DashboardHeader from "../components/dashboard/DashboardHeader";
 import WorkspaceCardGrid from "../components/dashboard/WorkspaceCardGrid";
 import DashboardPlaceholderTab from "../components/dashboard/DashboardPlaceholderTab";
 import TemplatesView from "../components/dashboard/TemplatesView";
-import CloudTerminalView from "../components/dashboard/CloudTerminalView";
 import RecycleBinView from "../components/dashboard/RecycleBinView";
 import RenameWorkspaceModal from "../components/dashboard/RenameWorkspaceModal";
 import DeleteWorkspaceModal from "../components/dashboard/DeleteWorkspaceModal";
@@ -38,6 +37,7 @@ import ImportWorkspaceModal from "../components/dashboard/ImportWorkspaceModal";
 import UploadConfirmModal from "../components/dashboard/UploadConfirmModal";
 import ExportWorkspacesModal from "../components/dashboard/ExportWorkspacesModal";
 import SettingsView from "../components/settings/SettingsView";
+import AccountSettingsView from "../components/account/AccountSettingsView";
 import "../styles/dashboard.css";
 import "../styles/templates.css";
 
@@ -267,7 +267,18 @@ export default function Dashboard() {
   useEffect(() => {
     const handleOutsideClick = (e) => {
       setMenuOpenId(null);
-      setProfileMenuOpen(false);
+
+      // Do not close profile popover if clicking inside the profile card or menu
+      const isInsideProfile =
+        e.target &&
+        e.target.closest &&
+        (e.target.closest(".sidebar-user-card") ||
+          e.target.closest(".user-popover") ||
+          e.target.closest(".sidebar-profile-container"));
+
+      if (!isInsideProfile) {
+        setProfileMenuOpen(false);
+      }
 
       if (
         createContainerRef.current &&
@@ -895,7 +906,15 @@ export default function Dashboard() {
       />
 
       {/* Main Content Area */}
-      <main className={`dashboard-main ${activeTab === "settings" ? "settings-active-main" : ""}`}>
+      <main
+        className={`dashboard-main ${
+          activeTab === "settings"
+            ? "settings-active-main"
+            : activeTab === "account"
+            ? "account-active-main"
+            : ""
+        }`}
+      >
         {/* Top Toolbar */}
         {activeTab === "workspaces" && (
           <DashboardHeader
@@ -943,7 +962,25 @@ export default function Dashboard() {
           />
         )}
 
-        {/* PLACEHOLDER TAB VIEWS */}
+        {/* ACCOUNT SETTINGS TAB VIEW */}
+        {activeTab === "account" && (
+          <AccountSettingsView
+            onBack={() => setActiveTab("workspaces")}
+            onSignOut={async () => {
+              try {
+                await logout();
+              } catch (err) {
+                console.warn("Sign out err:", err);
+              } finally {
+                localStorage.removeItem("accessToken");
+                localStorage.removeItem("user");
+                navigate("/login", { replace: true });
+              }
+            }}
+          />
+        )}
+
+        {/* SETTINGS TAB VIEW */}
         {activeTab === "settings" && (
           <SettingsView
             workspaceId={null}
@@ -951,24 +988,6 @@ export default function Dashboard() {
           />
         )}
 
-        {/* CLOUD TERMINAL TAB VIEW (Persistent Container) */}
-        <div
-          className="dashboard-terminal-tab-container"
-          style={{
-            display: activeTab === "terminal" ? "flex" : "none",
-            flexDirection: "column",
-            flex: 1,
-            width: "100%",
-            minHeight: 0,
-          }}
-        >
-          <CloudTerminalView
-            theme={theme}
-            workspaces={workspaces}
-            isVisible={activeTab === "terminal"}
-            onNavigateToWorkspace={(wsId) => navigate(`/workspace/${wsId}`)}
-          />
-        </div>
 
         {activeTab === "templates" && (
           <TemplatesView

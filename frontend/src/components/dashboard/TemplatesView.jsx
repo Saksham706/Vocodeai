@@ -12,6 +12,7 @@ import {
   Layout,
   Eye,
   ArrowRight,
+  ArrowLeft,
   X,
   FileCode,
   Folder,
@@ -125,18 +126,31 @@ export default function TemplatesView({
     <div className="templates-tab-container">
       {/* Top Banner Header */}
       <div className="templates-header-section">
-        <div className="templates-title-group">
-          <div className="templates-badge">
-            <Sparkles size={14} className="sparkle-icon" />
-            <span>PROJECT STARTERS</span>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "16px", marginBottom: "8px" }}>
+          {onBack && (
+            <button
+              type="button"
+              className="dash-back-arrow-btn"
+              onClick={onBack}
+              title="Back to Workspaces"
+              aria-label="Back"
+            >
+              <ArrowLeft size={18} />
+            </button>
+          )}
+          <div className="templates-title-group" style={{ flex: 1 }}>
+            <div className="templates-badge">
+              <Sparkles size={14} className="sparkle-icon" />
+              <span>PROJECT STARTERS</span>
+            </div>
+            <h1 className="templates-main-title">
+              Pre-configured <span className="dash-heading-accent">Templates</span>
+            </h1>
+            <p className="templates-sub-title">
+              Spin up production-grade AI voice companions, full-stack APIs, and
+              sandboxed environments with zero boilerplate.
+            </p>
           </div>
-          <h1 className="templates-main-title">
-            Pre-configured <span className="dash-heading-accent">Templates</span>
-          </h1>
-          <p className="templates-sub-title">
-            Spin up production-grade AI voice companions, full-stack APIs, and
-            sandboxed environments with zero boilerplate.
-          </p>
         </div>
 
         {/* Search & Actions Bar */}

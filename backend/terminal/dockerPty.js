@@ -1,3 +1,4 @@
+import fs from "fs";
 import pty from "node-pty";
 
 export function createDockerPty(
@@ -41,7 +42,8 @@ export function createDockerPty(
   } else if (isSh) {
     execArgs.push("sh");
   } else {
-    execArgs.push("bash");
+    // Force bash to load the custom vocode bashrc and run interactively with clean prompt
+    execArgs.push("bash", "--rcfile", "/etc/vocode_bashrc", "-i");
   }
 
   const isWindows = process.platform === "win32";
@@ -69,19 +71,26 @@ export function createLocalPty(
 ) {
   const isWindows = process.platform === "win32";
   let shellCmd = isWindows ? "powershell.exe" : "/bin/bash";
+  let shellArgs = [];
 
-  if (shell === "node") {
+  const gitBash = "C:\\Program Files\\Git\\bin\\bash.exe";
+  if (isWindows && shell === "bash" && fs.existsSync(gitBash)) {
+    shellCmd = gitBash;
+    shellArgs = ["--login", "-i"];
+  } else if (shell === "node") {
     shellCmd = "node";
   } else if (shell === "sh" && !isWindows) {
     shellCmd = "/bin/sh";
   } else if (shell === "cmd" && isWindows) {
     shellCmd = "cmd.exe";
+  } else if (isWindows) {
+    shellArgs = ["-NoLogo"];
   }
 
   const termCols = Math.max(20, Math.min(Number(cols) || 120, 500));
   const termRows = Math.max(5, Math.min(Number(rows) || 30, 200));
 
-  return pty.spawn(shellCmd, [], {
+  return pty.spawn(shellCmd, shellArgs, {
     name: "xterm-256color",
     cols: termCols,
     rows: termRows,

@@ -1,7 +1,11 @@
+import fs from "fs";
+import path from "path";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import axios from "axios";
 import User from "../models/User.js";
+import Workspace from "../models/Workspace.js";
+import { getWorkspacesRoot } from "../config/paths.js";
 import { generateAccessToken, generateRefreshToken } from "../utils/token.js";
 import { generateOTP, hashOTP } from "../utils/otp.js";
 import { sendEmail } from "../utils/sendEmail.js";
@@ -68,6 +72,9 @@ export async function login(req, res) {
         id: user._id,
         email: user.email,
         firstName: user.firstName,
+        lastName: user.lastName,
+        avatar: user.avatar || "default",
+        phone: user.phone || "",
       },
     });
   } catch (err) {
@@ -420,5 +427,139 @@ export async function connectGithubToken(req, res) {
     console.error("connectGithubToken error:", err.message);
     const msg = err.response?.data?.message || err.message || "Invalid GitHub token";
     res.status(400).json({ error: `GitHub Verification Failed: ${msg}` });
+  }
+}
+
+/**
+ * Fetch current user profile
+ */
+export async function getProfile(req, res) {
+  try {
+    const user = await User.findById(req.user.id).select(
+      "-passwordHash -refreshToken -resetOTP -resetOTPExpiry"
+    );
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch profile: " + err.message });
+  }
+}
+
+/**
+ * Update user profile details
+ */
+export async function updateProfile(req, res) {
+  try {
+    const { firstName, lastName, phone, avatar } = req.body;
+    const updates = {};
+    if (firstName !== undefined) updates.firstName = firstName.trim();
+    if (lastName !== undefined) updates.lastName = lastName.trim();
+    if (phone !== undefined) updates.phone = phone.trim();
+    if (avatar !== undefined) updates.avatar = avatar;
+
+    const updatedUser = await User.findByIdAndUpdate(req.user.id, updates, {
+      new: true,
+    }).select("-passwordHash -refreshToken -resetOTP -resetOTPExpiry");
+
+    if (!updatedUser) return res.status(404).json({ error: "User not found" });
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      user: updatedUser,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update profile: " + err.message });
+  }
+}
+
+/**
+ * Change account password
+ */
+export async function changePassword(req, res) {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res
+        .status(400)
+        .json({ error: "Current password and new password are required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ error: "New password must be at least 6 characters" });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    if (user.passwordHash) {
+      const match = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!match) {
+        return res.status(400).json({ error: "Incorrect current password" });
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    user.passwordHash = passwordHash;
+    await user.save();
+
+    res.json({ success: true, message: "Password updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to change password: " + err.message });
+  }
+}
+
+function calculateDirSize(dirPath) {
+  let total = 0;
+  try {
+    if (!fs.existsSync(dirPath)) return 0;
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      try {
+        if (entry.isDirectory()) {
+          total += calculateDirSize(fullPath);
+        } else if (entry.isFile()) {
+          const stats = fs.statSync(fullPath);
+          total += stats.size;
+        }
+      } catch {}
+    }
+  } catch {}
+  return total;
+}
+
+/**
+ * Real-time storage quota and cloud sandbox usage calculation
+ */
+export async function getStorageUsage(req, res) {
+  try {
+    const userId = req.user.id;
+    const userDir = path.join(getWorkspacesRoot(), String(userId));
+    const usedBytes = calculateDirSize(userDir);
+
+    const workspaceCount = await Workspace.countDocuments({
+      userId,
+    });
+
+    const maxBytes = 10 * 1024 * 1024 * 1024; // 10 GB limit
+    const usedMB = (usedBytes / (1024 * 1024)).toFixed(1);
+    const usedGB = (usedBytes / (1024 * 1024 * 1024)).toFixed(2);
+    const percent = Math.min(100, Math.round((usedBytes / maxBytes) * 100));
+
+    res.json({
+      success: true,
+      usedBytes,
+      usedFormatted:
+        usedBytes > 1024 * 1024 * 1024 ? `${usedGB} GB` : `${usedMB} MB`,
+      maxFormatted: "10.0 GB",
+      percentUtilized: percent,
+      availableFormatted: `${(10 - Number(usedGB)).toFixed(1)} GB`,
+      workspaceCount,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to calculate storage quota: " + err.message });
   }
 }

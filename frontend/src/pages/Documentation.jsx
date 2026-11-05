@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Info,
   ArrowRight,
+  ArrowLeft,
   BookOpen,
   Search,
   Sun,
@@ -291,6 +292,7 @@ export default function Documentation() {
          ========================================================= */}
       <header className="docs-topbar">
         <div className="docs-topbar-inner">
+          <button type="button" className="dash-back-arrow-btn docs-back-btn" onClick={() => navigate(-1)} title="Back" aria-label="Back"><ArrowLeft size={16} /></button>
           {/* Logo & Docs Badge */}
           <div className="docs-brand-left" onClick={() => navigate("/")} role="button" tabIndex={0} title="VocodeAI Home">
             <img
