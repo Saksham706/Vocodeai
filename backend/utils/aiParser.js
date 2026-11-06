@@ -1,8 +1,19 @@
 function tryParseJson(str) {
+  if (!str) return null;
   try {
     return JSON.parse(str);
   } catch {
-    return null;
+    try {
+      // Fix unescaped newlines/tabs inside string literals (common in LLM multi-line code generation)
+      const repaired = str.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/gs, (match) => {
+        return match
+          .replace(/\r?\n/g, "\\n")
+          .replace(/\t/g, "\\t");
+      });
+      return JSON.parse(repaired);
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -210,6 +221,16 @@ function extractMarkdownCodeFallback(rawText) {
   const lang = (codeBlockMatch[1] || "").toLowerCase();
   const code = codeBlockMatch[2].trim();
 
+  // CRITICAL GUARD: If the block contains JSON actions, it is NEVER a code file!
+  if (
+    lang === "json" ||
+    code.startsWith("{") ||
+    code.includes('"actions"') ||
+    code.includes('"action"')
+  ) {
+    return null;
+  }
+
   let filename = "solution.py";
   if (lang === "java" || code.includes("class ") || code.includes("public static void main")) {
     const classMatch = code.match(/public\s+class\s+([A-Za-z0-9_]+)/);
@@ -263,8 +284,21 @@ export function parseAI(response) {
     return xmlTools;
   }
 
-  // 2. Direct JSON parse
-  const direct = tryParseJson(text);
+  // 2. Extract from markdown JSON code fences if present
+  let cleanJsonCandidate = text;
+  if (cleanJsonCandidate.includes("```")) {
+    const jsonFence = cleanJsonCandidate.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (
+      jsonFence &&
+      jsonFence[1] &&
+      (jsonFence[1].includes('"actions"') || jsonFence[1].includes('"action"'))
+    ) {
+      cleanJsonCandidate = jsonFence[1].trim();
+    }
+  }
+
+  // 3. Direct JSON parse (with automatic unescaped newline/control char repair)
+  const direct = tryParseJson(cleanJsonCandidate) || tryParseJson(text);
   if (direct) {
     if (direct.actions && Array.isArray(direct.actions)) return direct;
     if (Array.isArray(direct)) return { actions: direct };
@@ -272,13 +306,7 @@ export function parseAI(response) {
     if (direct.message) return { actions: [{ action: "chat", message: direct.message }] };
   }
 
-  // 3. Character-by-character balanced actions parser
-  const balanced = parseBalancedActions(text);
-  if (balanced && balanced.actions?.length > 0) {
-    return balanced;
-  }
-
-  // 4. Sanitized JSON parse
+  // 4. Sanitized JSON parse (slices between first { and last })
   const sanitized = sanitizeJsonString(text);
   const sanitizedParsed = tryParseJson(sanitized);
   if (sanitizedParsed) {
@@ -287,13 +315,19 @@ export function parseAI(response) {
     if (sanitizedParsed.action) return { actions: [sanitizedParsed] };
   }
 
-  // 5. Markdown code block fallback
+  // 5. Character-by-character balanced actions parser
+  const balanced = parseBalancedActions(text) || parseBalancedActions(cleanJsonCandidate);
+  if (balanced && balanced.actions?.length > 0) {
+    return balanced;
+  }
+
+  // 6. Markdown code block fallback (ONLY for pure code, NEVER for JSON action responses)
   const markdownFallback = extractMarkdownCodeFallback(text);
   if (markdownFallback) {
     return markdownFallback;
   }
 
-  // 6. Final fallback
+  // 7. Final fallback
   return {
     actions: [
       {

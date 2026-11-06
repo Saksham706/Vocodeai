@@ -74,7 +74,22 @@ function WorkspaceLayout() {
   const [showSettings, setShowSettings] = useState(false);
 
   // Activity Bar Tab & Explorer State (must be initialized before keyboard shortcuts hook)
-  const [activityTab, setActivityTab] = useState("explorer");
+  const [activityTab, setActivityTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("github") || params.get("github_error")) return "git";
+    try {
+      return localStorage.getItem("vocode_active_activity_tab") || "explorer";
+    } catch {
+      return "explorer";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("vocode_active_activity_tab", activityTab);
+    } catch {}
+  }, [activityTab]);
+
   const [isExplorerOpen, setIsExplorerOpen] = useState(true);
   const toggleExplorer = () => {
     setIsExplorerOpen((prev) => !prev);
@@ -209,9 +224,11 @@ function WorkspaceLayout() {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (params.get("github") === "connected") {
+    if (params.get("github") === "connected" || params.get("github_error")) {
       setActivityTab("git");
       setIsExplorerOpen(true);
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
     }
   }, [location.search]);
 
@@ -475,6 +492,23 @@ function WorkspaceLayout() {
             setIsExplorerOpen(true);
           }
         }}
+        onOpenExplorer={() => {
+          setActivityTab("explorer");
+          setIsExplorerOpen(true);
+        }}
+        onOpenSearch={() => {
+          setActivityTab("search");
+          setIsExplorerOpen(true);
+        }}
+        onOpenGit={() => {
+          setActivityTab("git");
+          setIsExplorerOpen(true);
+        }}
+        onOpenDebug={() => {
+          setActivityTab("debug");
+          setIsExplorerOpen(true);
+        }}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       {/* 2. MAIN WORKSPACE CONTAINER */}

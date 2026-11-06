@@ -1446,3 +1446,120 @@
 .wb-badge strong {
   color: var(--text-primary);
 }
+
+/* =========================================================
+   RESPONSIVE SETTINGS VIEW STYLES
+   ========================================================= */
+@media (max-width: 900px) {
+  .settings-sidebar {
+    width: 220px;
+    padding: 14px 10px;
+  }
+
+  .settings-content {
+    padding: 20px 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .settings-header {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+
+  .settings-header-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .settings-scope-switcher {
+    width: 100%;
+  }
+
+  .scope-btn {
+    flex: 1;
+    text-align: center;
+  }
+
+  .settings-actions-group {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .settings-body {
+    flex-direction: column;
+  }
+
+  .settings-sidebar {
+    width: 100%;
+    height: auto;
+    max-height: 140px;
+    border-right: none;
+    border-bottom: 1px solid var(--border-primary);
+    padding: 10px 14px;
+    flex-direction: row;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 12px;
+  }
+
+  .settings-sidebar-header {
+    display: none;
+  }
+
+  .settings-sidebar-categories {
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .settings-category-group {
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .settings-category-group-title {
+    display: none;
+  }
+
+  .settings-category-item {
+    white-space: nowrap;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: var(--surface-secondary);
+  }
+
+  .settings-content {
+    padding: 18px 16px;
+  }
+
+  .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .setting-control-wrapper {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .settings-header {
+    padding: 12px;
+  }
+
+  .settings-title {
+    font-size: 1.1rem;
+  }
+
+  .settings-content {
+    padding: 14px 12px;
+  }
+
+  .setting-item-card {
+    padding: 14px 12px;
+  }
+}
+

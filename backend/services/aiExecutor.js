@@ -22,7 +22,29 @@ export async function executeAI({
     return { results: ["No actions to execute"] };
   }
 
+  // Flatten / unpack any nested JSON actions if AI mistakenly wrapped them
+  const flattenedActions = [];
   for (const cmd of command.actions) {
+    if (
+      (cmd.action === "create_file" || cmd.action === "write_file") &&
+      typeof cmd.content === "string" &&
+      (cmd.content.includes('"actions": [') || cmd.content.includes('"actions":['))
+    ) {
+      try {
+        const nestedMatch = cmd.content.match(/\{[\s\S]*"actions"[\s\S]*\}/);
+        if (nestedMatch) {
+          const nested = JSON.parse(nestedMatch[0]);
+          if (nested?.actions && Array.isArray(nested.actions)) {
+            flattenedActions.push(...nested.actions);
+            continue;
+          }
+        }
+      } catch {}
+    }
+    flattenedActions.push(cmd);
+  }
+
+  for (const cmd of flattenedActions) {
     switch (cmd.action) {
       case "create_file": {
         const cleanPath = cleanRelativePath(cmd.path);

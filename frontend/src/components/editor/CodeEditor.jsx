@@ -40,6 +40,85 @@ export default function CodeEditor({ file }) {
     return () => window.removeEventListener("vocode-settings-changed", handleSettingsChange);
   }, []);
 
+  // Handle editor commands dispatched from top navbar (Edit, Selection, Go)
+  useEffect(() => {
+    const handleEditorAction = (e) => {
+      const action = e.detail?.action;
+      const editor = editorRef.current;
+      if (!editor) return;
+      try {
+        editor.focus();
+        switch (action) {
+          case "undo":
+            editor.trigger("navbar", "undo");
+            break;
+          case "redo":
+            editor.trigger("navbar", "redo");
+            break;
+          case "selectAll":
+            editor.trigger("navbar", "editor.action.selectAll");
+            break;
+          case "expandSelection":
+            editor.trigger("navbar", "editor.action.smartSelect.expand");
+            break;
+          case "shrinkSelection":
+            editor.trigger("navbar", "editor.action.smartSelect.shrink");
+            break;
+          case "copyLineDown":
+            editor.trigger("navbar", "editor.action.copyLinesDownAction");
+            break;
+          case "copyLineUp":
+            editor.trigger("navbar", "editor.action.copyLinesUpAction");
+            break;
+          case "moveLineUp":
+            editor.trigger("navbar", "editor.action.moveLinesUpAction");
+            break;
+          case "moveLineDown":
+            editor.trigger("navbar", "editor.action.moveLinesDownAction");
+            break;
+          case "find":
+            editor.trigger("navbar", "actions.find");
+            break;
+          case "replace":
+            editor.trigger("navbar", "editor.action.startFindReplaceAction");
+            break;
+          case "gotoLine":
+            editor.trigger("navbar", "editor.action.gotoLine");
+            break;
+          case "format":
+            editor.trigger("navbar", "editor.action.formatDocument");
+            break;
+          case "comment":
+            editor.trigger("navbar", "editor.action.commentLine");
+            break;
+          case "cut":
+            document.execCommand("cut");
+            break;
+          case "copy":
+            document.execCommand("copy");
+            break;
+          case "paste":
+            if (navigator.clipboard?.readText) {
+              navigator.clipboard.readText().then((text) => {
+                if (text) {
+                  const selection = editor.getSelection();
+                  editor.executeEdits("navbar", [{ range: selection, text, forceMoveMarkers: true }]);
+                }
+              }).catch(() => {});
+            }
+            break;
+          default:
+            break;
+        }
+      } catch (err) {
+        console.warn("Editor action error:", action, err);
+      }
+    };
+
+    window.addEventListener("vocode-editor-action", handleEditorAction);
+    return () => window.removeEventListener("vocode-editor-action", handleEditorAction);
+  }, []);
+
   // Live Monaco Editor options update
   useEffect(() => {
     if (!editorRef.current) return;
@@ -201,6 +280,7 @@ export default function CodeEditor({ file }) {
         }}
         onMount={(editor, monaco) => {
           editorRef.current = editor;
+          window.__vocode_active_editor = editor;
 
           // Add "Live Preview" action to right-click context menu
           if (monaco) {

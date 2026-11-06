@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { getFileIcon } from "../../utils/getFileIcon";
 import { sortTreeNodes } from "../../utils/buildTree";
@@ -133,6 +134,18 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Close delete modal on Escape key
+  useEffect(() => {
+    if (!showDeleteConfirm) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setShowDeleteConfirm(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showDeleteConfirm]);
 
   const submitRename = async () => {
     if (isSubmittingRef.current) return;
@@ -319,7 +332,7 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
         </div>
 
         {/* Delete Confirmation Modal / Popover */}
-        {showDeleteConfirm && (
+        {showDeleteConfirm && createPortal(
           <div className="delete-confirm-overlay" onClick={() => setShowDeleteConfirm(false)}>
             <div
               className="delete-confirm-card"
@@ -355,7 +368,8 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Inline Folder Creation Row */}
@@ -558,7 +572,7 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
       </div>
 
       {/* Delete Confirmation Modal / Popover */}
-      {showDeleteConfirm && (
+      {showDeleteConfirm && createPortal(
         <div className="delete-confirm-overlay" onClick={() => setShowDeleteConfirm(false)}>
           <div
             className="delete-confirm-card"
@@ -594,7 +608,8 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

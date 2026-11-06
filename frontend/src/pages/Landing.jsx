@@ -268,7 +268,6 @@ export default function Landing() {
               alt="Vocodeai Logo"
               className="brand-icon navbar-logo"
             />
-            <span className="brand-version-chip">v2.0</span>
           </div>
 
           {/* Desktop Navigation Links */}
@@ -305,7 +304,8 @@ export default function Landing() {
             </button>
 
             <button className="btn-enter-app" onClick={handleEnter}>
-              <span>Enter VocodeAI</span>
+              <span className="btn-enter-text-desktop">Enter VocodeAI</span>
+              <span className="btn-enter-text-mobile">Enter</span>
               <ArrowRight size={14} className="btn-arrow-icon" />
             </button>
 

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import { askAI, deleteChatHistory } from "../services/aiApi";
 import { useAuth } from "./AuthContext";
 import { useWorkspace } from "./WorkspaceContext";
@@ -13,6 +13,7 @@ export function AIProvider({ children }) {
     addFile,
     runCode,
     openNewTerminal,
+    setShowTerminal,
     activeFile,
     applyFileChange,
     loadWorkspace,
@@ -21,6 +22,76 @@ export function AIProvider({ children }) {
   } = useWorkspace();
 
   const wsKey = currentProject || "default";
+
+  // Active AI Provider & Model Config (saved in localStorage)
+  const [aiConfig, setAiConfig] = useState(() => {
+    try {
+      const stored = localStorage.getItem("vocode_ai_provider_config");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Saved credentials per provider for fast switching
+  const [savedProviderKeys, setSavedProviderKeys] = useState(() => {
+    try {
+      const stored = localStorage.getItem("vocode_ai_saved_keys");
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Connect or switch active AI model & account
+  const connectProvider = (config) => {
+    setAiConfig(config);
+    try {
+      localStorage.setItem("vocode_ai_provider_config", JSON.stringify(config));
+      const updatedKeys = {
+        ...savedProviderKeys,
+        [config.provider]: {
+          apiKey: config.apiKey,
+          model: config.model,
+          updatedAt: new Date().toISOString(),
+        },
+      };
+      setSavedProviderKeys(updatedKeys);
+      localStorage.setItem("vocode_ai_saved_keys", JSON.stringify(updatedKeys));
+    } catch (err) {
+      console.warn("Could not persist AI config to localStorage:", err);
+    }
+  };
+
+  // Disconnect active model & account (reverts to model selector)
+  const disconnectProvider = () => {
+    setAiConfig(null);
+    try {
+      localStorage.removeItem("vocode_ai_provider_config");
+    } catch (err) {
+      console.warn("Could not remove AI config:", err);
+    }
+  };
+
+  // Switch specific model for active provider
+  const updateAiModel = (newModel) => {
+    if (!aiConfig) return;
+    const updated = { ...aiConfig, model: newModel };
+    setAiConfig(updated);
+    try {
+      localStorage.setItem("vocode_ai_provider_config", JSON.stringify(updated));
+      const updatedKeys = {
+        ...savedProviderKeys,
+        [updated.provider]: {
+          ...savedProviderKeys[updated.provider],
+          model: newModel,
+          apiKey: updated.apiKey,
+        },
+      };
+      setSavedProviderKeys(updatedKeys);
+      localStorage.setItem("vocode_ai_saved_keys", JSON.stringify(updatedKeys));
+    } catch {}
+  };
 
   // Load saved sessions from localStorage
   const [sessions, setSessions] = useState(() => {
@@ -213,12 +284,34 @@ export function AIProvider({ children }) {
     setMessages(nextMessages);
 
     try {
-      const res = await askAI(accessToken, text, workspaceId, activeFile, attachments);
+      const res = await askAI(accessToken, text, workspaceId, activeFile, attachments, aiConfig);
       const ai = res.ai;
 
       /* ================= MULTI ACTION SUPPORT ================= */
       if (ai?.actions) {
-        for (const action of ai.actions) {
+        // Flatten any nested JSON action responses
+        const safeActions = [];
+        for (const act of ai.actions) {
+          if (
+            (act.action === "create_file" || act.action === "write_file") &&
+            typeof act.content === "string" &&
+            (act.content.includes('"actions": [') || act.content.includes('"actions":['))
+          ) {
+            try {
+              const nestedMatch = act.content.match(/\{[\s\S]*"actions"[\s\S]*\}/);
+              if (nestedMatch) {
+                const nested = JSON.parse(nestedMatch[0]);
+                if (nested?.actions && Array.isArray(nested.actions)) {
+                  safeActions.push(...nested.actions);
+                  continue;
+                }
+              }
+            } catch {}
+          }
+          safeActions.push(act);
+        }
+
+        for (const action of safeActions) {
           if (action.action === "create_file" || action.action === "write_file") {
             await applyFileChange(action.path, action.content || "");
           }
@@ -230,18 +323,52 @@ export function AIProvider({ children }) {
           }
 
           if (action.action === "run_code" || action.action === "terminal") {
-            openNewTerminal();
-            setTimeout(() => runCode(), 300);
+            setShowTerminal?.(true);
+            const cmd = action.command || "";
+            let targetFile = action.path;
+            if (!targetFile && cmd) {
+              const fileMatch = cmd.match(
+                /([a-zA-Z0-9_\-./\\]+\.(cpp|cc|c|java|py|js|ts|jsx|tsx|html|sh))/i
+              );
+              if (fileMatch) targetFile = fileMatch[1];
+            }
+            if (!targetFile) targetFile = activeFile;
+            await runCode(targetFile, cmd || null);
+          }
+        }
+
+        // Safety fallback: If user explicitly asked to run a file or code in chat, but no run_code action was emitted
+        const isRunPrompt =
+          /^(run|execute|compile|start)\s+/i.test((text || "").trim()) ||
+          /\b(run|execute)\b.*\b(terminal|file|code)\b/i.test(text || "");
+
+        const hasRunAction = safeActions.some(
+          (a) => a.action === "run_code" || a.action === "terminal"
+        );
+
+        if (isRunPrompt && !hasRunAction) {
+          const fileMatch = (text || "").match(
+            /([a-zA-Z0-9_\-./\\]+\.(cpp|cc|c|java|py|js|ts|jsx|tsx|html|sh))/i
+          );
+          const fileToRun = fileMatch ? fileMatch[1] : activeFile;
+          if (fileToRun) {
+            setShowTerminal?.(true);
+            await runCode(fileToRun);
           }
         }
       }
 
       /* ================= CHAT ================= */
       const chatAction = ai?.actions?.find((a) => a.action === "chat");
+      const runAction = ai?.actions?.find(
+        (a) => a.action === "run_code" || a.action === "terminal"
+      );
       let replyMessage =
         chatAction?.message ||
         res.reply ||
-        (ai?.actions?.length
+        (runAction
+          ? `Running ${runAction.path || runAction.command || "command"} in terminal...`
+          : ai?.actions?.length
           ? `Executed: ${ai.actions.map((a) => a.path || a.action).join(", ")} ✅`
           : "Done ✅");
 
@@ -321,6 +448,11 @@ export function AIProvider({ children }) {
   return (
     <AIContext.Provider
       value={{
+        aiConfig,
+        savedProviderKeys,
+        connectProvider,
+        disconnectProvider,
+        updateAiModel,
         sendMessage,
         messages,
         loading,

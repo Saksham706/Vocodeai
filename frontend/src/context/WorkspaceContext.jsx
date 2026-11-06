@@ -714,92 +714,133 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
   };
 
   /* ================= RUN FILE ================= */
-  const runCode = async () => {
-    if (!activeFile) return;
+  const runCode = async (targetFile = null, explicitCommand = null) => {
+    let fileToRun =
+      targetFile ||
+      activeFile ||
+      (openTabs && openTabs.length > 0 ? openTabs[0] : null);
+    let command = explicitCommand ? explicitCommand.trim() : "";
+
+    // If explicitCommand was provided without targetFile, try to extract filename from command
+    if (!fileToRun && command) {
+      const match = command.match(
+        /([a-zA-Z0-9_\-./\\]+\.(cpp|cc|c|java|py|js|ts|jsx|tsx|html|sh))/i
+      );
+      if (match) fileToRun = match[1];
+    }
+
+    if (!fileToRun && !command) return;
 
     setPreviewUrl(null);
     setShowTerminal(true);
 
-    // Save immediately before running
-    await fileApi.saveFile(
-      accessToken,
-      workspaceId,
-      activeFile,
-      fileContentsRef.current[activeFile] || ""
-    );
-
-    let command = "";
-    if (activeFile.endsWith(".py")) {
-      command = `python3 "${activeFile}"`;
-    } else if (activeFile.endsWith(".js") || activeFile.endsWith(".mjs")) {
-      command = `node "${activeFile}"`;
-    } else if (activeFile.endsWith(".cpp") || activeFile.endsWith(".cc")) {
-      command = `g++ "${activeFile}" -o a.out && ./a.out`;
-    } else if (activeFile.endsWith(".c")) {
-      command = `gcc "${activeFile}" -o a.out && ./a.out`;
-    } else if (activeFile.endsWith(".java")) {
-      const parts = activeFile.split("/");
-      const cls = parts.pop().replace(".java", "");
-      const dir = parts.join("/");
-      const content = fileContentsRef.current[activeFile] || "";
-
-      // Check for Java package statement
-      const pkgMatch = content.match(/^\s*package\s+([a-zA-Z0-9_.]+)\s*;/m);
-      if (pkgMatch) {
-        const pkg = pkgMatch[1];
-        const pkgPath = pkg.replace(/\./g, "/");
-        let cpRoot = ".";
-        if (dir.endsWith(pkgPath)) {
-          cpRoot = dir.slice(0, -pkgPath.length).replace(/\/$/, "") || ".";
+    if (fileToRun) {
+      // If target file is not currently active, open it
+      if (activeFile !== fileToRun) {
+        try {
+          await openFile(fileToRun);
+        } catch (err) {
+          console.warn("Could not open file to run:", err);
         }
-        command = `javac "${activeFile}" && java -cp "${cpRoot}" ${pkg}.${cls}`;
-      } else {
-        const cp = dir || ".";
-        command = `javac "${activeFile}" && java -cp "${cp}" ${cls}`;
       }
-    } else {
-      command = `cat "${activeFile}"`;
+
+      // Save immediately before running
+      try {
+        await fileApi.saveFile(
+          accessToken,
+          workspaceId,
+          fileToRun,
+          fileContentsRef.current[fileToRun] || ""
+        );
+      } catch (err) {
+        console.warn("Could not save file before run:", err);
+      }
     }
+
+    // Determine shell execution command if not explicitly supplied
+    if (!command && fileToRun) {
+      if (fileToRun.endsWith(".py")) {
+        command = `python3 "${fileToRun}"`;
+      } else if (fileToRun.endsWith(".js") || fileToRun.endsWith(".mjs")) {
+        command = `node "${fileToRun}"`;
+      } else if (fileToRun.endsWith(".cpp") || fileToRun.endsWith(".cc")) {
+        command = `g++ "${fileToRun}" -o a.out && ./a.out`;
+      } else if (fileToRun.endsWith(".c")) {
+        command = `gcc "${fileToRun}" -o a.out && ./a.out`;
+      } else if (fileToRun.endsWith(".java")) {
+        const parts = fileToRun.split("/");
+        const cls = parts.pop().replace(".java", "");
+        const dir = parts.join("/");
+        const content = fileContentsRef.current[fileToRun] || "";
+
+        // Check for Java package statement
+        const pkgMatch = content.match(/^\s*package\s+([a-zA-Z0-9_.]+)\s*;/m);
+        if (pkgMatch) {
+          const pkg = pkgMatch[1];
+          const pkgPath = pkg.replace(/\./g, "/");
+          let cpRoot = ".";
+          if (dir.endsWith(pkgPath)) {
+            cpRoot = dir.slice(0, -pkgPath.length).replace(/\/$/, "") || ".";
+          }
+          command = `javac "${fileToRun}" && java -cp "${cpRoot}" ${pkg}.${cls}`;
+        } else {
+          const cp = dir || ".";
+          command = `javac "${fileToRun}" && java -cp "${cp}" ${cls}`;
+        }
+      } else {
+        command = `cat "${fileToRun}"`;
+      }
+    }
+
+    if (!command) return;
+
+    const baseName = fileToRun ? fileToRun.split("/").pop() : "terminal";
 
     setOutputLogs((prev) => [
       ...prev,
       {
         id: Date.now(),
-        text: `[Run] Executing ${activeFile}: ${command}`,
+        text: `[Run] Executing ${fileToRun || "command"}: ${command}`,
         type: "info",
         time: new Date().toLocaleTimeString(),
       },
     ]);
 
     // Clear old errors for this file
-    setProblems((prev) => prev.filter((p) => p.file !== activeFile));
+    if (fileToRun) {
+      setProblems((prev) => prev.filter((p) => p.file !== fileToRun));
+    }
 
-    const baseName = activeFile.split("/").pop();
+    const commandWithNewline = command.replace(/[\r\n]+$/, "") + "\r";
 
     // 1. If any terminal already exists, reuse it and run the command in it (ensuring only 1 terminal is open)
     const targetTerm =
-      terminals.find((t) => t.file === activeFile) ||
+      (fileToRun ? terminals.find((t) => t.file === fileToRun) : null) ||
       (activeTerminal ? terminals.find((t) => t.id === activeTerminal) : null) ||
       terminals[0];
 
     if (targetTerm) {
       setActiveTerminal(targetTerm.id);
       // Update terminal tab label and file metadata
-      setTerminals((prev) =>
-        prev.map((t) =>
-          t.id === targetTerm.id
-            ? { ...t, title: baseName, file: activeFile }
-            : t
-        )
-      );
-      sendWS({ type: "input", terminalId: targetTerm.id, data: command + "\n" });
+      if (fileToRun) {
+        setTerminals((prev) =>
+          prev.map((t) =>
+            t.id === targetTerm.id
+              ? { ...t, title: baseName, file: fileToRun }
+              : t
+          )
+        );
+      }
+      setTimeout(() => {
+        sendWS({ type: "input", terminalId: targetTerm.id, data: commandWithNewline });
+      }, 100);
       return;
     }
 
     // 2. If NO terminal exists, spawn exactly ONE terminal to execute the command
     const newId = `term_${Date.now()}`;
-    pendingRunRef.current = command + "\n";
-    createTerminal(newId, "bash", true, baseName, activeFile);
+    pendingRunRef.current = commandWithNewline;
+    createTerminal(newId, "bash", true, baseName, fileToRun);
   };
 
   /* ================= RUN PROJECT ================= */

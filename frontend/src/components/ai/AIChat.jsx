@@ -42,8 +42,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import "../../styles/aichat.css";
-
-const AI_MODELS = ["GPT-4o", "Claude 3.5 Sonnet", "Gemini 1.5 Pro"];
+import AIModelSelector, { AI_PROVIDERS } from "./AIModelSelector";
 
 export default function AIChat({
   workspaceId,
@@ -52,6 +51,11 @@ export default function AIChat({
   onToggleMaximize,
 }) {
   const {
+    aiConfig,
+    savedProviderKeys,
+    connectProvider,
+    disconnectProvider,
+    updateAiModel,
     sendMessage,
     messages,
     loading,
@@ -67,21 +71,26 @@ export default function AIChat({
 
   const [activeTab, setActiveTab] = useState("chat");
   const [input, setInput] = useState("");
-  const [selectedModel, setSelectedModel] = useState(() => {
-    return getEffectiveSettings()?.["vocode.ai"]?.defaultModel || "GPT-4o";
-  });
+  const [showModelSelector, setShowModelSelector] = useState(!aiConfig);
 
   useEffect(() => {
-    const handleSettingsChange = (e) => {
-      const aiSettings =
-        e.detail?.settings?.["vocode.ai"] || getEffectiveSettings()?.["vocode.ai"];
-      if (aiSettings?.defaultModel) {
-        setSelectedModel(aiSettings.defaultModel);
-      }
-    };
-    window.addEventListener("vocode-settings-changed", handleSettingsChange);
-    return () => window.removeEventListener("vocode-settings-changed", handleSettingsChange);
-  }, []);
+    if (!aiConfig) {
+      setShowModelSelector(true);
+    }
+  }, [aiConfig]);
+
+  const activeProvider = useMemo(() => {
+    return (
+      AI_PROVIDERS.find((p) => p.id === aiConfig?.provider) ||
+      AI_PROVIDERS[0]
+    );
+  }, [aiConfig]);
+
+  const otherSavedProviders = useMemo(() => {
+    return AI_PROVIDERS.filter(
+      (p) => p.id !== aiConfig?.provider && savedProviderKeys?.[p.id]?.apiKey
+    );
+  }, [aiConfig, savedProviderKeys]);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [filePickerOpen, setFilePickerOpen] = useState(false);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
@@ -113,6 +122,23 @@ export default function AIChat({
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
+
+  // Clean, compact model display name for header pill
+  const shortModelDisplayName = useMemo(() => {
+    if (!aiConfig) return activeProvider?.name || "Select AI";
+    const modelObj = activeProvider?.models?.find((m) => m.id === aiConfig.model);
+    if (modelObj?.name) {
+      return modelObj.name.replace(/^Google\s+/, "");
+    }
+    if (aiConfig.label) {
+      const stripped = aiConfig.label.replace(/\s*\([^)]*\)/, "").trim();
+      return stripped.replace(/^Google\s+/, "");
+    }
+    if (aiConfig.model) {
+      return aiConfig.model.replace(/^google\//, "").replace(/-/g, " ");
+    }
+    return activeProvider?.name || "AI";
+  }, [aiConfig, activeProvider]);
 
   // Flatten workspace tree to get all available files and folders
   const { allWorkspaceFiles, allWorkspaceFolders } = useMemo(() => {
@@ -336,6 +362,12 @@ export default function AIChat({
     const query = typeof textToSend === "string" ? textToSend : input;
     if ((!query.trim() && attachments.length === 0) || loading) return;
 
+    if (!aiConfig) {
+      setShowModelSelector(true);
+      showToast("Please choose an AI model and connect your account first.");
+      return;
+    }
+
     let finalQuery = query.trim();
 
     // Append attachments summary to prompt context
@@ -543,7 +575,7 @@ export default function AIChat({
           (a) => a.action === "create_file" || a.action === "write_file"
         );
         if (file) return `✅ Created and updated ${file.path} with the requested code.`;
-      } catch {}
+      } catch { }
     }
 
     const codeFenceRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
@@ -618,6 +650,17 @@ export default function AIChat({
     return sessions.filter((s) => s.title.toLowerCase().includes(q));
   }, [sessions, historySearch]);
 
+  if (showModelSelector) {
+    return (
+      <div className="ide-ai-panel">
+        <AIModelSelector
+          isDismissible={Boolean(aiConfig)}
+          onCancel={() => setShowModelSelector(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="ide-ai-panel">
       {/* Hidden file input pickers */}
@@ -652,7 +695,10 @@ export default function AIChat({
       {/* ================= 1. ASSISTANT HEADER ================= */}
       <div className="ide-ai-header">
         <div className="ide-ai-brand">
-          <RobotAvatar size={32} />
+          <div className="ide-ai-avatar-wrapper">
+            <RobotAvatar size={30} />
+            <span className="ide-ai-pulse-dot" />
+          </div>
           <div className="ide-ai-title-wrap">
             <h4 className="ide-ai-title">VocodeAI Assistant</h4>
             <p className="ide-ai-sub">Your AI pair programmer</p>
@@ -660,33 +706,129 @@ export default function AIChat({
         </div>
 
         <div className="ide-ai-header-right">
-          {/* Model Selector Dropdown */}
+          {/* Active Model & Account Pill */}
           <div className="ai-model-wrap" ref={modelMenuRef}>
             <button
               type="button"
               className="ai-model-pill"
               onClick={() => setModelDropdownOpen((prev) => !prev)}
-              aria-label="Select AI Model"
+              aria-label="Manage AI Model & Account"
+              title={
+                aiConfig?.accountEmail
+                  ? `Connected: ${aiConfig.accountEmail} (${aiConfig?.label || aiConfig?.model || "Google Gemini Pro"})`
+                  : aiConfig?.label
+                    ? `Active: ${aiConfig.label}`
+                    : "Click to manage AI model and account"
+              }
             >
-              <span>{selectedModel}</span>
-              <ChevronDown size={13} />
+              <span
+                className={`ai-active-status-dot ${aiConfig?.apiKey || aiConfig?.authMethod === "google"
+                    ? "connected"
+                    : "free"
+                  }`}
+              />
+              <span className="ai-active-model-name">
+                {shortModelDisplayName}
+              </span>
+              <ChevronDown size={11} className="ai-pill-chevron" />
             </button>
 
             {modelDropdownOpen && (
               <div className="ai-model-dropdown">
-                {AI_MODELS.map((m) => (
-                  <div
-                    key={m}
-                    className={`ai-model-item ${m === selectedModel ? "active" : ""}`}
-                    onClick={() => {
-                      setSelectedModel(m);
-                      setModelDropdownOpen(false);
-                    }}
-                  >
-                    <span>{m}</span>
-                    {m === selectedModel && <Check size={12} />}
+                <div className="ai-model-dropdown-header">
+                  <div className="ai-dropdown-header-top">
+                    <span className="ai-dropdown-section-title">Active Model</span>
+                    <span className="ai-dropdown-badge">
+                      {aiConfig?.authMethod === "google"
+                        ? "Google Account"
+                        : aiConfig?.isFreeTier
+                          ? "Free Tier"
+                          : "Personal Key"}
+                    </span>
                   </div>
-                ))}
+                  {aiConfig?.accountEmail && (
+                    <div className="ai-dropdown-account-info" title={aiConfig.accountEmail}>
+                      <span className="ai-dropdown-account-label">User:</span>
+                      <span className="ai-dropdown-account-email">{aiConfig.accountEmail}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sub-models under active provider */}
+                {activeProvider?.models?.length > 0 && (
+                  <div className="ai-model-dropdown-sublist">
+                    <span className="ai-dropdown-sub-label">Switch Version:</span>
+                    {activeProvider.models.map((m) => (
+                      <div
+                        key={m.id}
+                        className={`ai-model-item ${m.id === aiConfig?.model ? "active" : ""}`}
+                        onClick={() => {
+                          updateAiModel(m.id);
+                          setModelDropdownOpen(false);
+                          showToast(`Switched to ${m.name}`);
+                        }}
+                      >
+                        <span className="ai-model-item-name">{m.name}</span>
+                        {m.id === aiConfig?.model && <Check size={12} />}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Other previously saved providers */}
+                {otherSavedProviders.length > 0 && (
+                  <div className="ai-model-dropdown-sublist">
+                    <span className="ai-dropdown-sub-label">Quick Switch:</span>
+                    {otherSavedProviders.map((p) => {
+                      const saved = savedProviderKeys[p.id];
+                      return (
+                        <div
+                          key={p.id}
+                          className="ai-model-item"
+                          onClick={() => {
+                            connectProvider({
+                              provider: p.id,
+                              model: saved.model || p.defaultModel,
+                              apiKey: saved.apiKey,
+                              label: `${p.name} (${saved.model || p.defaultModel})`,
+                            });
+                            setModelDropdownOpen(false);
+                            showToast(`Switched to ${p.name}`);
+                          }}
+                        >
+                          <span className="ai-model-item-name">Switch to {p.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="ai-dropdown-divider" />
+
+                <button
+                  type="button"
+                  className="ai-model-dropdown-action-btn"
+                  onClick={() => {
+                    setModelDropdownOpen(false);
+                    setShowModelSelector(true);
+                  }}
+                >
+                  <RotateCcw size={12} />
+                  <span>Choose Another Model</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="ai-model-dropdown-action-btn disconnect"
+                  onClick={() => {
+                    setModelDropdownOpen(false);
+                    disconnectProvider();
+                    setShowModelSelector(true);
+                  }}
+                >
+                  <X size={12} />
+                  <span>Disconnect Account</span>
+                </button>
               </div>
             )}
           </div>

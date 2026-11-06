@@ -14,8 +14,9 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         callbackURL:
           process.env.GOOGLE_CALLBACK_URL ||
           "http://localhost:8000/api/auth/google/callback",
+        passReqToCallback: true,
       },
-      async (accessToken, refreshToken, profile, done) => {
+      async (req, accessToken, refreshToken, profile, done) => {
         try {
           const email = profile.emails?.[0]?.value;
 
@@ -23,10 +24,34 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             return done(new Error("No email found in Google profile"), null);
           }
 
+          let stateData = {};
+          if (req.query?.state) {
+            try {
+              stateData = JSON.parse(
+                Buffer.from(req.query.state, "base64").toString("utf-8")
+              );
+            } catch {}
+          }
+
+          // 0️⃣ If userId provided in state, link directly to this user
+          if (stateData.userId) {
+            let user = await User.findById(stateData.userId);
+            if (user) {
+              user.googleId = profile.id;
+              user.googleAccessToken = accessToken;
+              if (refreshToken) user.googleRefreshToken = refreshToken;
+              await user.save();
+              return done(null, user);
+            }
+          }
+
           // 1️⃣ Check if user already linked with Google
           let user = await User.findOne({ googleId: profile.id });
 
           if (user) {
+            user.googleAccessToken = accessToken;
+            if (refreshToken) user.googleRefreshToken = refreshToken;
+            await user.save();
             return done(null, user);
           }
 
@@ -35,6 +60,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 
           if (user) {
             user.googleId = profile.id;
+            user.googleAccessToken = accessToken;
+            if (refreshToken) user.googleRefreshToken = refreshToken;
             await user.save();
             return done(null, user);
           }
@@ -42,6 +69,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           // 3️⃣ Create completely new user
           user = await User.create({
             googleId: profile.id,
+            googleAccessToken: accessToken,
+            googleRefreshToken: refreshToken || "",
             email,
             firstName: profile.name?.givenName || "User",
             lastName: profile.name?.familyName || "",

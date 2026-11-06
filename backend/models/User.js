@@ -11,6 +11,8 @@ const userSchema = new mongoose.Schema(
     passwordHash: String,
 
     googleId: String,
+    googleAccessToken: String,
+    googleRefreshToken: String,
 
     // GitHub Integration
     githubId: String,

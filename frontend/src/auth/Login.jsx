@@ -185,6 +185,22 @@ export default function Login() {
         {/* ================= RIGHT COLUMN ================= */}
         <div className="auth-right-column">
           <div className="auth-card-panel">
+            {/* Mobile-only brand header */}
+            <div
+              className="auth-mobile-brand"
+              onClick={() => navigate("/")}
+              role="button"
+              tabIndex={0}
+              title="Vocodeai — Back to Home"
+            >
+              <img
+                src={theme === "light" ? "/vcode-light.png" : "/vcode.png"}
+                alt="Vocodeai Logo"
+                className="auth-mobile-logo"
+              />
+              <span className="auth-version-pill">v2.0</span>
+            </div>
+
             <h2 className="auth-card-title">Log in to your workspace</h2>
             <p className="auth-card-subtitle">
               Welcome back! Access your cloud projects from any device.

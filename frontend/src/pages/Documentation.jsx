@@ -338,7 +338,8 @@ export default function Documentation() {
               className="docs-enter-cta-btn"
               onClick={handleEnterApp}
             >
-              <span>{accessToken ? "Go to Dashboard" : "Enter VocodeAI"}</span>
+              <span className="docs-enter-full">{accessToken ? "Dashboard" : "Enter VocodeAI"}</span>
+              <span className="docs-enter-short">{accessToken ? "App" : "Enter"}</span>
               <ArrowRight size={14} />
             </button>
 

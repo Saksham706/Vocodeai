@@ -1,70 +1,356 @@
 import axios from "axios";
 
-export async function askAI({ message, history = [], workspaceContext = "", images = [], systemPromptOverride = null }) {
+/**
+ * Normalizes provider name to standard lowercase identifier
+ */
+function normalizeProvider(provider) {
+  if (!provider) return null;
+  const p = String(provider).toLowerCase().trim();
+  if (p === "chatgpt" || p === "openai") return "openai";
+  if (p === "grok" || p === "xai") return "xai";
+  if (p === "gemini" || p === "google") return "gemini";
+  if (p === "claude" || p === "anthropic") return "anthropic";
+  if (p === "groq") return "groq";
+  if (p === "openrouter") return "openrouter";
+  return p;
+}
+
+/**
+ * Resolves request options (baseURL, apiKey, model, headers) for a given provider and user config
+ */
+function resolveProviderConfig({ provider, model, apiKey, authMethod, accountEmail, userGoogleToken }) {
+  const normProvider = normalizeProvider(provider);
+
+  if (normProvider === "openai") {
+    const key = apiKey || process.env.OPENAI_API_KEY;
+    if (!key) throw new Error("OpenAI API key is missing. Please sign in with your OpenAI account.");
+    const isOpenRouter = key.startsWith("sk-or-") || Boolean(process.env.OPENROUTER_API_KEY);
+    return {
+      type: "openai_compatible",
+      baseURL: isOpenRouter ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.openai.com/v1/chat/completions",
+      apiKey: key,
+      model: isOpenRouter ? (model?.includes("mini") ? "openai/gpt-4o-mini" : "openai/gpt-4o") : (model || "gpt-4o"),
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        ...(isOpenRouter
+          ? {
+              "HTTP-Referer": process.env.FRONTEND_URL || "http://localhost:5173",
+              "X-Title": "VocodeAI Code Editor",
+            }
+          : {}),
+      },
+    };
+  }
+
+  if (normProvider === "xai") {
+    const key = apiKey || process.env.XAI_API_KEY || process.env.GROK_API_KEY || process.env.OPENAI_API_KEY;
+    if (!key) throw new Error("Grok (xAI) API key is missing. Please sign in with your Grok account.");
+    const isOpenRouter = key.startsWith("sk-or-") || Boolean(process.env.OPENROUTER_API_KEY);
+    return {
+      type: "openai_compatible",
+      baseURL: isOpenRouter ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.x.ai/v1/chat/completions",
+      apiKey: key,
+      model: isOpenRouter ? "x-ai/grok-2" : (model || "grok-2-latest"),
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        ...(isOpenRouter
+          ? {
+              "HTTP-Referer": process.env.FRONTEND_URL || "http://localhost:5173",
+              "X-Title": "VocodeAI Code Editor",
+            }
+          : {}),
+      },
+    };
+  }
+
+  if (normProvider === "gemini") {
+    let cleanModel = model || "gemini-1.5-pro";
+    if (cleanModel.startsWith("google/")) cleanModel = cleanModel.replace("google/", "");
+    if (cleanModel === "gemini-pro" || cleanModel === "gemini-pro-1.5") cleanModel = "gemini-1.5-pro";
+
+    // 1. Personal API key if user entered one
+    if (apiKey) {
+      return {
+        type: "openai_compatible",
+        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        apiKey,
+        model: cleanModel,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+      };
+    }
+
+    // 2. Direct Gemini key in environment if present
+    const geminiEnvKey = process.env.GEMINI_API_KEY;
+    if (geminiEnvKey) {
+      return {
+        type: "openai_compatible",
+        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        apiKey: geminiEnvKey,
+        model: cleanModel,
+        headers: {
+          Authorization: `Bearer ${geminiEnvKey}`,
+          "Content-Type": "application/json",
+        },
+      };
+    }
+
+    // 3. OpenRouter / Provider key for Gemini models
+    const fallbackKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
+    if (fallbackKey) {
+      const isOpenRouter = fallbackKey.startsWith("sk-or-") || Boolean(process.env.OPENROUTER_API_KEY);
+      const geminiModel = isOpenRouter
+        ? (cleanModel.includes("flash") ? "google/gemini-2.5-flash" : "google/gemini-2.5-pro")
+        : cleanModel;
+
+      return {
+        type: "openai_compatible",
+        baseURL: isOpenRouter
+          ? "https://openrouter.ai/api/v1/chat/completions"
+          : "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        apiKey: fallbackKey,
+        model: geminiModel,
+        headers: {
+          Authorization: `Bearer ${fallbackKey}`,
+          "Content-Type": "application/json",
+          ...(isOpenRouter
+            ? {
+                "HTTP-Referer": process.env.FRONTEND_URL || "http://localhost:5173",
+                "X-Title": "VocodeAI Code Editor",
+              }
+            : {}),
+        },
+      };
+    }
+
+    throw new Error(
+      "Google Gemini Pro is active, but no connection key is available."
+    );
+  }
+
+  if (normProvider === "groq") {
+    const key = apiKey || process.env.GROQ_API_KEY;
+    if (!key) throw new Error("Groq API key is missing. Please sign in with your Groq account.");
+    return {
+      type: "openai_compatible",
+      baseURL: "https://api.groq.com/openai/v1/chat/completions",
+      apiKey: key,
+      model: model || "llama-3.3-70b-versatile",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+    };
+  }
+
+  if (normProvider === "anthropic") {
+    const key = apiKey || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
+    if (!key) throw new Error("Anthropic Claude API key is missing. Please sign in with your Claude account.");
+    const isOpenRouter = key.startsWith("sk-or-") || Boolean(process.env.OPENROUTER_API_KEY);
+    if (isOpenRouter) {
+      return {
+        type: "openai_compatible",
+        baseURL: "https://openrouter.ai/api/v1/chat/completions",
+        apiKey: key,
+        model: "anthropic/claude-3.5-sonnet",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "HTTP-Referer": process.env.FRONTEND_URL || "http://localhost:5173",
+          "X-Title": "VocodeAI Code Editor",
+          "Content-Type": "application/json",
+        },
+      };
+    }
+    return {
+      type: "anthropic",
+      baseURL: "https://api.anthropic.com/v1/messages",
+      apiKey: key,
+      model: model || "claude-3-5-sonnet-20241022",
+      headers: {
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+    };
+  }
+
+  if (normProvider === "openrouter") {
+    const key = apiKey || process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
+    if (!key) throw new Error("OpenRouter API key is missing. Please sign in with your OpenRouter account.");
+    return {
+      type: "openai_compatible",
+      baseURL: "https://openrouter.ai/api/v1/chat/completions",
+      apiKey: key,
+      model: model || "openai/gpt-4o",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "HTTP-Referer": process.env.FRONTEND_URL || "http://localhost:5173",
+        "X-Title": "VocodeAI Code Editor",
+        "Content-Type": "application/json",
+      },
+    };
+  }
+
+  // Fallback: If no provider specified, check environment keys in order
   const geminiKey = process.env.GEMINI_API_KEY;
   const groqKey = process.env.GROQ_API_KEY;
   const generalKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
 
-  let apiKey;
-  let baseURL;
-  let model;
-  const headers = {
-    "Content-Type": "application/json",
-  };
-
-  // 1. Google Gemini (100% Free at https://aistudio.google.com/apikey)
   if (geminiKey) {
-    apiKey = geminiKey;
-    baseURL =
-      process.env.OPENAI_API_BASE ||
-      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-    model = process.env.AI_MODEL || "gemini-1.5-flash";
-    headers["Authorization"] = `Bearer ${apiKey}`;
-  }
-  // 2. Groq (100% Free at https://console.groq.com/keys)
-  else if (groqKey) {
-    apiKey = groqKey;
-    baseURL =
-      process.env.OPENAI_API_BASE ||
-      "https://api.groq.com/openai/v1/chat/completions";
-    model = process.env.AI_MODEL || "llama-3.3-70b-versatile";
-    headers["Authorization"] = `Bearer ${apiKey}`;
-  }
-  // 3. OpenRouter / OpenAI
-  else if (generalKey) {
-    apiKey = generalKey;
-    const isOpenRouter =
-      apiKey.startsWith("sk-or-") || Boolean(process.env.OPENROUTER_API_KEY);
-
-    baseURL =
-      process.env.OPENAI_API_BASE ||
-      (isOpenRouter
+    return {
+      type: "openai_compatible",
+      baseURL: process.env.OPENAI_API_BASE || "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      apiKey: geminiKey,
+      model: process.env.AI_MODEL || "gemini-1.5-flash",
+      headers: {
+        Authorization: `Bearer ${geminiKey}`,
+        "Content-Type": "application/json",
+      },
+    };
+  } else if (groqKey) {
+    return {
+      type: "openai_compatible",
+      baseURL: process.env.OPENAI_API_BASE || "https://api.groq.com/openai/v1/chat/completions",
+      apiKey: groqKey,
+      model: process.env.AI_MODEL || "llama-3.3-70b-versatile",
+      headers: {
+        Authorization: `Bearer ${groqKey}`,
+        "Content-Type": "application/json",
+      },
+    };
+  } else if (generalKey) {
+    const isOpenRouter = generalKey.startsWith("sk-or-") || Boolean(process.env.OPENROUTER_API_KEY);
+    return {
+      type: "openai_compatible",
+      baseURL: process.env.OPENAI_API_BASE || (isOpenRouter
         ? "https://openrouter.ai/api/v1/chat/completions"
-        : "https://api.openai.com/v1/chat/completions");
+        : "https://api.openai.com/v1/chat/completions"),
+      apiKey: generalKey,
+      model: process.env.AI_MODEL || (isOpenRouter ? "openrouter/free" : "gpt-4o-mini"),
+      headers: {
+        Authorization: `Bearer ${generalKey}`,
+        "Content-Type": "application/json",
+        ...(isOpenRouter
+          ? {
+              "HTTP-Referer": process.env.FRONTEND_URL || "http://localhost:5173",
+              "X-Title": "VocodeAI Code Editor",
+            }
+          : {}),
+      },
+    };
+  }
 
-    if (isOpenRouter) {
-      if (images && images.length > 0) {
-        model = "nvidia/nemotron-3.5-super-vl:free";
-      } else {
-        model = process.env.AI_MODEL || "openrouter/free";
+  throw new Error(
+    "No AI Model selected or API key found. Please select an AI model (like ChatGPT, Grok, or Gemini) and sign in with your API key."
+  );
+}
+
+/**
+ * Verify / Test connection for user's selected provider and API key
+ */
+export async function verifyAIKey({ provider, model, apiKey, authMethod, accountEmail }) {
+  if (authMethod === "google") {
+    return {
+      success: true,
+      provider: normalizeProvider(provider) || "gemini",
+      model: model || "gemini-1.5-pro",
+      message: `Google Account (${accountEmail || "linked"}) is authorized for ${model || "Google Gemini Pro"}.`,
+    };
+  }
+
+  if (!apiKey || typeof apiKey !== "string" || !apiKey.trim()) {
+    throw new Error("Please enter a valid API key or sign in with Google.");
+  }
+
+  const config = resolveProviderConfig({
+    provider,
+    model,
+    apiKey: apiKey.trim(),
+  });
+
+  try {
+    if (config.type === "anthropic") {
+      const resp = await axios.post(
+        config.baseURL,
+        {
+          model: config.model,
+          max_tokens: 10,
+          messages: [{ role: "user", content: "Ping test. Respond with OK." }],
+        },
+        { headers: config.headers, timeout: 15000 }
+      );
+      if (resp.data?.content?.[0]?.text) {
+        return {
+          success: true,
+          provider: normalizeProvider(provider),
+          model: config.model,
+          message: `Connection successful! ${config.model} is ready to use.`,
+        };
       }
     } else {
-      model =
-        process.env.AI_MODEL || "gpt-4o-mini";
+      const payload = {
+        model: config.model,
+        messages: [{ role: "user", content: "Ping test. Respond with OK." }],
+        max_tokens: 10,
+      };
+
+      if (!config.model.startsWith("o1") && !config.model.startsWith("o3")) {
+        payload.temperature = 0.2;
+      }
+
+      const resp = await axios.post(config.baseURL, payload, {
+        headers: config.headers,
+        timeout: 15000,
+      });
+
+      if (resp.data?.choices?.[0]?.message) {
+        return {
+          success: true,
+          provider: normalizeProvider(provider),
+          model: config.model,
+          message: `Connection successful! ${config.model} is ready to use.`,
+        };
+      }
     }
 
-    headers["Authorization"] = `Bearer ${apiKey}`;
-
-    if (isOpenRouter) {
-      headers["HTTP-Referer"] =
-        process.env.FRONTEND_URL || "http://localhost:5173";
-      headers["X-Title"] = "VocodeAI Code Editor";
-    }
-  } else {
-    throw new Error(
-      "No AI API key found. Please add a free GEMINI_API_KEY (from https://aistudio.google.com/apikey) or GROQ_API_KEY (from https://console.groq.com/keys) in backend/.env"
-    );
+    return {
+      success: true,
+      provider: normalizeProvider(provider),
+      model: config.model,
+      message: `Verified successfully.`,
+    };
+  } catch (err) {
+    const errorMsg =
+      err.response?.data?.error?.message ||
+      err.response?.data?.message ||
+      (typeof err.response?.data?.error === "string" ? err.response.data.error : null) ||
+      err.message ||
+      "Verification failed. Please verify your API key.";
+    throw new Error(errorMsg);
   }
+}
+
+/**
+ * Main inference executor supporting bring-your-own-model across OpenAI, Grok, Gemini, Claude, and Groq
+ */
+export async function askAI({
+  message,
+  history = [],
+  workspaceContext = "",
+  images = [],
+  systemPromptOverride = null,
+  provider = null,
+  model = null,
+  apiKey = null,
+  authMethod = null,
+  accountEmail = null,
+  userGoogleToken = null,
+}) {
+  const config = resolveProviderConfig({ provider, model, apiKey, authMethod, accountEmail, userGoogleToken });
 
   const systemPrompt = `
 You are VocodeAI, a professional autonomous AI pair programmer (similar to Antigravity, GitHub Copilot, and Cursor) embedded in a cloud code editor.
@@ -93,7 +379,7 @@ CRITICAL RULES:
    - "create_file": Create a brand-new file with full implementation.
    - "write_file": Edit / update an existing file.
    - "delete_file": Delete an existing file if user asks to remove/delete it. Format: { "action": "delete_file", "path": "filename.ext" }
-   - "run_code": Terminal command to compile or run the code (e.g. "python two_sum.py" or "javac FourSum.java && java FourSum").
+   - "run_code": When the user asks to run, execute, test, or compile code/file in terminal. ALWAYS specify "path" with the file name (e.g. "TwoSum.cpp") AND "command" with the exact shell execution command (e.g. "g++ TwoSum.cpp -o a.out && ./a.out" or "python3 script.py" or "javac App.java && java App").
    - "chat": High-level explanation of the code, algorithm logic, and complexity.
 
 3. STRICT OUTPUT FORMAT:
@@ -142,36 +428,139 @@ CRITICAL RULES:
   let lastError;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const response = await axios.post(
-        baseURL,
-        {
-          model,
+      if (config.type === "gemini_native") {
+        // Native Google Generative Language REST API (direct user Google OAuth token)
+        const contents = [];
+        for (const item of cleanHistory) {
+          contents.push({
+            role: item.role === "assistant" ? "model" : "user",
+            parts: [{ text: typeof item.content === "string" ? item.content : JSON.stringify(item.content) }],
+          });
+        }
+
+        const userParts = [];
+        if (Array.isArray(images) && images.length > 0) {
+          userParts.push({ text: message });
+          for (const img of images) {
+            if (img.url && img.url.startsWith("data:")) {
+              const match = img.url.match(/^data:([^;]+);base64,(.+)$/);
+              if (match) {
+                userParts.push({
+                  inlineData: {
+                    mimeType: match[1],
+                    data: match[2],
+                  },
+                });
+              }
+            }
+          }
+        } else {
+          userParts.push({ text: message });
+        }
+
+        contents.push({
+          role: "user",
+          parts: userParts,
+        });
+
+        const geminiPayload = {
+          system_instruction: {
+            parts: [{ text: systemPromptOverride || systemPrompt }],
+          },
+          contents,
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 3500,
+          },
+        };
+
+        const response = await axios.post(config.baseURL, geminiPayload, {
+          headers: config.headers,
+          timeout: 50000,
+        });
+
+        const choice = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!choice) {
+          throw new Error("Empty response received from Google Gemini model");
+        }
+        return choice;
+      } else if (config.type === "anthropic") {
+        // Anthropic Claude Messages API
+        const anthropicMessages = [];
+        for (const item of cleanHistory) {
+          anthropicMessages.push({
+            role: item.role === "assistant" ? "assistant" : "user",
+            content: typeof item.content === "string" ? item.content : JSON.stringify(item.content),
+          });
+        }
+        anthropicMessages.push({
+          role: "user",
+          content: typeof userMessageContent === "string" ? userMessageContent : JSON.stringify(userMessageContent),
+        });
+
+        const response = await axios.post(
+          config.baseURL,
+          {
+            model: config.model,
+            max_tokens: 4096,
+            system: systemPromptOverride || systemPrompt,
+            messages: anthropicMessages,
+          },
+          {
+            headers: config.headers,
+            timeout: 50000,
+          }
+        );
+
+        const choice = response.data?.content?.[0]?.text;
+        if (!choice) {
+          throw new Error("Empty response received from Claude AI model");
+        }
+        return choice;
+      } else {
+        // Standard OpenAI-compatible API (ChatGPT, Grok, Gemini, Groq, OpenRouter)
+        const payload = {
+          model: config.model,
           messages: [
             { role: "system", content: systemPromptOverride || systemPrompt },
             ...cleanHistory,
             { role: "user", content: userMessageContent },
           ],
-          temperature: 0.2,
-        },
-        {
-          headers,
-          timeout: 45000,
+          max_tokens: 3500,
+        };
+
+        // o1 / o3 models do not accept temperature parameter
+        if (!config.model.startsWith("o1") && !config.model.startsWith("o3")) {
+          payload.temperature = 0.2;
         }
-      );
 
-      const choice = response.data?.choices?.[0]?.message?.content;
-      if (!choice) {
-        throw new Error("Empty response received from AI model");
+        const response = await axios.post(config.baseURL, payload, {
+          headers: config.headers,
+          timeout: 50000,
+        });
+
+        const choice = response.data?.choices?.[0]?.message?.content;
+        if (!choice) {
+          throw new Error("Empty response received from AI model");
+        }
+
+        return choice;
       }
-
-      return choice;
     } catch (err) {
       lastError = err;
       const errMsg =
         err.response?.data?.error?.message ||
         err.response?.data?.message ||
+        (typeof err.response?.data?.error === "string" ? err.response.data.error : null) ||
         err.message;
-      console.warn(`AI attempt ${attempt} failed: ${errMsg}`);
+      console.warn(`AI attempt ${attempt} with ${config.model} failed: ${errMsg}`);
+
+      // Smart fallback: If heavy Gemini Pro is credit-limited on OpenRouter, switch to Gemini 2.5 Flash
+      if (config.model?.includes("gemini-2.5-pro") && (errMsg.includes("credits") || errMsg.includes("tokens") || errMsg.includes("available"))) {
+        console.info("Switching to google/gemini-2.5-flash for subsequent attempt");
+        config.model = "google/gemini-2.5-flash";
+      }
+
       if (attempt < 2) {
         await new Promise((r) => setTimeout(r, 1000));
       }
@@ -181,6 +570,7 @@ CRITICAL RULES:
   const finalErrMsg =
     lastError?.response?.data?.error?.message ||
     lastError?.response?.data?.message ||
+    (typeof lastError?.response?.data?.error === "string" ? lastError.response.data.error : null) ||
     lastError?.message ||
     "AI request failed";
   console.error("AI Service Error:", finalErrMsg);

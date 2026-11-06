@@ -32,7 +32,14 @@ router.get("/google", (req, res, next) => {
     req.headers.referer ||
     process.env.FRONTEND_URL ||
     "http://localhost:5173";
-  const state = Buffer.from(JSON.stringify({ origin })).toString("base64");
+  const action = req.query.action || "login";
+  const returnTo = req.query.returnTo || "";
+  const provider = req.query.provider || "gemini";
+  const model = req.query.model || "gemini-1.5-pro";
+  const userId = req.query.userId || "";
+  const state = Buffer.from(
+    JSON.stringify({ origin, action, returnTo, provider, model, userId })
+  ).toString("base64");
 
   passport.authenticate("google", {
     scope: ["profile", "email"],
@@ -48,6 +55,11 @@ router.get(
   async (req, res) => {
     try {
       let targetOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
+      let action = "login";
+      let returnTo = "";
+      let provider = "gemini";
+      let model = "gemini-1.5-pro";
+
       if (req.query.state) {
         try {
           const parsed = JSON.parse(
@@ -56,6 +68,10 @@ router.get(
           if (parsed.origin) {
             targetOrigin = parsed.origin.replace(/\/+$/, "");
           }
+          if (parsed.action) action = parsed.action;
+          if (parsed.returnTo) returnTo = parsed.returnTo;
+          if (parsed.provider) provider = parsed.provider;
+          if (parsed.model) model = parsed.model;
         } catch {}
       }
 
@@ -78,11 +94,16 @@ router.get(
           email: req.user.email,
           firstName: req.user.firstName,
           lastName: req.user.lastName,
+          hasGoogleAuth: Boolean(req.user.googleAccessToken),
         })
       );
 
+      const googleParam = action === "ai_connect" ? "&googleConnected=true" : "";
+      const returnParam = returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : "";
+      const modelParam = `&provider=${encodeURIComponent(provider)}&model=${encodeURIComponent(model)}`;
+
       res.redirect(
-        `${targetOrigin}/oauth-success?token=${accessToken}&refreshToken=${refreshToken}&user=${userJson}`
+        `${targetOrigin}/oauth-success?token=${accessToken}&refreshToken=${refreshToken}&user=${userJson}${googleParam}${returnParam}${modelParam}`
       );
     } catch (err) {
       console.error("Google OAuth callback error:", err);

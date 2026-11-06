@@ -18,10 +18,59 @@ export default function OAuthSuccess() {
       try {
         const token = params.get("token");
         const userParam = params.get("user");
+        const returnTo = params.get("returnTo");
+        const googleConnected = params.get("googleConnected");
 
         if (token && userParam) {
           const user = JSON.parse(decodeURIComponent(userParam));
           login(token, user);
+
+          if (googleConnected) {
+            const provider = params.get("provider") || "gemini";
+            const model = params.get("model") || "gemini-1.5-pro";
+            const email = user?.email || "Google Account";
+            const modelLabel =
+              model.includes("flash")
+                ? `Google Gemini Flash (${email.split("@")[0]})`
+                : `Google Gemini Pro (${email.split("@")[0]})`;
+
+            const aiConfig = {
+              provider,
+              model,
+              authMethod: "google",
+              accountEmail: email,
+              label: modelLabel,
+              connectedAt: new Date().toISOString(),
+            };
+
+            localStorage.setItem(
+              "vocode_ai_provider_config",
+              JSON.stringify(aiConfig)
+            );
+
+            // Also record in saved keys for instant re-selection
+            try {
+              const currentSaved = JSON.parse(
+                localStorage.getItem("vocode_ai_saved_keys") || "{}"
+              );
+              currentSaved[provider] = {
+                authMethod: "google",
+                accountEmail: email,
+                model,
+                updatedAt: new Date().toISOString(),
+              };
+              localStorage.setItem(
+                "vocode_ai_saved_keys",
+                JSON.stringify(currentSaved)
+              );
+            } catch {}
+          }
+
+          if (returnTo) {
+            navigate(returnTo, { replace: true });
+            return;
+          }
+
           navigate("/dashboard", { replace: true });
           return;
         }

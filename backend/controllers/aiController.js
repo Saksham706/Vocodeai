@@ -1,14 +1,26 @@
 import path from "path";
 import Chat from "../models/Chat.js";
 import FileNode from "../models/FileNode.js";
-import { askAI } from "../services/aiService.js";
+import User from "../models/User.js";
+import { askAI, verifyAIKey } from "../services/aiService.js";
 import { parseAI } from "../utils/aiParser.js";
 import { executeAI } from "../services/aiExecutor.js";
 import { getWorkspacesRoot } from "../config/paths.js";
+import { getValidGoogleAccessToken } from "../utils/googleAuthHelper.js";
 
 export async function handleAI(req, res) {
   try {
-    const { message, workspaceId, activeFile, attachments = [] } = req.body;
+    const {
+      message,
+      workspaceId,
+      activeFile,
+      attachments = [],
+      provider,
+      model,
+      apiKey,
+      authMethod,
+      accountEmail,
+    } = req.body;
     const userId = String(req.user.id || req.user._id);
 
     if (!message || !workspaceId) {
@@ -112,11 +124,24 @@ export async function handleAI(req, res) {
     }));
 
     /* ================= AI INFERENCE ================= */
+    let userGoogleToken = null;
+    try {
+      userGoogleToken = await getValidGoogleAccessToken(userId);
+    } catch (tokenErr) {
+      console.warn("Could not retrieve valid Google access token:", tokenErr.message);
+    }
+
     const aiRaw = await askAI({
       message,
       history,
       workspaceContext,
       images,
+      provider,
+      model,
+      apiKey,
+      authMethod,
+      accountEmail,
+      userGoogleToken,
     });
 
     const parsed = parseAI(aiRaw);
@@ -139,8 +164,14 @@ export async function handleAI(req, res) {
         .filter((a) => a.action === "create_file" || a.action === "write_file")
         .map((a) => a.path);
 
+      const runAction = parsed.actions.find(
+        (a) => a.action === "run_code" || a.action === "terminal"
+      );
+
       if (createdFiles.length > 0) {
         summary = `Created ${createdFiles.join(", ")} with the requested code.`;
+      } else if (runAction) {
+        summary = `Running ${runAction.path || runAction.command || "command"} in terminal...`;
       } else {
         summary = "Code task completed successfully.";
       }
@@ -238,5 +269,56 @@ Persona: Friendly, witty, concise, highly encouraging, tech-savvy. You can use m
       error: "Voca AI service temporary error",
       details: err.message,
     });
+  }
+}
+
+/* ================= VERIFY AI PROVIDER & KEY ================= */
+export async function handleVerifyKey(req, res) {
+  try {
+    const { provider, model, apiKey, authMethod, accountEmail } = req.body;
+
+    if (authMethod === "google") {
+      const email = accountEmail || req.user?.email || "Google Account";
+      return res.json({
+        success: true,
+        provider: provider || "gemini",
+        model: model || "gemini-1.5-pro",
+        authMethod: "google",
+        accountEmail: email,
+        message: `Successfully connected with Google account (${email})!`,
+      });
+    }
+
+    if (!provider || !apiKey) {
+      return res.status(400).json({
+        error: "Provider and API Key are required.",
+      });
+    }
+
+    const verification = await verifyAIKey({ provider, model, apiKey, authMethod, accountEmail });
+    return res.json(verification);
+  } catch (err) {
+    console.warn("AI Key Verification Failed:", err.message);
+    return res.status(400).json({
+      success: false,
+      error: err.message,
+    });
+  }
+}
+
+/* ================= CHECK GOOGLE AI CONNECTION ================= */
+export async function getGoogleAIStatus(req, res) {
+  try {
+    const userId = String(req.user?.id || req.user?._id || "");
+    if (!userId) {
+      return res.json({ hasGoogleToken: false, email: null });
+    }
+    const userDoc = await User.findById(userId).lean();
+    return res.json({
+      hasGoogleToken: Boolean(userDoc?.googleId || userDoc?.googleAccessToken),
+      email: userDoc?.email || req.user?.email || null,
+    });
+  } catch (err) {
+    return res.json({ hasGoogleToken: false, email: null });
   }
 }

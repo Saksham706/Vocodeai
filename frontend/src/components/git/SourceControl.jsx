@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   GitBranch,
   RefreshCw,
@@ -24,6 +25,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
+  Eye,
+  EyeOff,
+  Globe,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useWorkspace } from "../../context/WorkspaceContext";
@@ -109,6 +113,21 @@ export default function SourceControl({
   const [showCloneModal, setShowCloneModal] = useState(false);
   const [showTokenConnectModal, setShowTokenConnectModal] = useState(false);
   const [quickTokenInput, setQuickTokenInput] = useState("");
+  const [showTokenPassword, setShowTokenPassword] = useState(false);
+
+  // Close modals on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setShowBranchModal(false);
+        setShowRemoteModal(false);
+        setShowCloneModal(false);
+        setShowTokenConnectModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Branch state
   const [branchList, setBranchList] = useState([]);
@@ -221,10 +240,29 @@ export default function SourceControl({
     }
   };
 
-  // 1-Click Sign in with GitHub (VS Code Style OAuth)
+  // 1-Click Sign in with GitHub: directly open popup modal without page reloading!
   const handleSignInWithGithub = () => {
-    const oauthUrl = getGithubOAuthUrl(workspaceId, accessToken);
-    window.location.href = oauthUrl;
+    setShowTokenConnectModal(true);
+  };
+
+  const handleOpenOAuthPopup = () => {
+    try {
+      const oauthUrl = getGithubOAuthUrl(workspaceId, accessToken);
+      const popup = window.open(
+        oauthUrl,
+        "github_oauth_popup",
+        "width=600,height=700,status=no,resizable=yes"
+      );
+      const checkTimer = setInterval(() => {
+        if (popup && popup.closed) {
+          clearInterval(checkTimer);
+          fetchGithubStatus();
+          fetchStatus();
+        }
+      }, 1500);
+    } catch (err) {
+      showBanner("Failed to open popup: " + err.message, "error");
+    }
   };
 
   // Disconnect GitHub
@@ -1072,17 +1110,22 @@ export default function SourceControl({
         )}
       </div>
 
-      {/* MODAL: Branch Switcher / Creator */}
-      {showBranchModal && (
-        <div className="dash-modal-overlay" onClick={() => setShowBranchModal(false)}>
-          <div className="dash-modal-card sc-modal" onClick={(e) => e.stopPropagation()}>
+      {/* MODAL 1: Branch Switcher / Creator */}
+      {showBranchModal && createPortal(
+        <div className="sc-modal-overlay" onClick={() => setShowBranchModal(false)}>
+          <div className="sc-modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="sc-modal-header">
-              <div className="sc-modal-title">
-                <GitBranch size={18} />
-                <span>Switch / Create Branch</span>
+              <div className="sc-modal-header-left">
+                <div className="sc-modal-icon-wrap">
+                  <GitBranch size={18} color="#2BD87F" />
+                </div>
+                <div>
+                  <h3 className="sc-modal-title-text">Switch or Create Branch</h3>
+                  <p className="sc-modal-subtitle">Switch active branches or create a new branch in this workspace</p>
+                </div>
               </div>
-              <button className="sc-modal-close" onClick={() => setShowBranchModal(false)}>
-                <X size={16} />
+              <button className="sc-modal-close" onClick={() => setShowBranchModal(false)} title="Close">
+                <X size={15} />
               </button>
             </div>
 
@@ -1090,7 +1133,7 @@ export default function SourceControl({
               <input
                 type="text"
                 className="sc-modal-input"
-                placeholder="New branch name..."
+                placeholder="New branch name (e.g. feature/auth)..."
                 value={newBranchName}
                 onChange={(e) => setNewBranchName(e.target.value)}
                 onKeyDown={(e) => {
@@ -1100,7 +1143,8 @@ export default function SourceControl({
                 }}
               />
               <button
-                className="btn-create-workspace-primary"
+                type="button"
+                className="sc-modal-btn-primary"
                 onClick={() => handleSwitchBranch(newBranchName.trim(), true)}
                 disabled={!newBranchName.trim() || branchLoading}
               >
@@ -1125,21 +1169,37 @@ export default function SourceControl({
                 </div>
               ))}
             </div>
+
+            <div className="sc-modal-footer">
+              <button
+                type="button"
+                className="sc-modal-btn-cancel"
+                onClick={() => setShowBranchModal(false)}
+              >
+                Close
+              </button>
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* MODAL: Configure Remote (GitHub) */}
-      {showRemoteModal && (
-        <div className="dash-modal-overlay" onClick={() => setShowRemoteModal(false)}>
-          <div className="dash-modal-card sc-modal" onClick={(e) => e.stopPropagation()}>
+      {/* MODAL 2: Configure Remote (GitHub) */}
+      {showRemoteModal && createPortal(
+        <div className="sc-modal-overlay" onClick={() => setShowRemoteModal(false)}>
+          <div className="sc-modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="sc-modal-header">
-              <div className="sc-modal-title">
-                <ExternalLink size={18} />
-                <span>Configure Remote (GitHub)</span>
+              <div className="sc-modal-header-left">
+                <div className="sc-modal-icon-wrap">
+                  <ExternalLink size={18} color="#2BD87F" />
+                </div>
+                <div>
+                  <h3 className="sc-modal-title-text">Configure Remote (GitHub)</h3>
+                  <p className="sc-modal-subtitle">Connect this local repository to a remote repository to push & pull</p>
+                </div>
               </div>
-              <button className="sc-modal-close" onClick={() => setShowRemoteModal(false)}>
-                <X size={16} />
+              <button className="sc-modal-close" onClick={() => setShowRemoteModal(false)} title="Close">
+                <X size={15} />
               </button>
             </div>
 
@@ -1153,20 +1213,25 @@ export default function SourceControl({
                   value={remoteUrl}
                   onChange={(e) => setRemoteUrl(e.target.value)}
                   required
+                  autoFocus
                 />
                 <span className="sc-input-hint">Clean HTTPS repository URL from GitHub (e.g. https://github.com/Saksham706/dp.git)</span>
               </div>
 
               {ghAccount.connected ? (
                 <div className="sc-auth-info-box success">
-                  <CheckCircle2 size={16} color="#10B981" />
-                  <span>Authenticated as <strong>@{ghAccount.username}</strong>. Push & pull will run automatically!</span>
+                  <CheckCircle2 size={16} color="#2BD87F" />
+                  <div className="sc-auth-info-content">
+                    <strong>Authenticated as @{ghAccount.username}</strong>
+                    <p>Git credentials active. Push and pull will execute automatically.</p>
+                  </div>
                 </div>
               ) : (
                 <div className="sc-auth-info-box warning">
                   <AlertCircle size={16} color="#F59E0B" />
-                  <div>
-                    <span>GitHub not connected yet.</span>
+                  <div className="sc-auth-info-content">
+                    <strong>GitHub not connected yet</strong>
+                    <p>Connect your GitHub account or Personal Access Token for 1-click push and pull.</p>
                     <button
                       type="button"
                       className="sc-link-btn"
@@ -1175,7 +1240,7 @@ export default function SourceControl({
                         setShowTokenConnectModal(true);
                       }}
                     >
-                      Connect your account or token
+                      Connect token now →
                     </button>
                   </div>
                 </div>
@@ -1184,14 +1249,14 @@ export default function SourceControl({
               <div className="sc-modal-footer">
                 <button
                   type="button"
-                  className="btn-create-workspace-secondary"
+                  className="sc-modal-btn-cancel"
                   onClick={() => setShowRemoteModal(false)}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn-create-workspace-primary"
+                  className="sc-modal-btn-primary"
                   disabled={remoteLoading}
                 >
                   <span>{remoteLoading ? "Saving..." : "Save Remote"}</span>
@@ -1199,21 +1264,35 @@ export default function SourceControl({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* MODAL: Clone from GitHub */}
-      {showCloneModal && (
-        <div className="dash-modal-overlay" onClick={() => setShowCloneModal(false)}>
-          <div className="dash-modal-card sc-modal" onClick={(e) => e.stopPropagation()}>
+      {/* MODAL 3: Clone Repository (Public & Private) */}
+      {showCloneModal && createPortal(
+        <div className="sc-modal-overlay" onClick={() => setShowCloneModal(false)}>
+          <div className="sc-modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="sc-modal-header">
-              <div className="sc-modal-title">
-                <DownloadCloud size={18} />
-                <span>Clone from GitHub</span>
+              <div className="sc-modal-header-left">
+                <div className="sc-modal-icon-wrap">
+                  <DownloadCloud size={18} color="#2BD87F" />
+                </div>
+                <div>
+                  <h3 className="sc-modal-title-text">Clone Repository</h3>
+                  <p className="sc-modal-subtitle">Clone any public or private GitHub repository directly into this workspace</p>
+                </div>
               </div>
-              <button className="sc-modal-close" onClick={() => setShowCloneModal(false)}>
-                <X size={16} />
+              <button className="sc-modal-close" onClick={() => setShowCloneModal(false)} title="Close">
+                <X size={15} />
               </button>
+            </div>
+
+            <div className="sc-clone-type-badge">
+              <Globe size={16} color="#38BDF8" style={{ marginTop: "2px", flexShrink: 0 }} />
+              <div>
+                <strong>Public & Private Repositories Supported</strong>
+                <p>Public repositories do not require any login. For private repositories, ensure your GitHub account is linked.</p>
+              </div>
             </div>
 
             <form onSubmit={handleClone}>
@@ -1226,41 +1305,50 @@ export default function SourceControl({
                   value={cloneUrl}
                   onChange={(e) => setCloneUrl(e.target.value)}
                   required
+                  autoFocus
                 />
+                <span className="sc-input-hint">Paste HTTPS URL (e.g. https://github.com/Saksham706/dp.git or https://github.com/torvalds/linux)</span>
               </div>
 
               <div className="sc-modal-footer">
                 <button
                   type="button"
-                  className="btn-create-workspace-secondary"
+                  className="sc-modal-btn-cancel"
                   onClick={() => setShowCloneModal(false)}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn-create-workspace-primary"
-                  disabled={cloneLoading}
+                  className="sc-modal-btn-primary"
+                  disabled={cloneLoading || !cloneUrl.trim()}
                 >
-                  <span>{cloneLoading ? "Cloning..." : "Clone Repository"}</span>
+                  <DownloadCloud size={14} />
+                  <span>{cloneLoading ? "Cloning Repository..." : "Clone Repository"}</span>
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* MODAL: Link GitHub via Token (Fallback & Quick-Link) */}
-      {showTokenConnectModal && (
-        <div className="dash-modal-overlay" onClick={() => setShowTokenConnectModal(false)}>
-          <div className="dash-modal-card sc-modal" onClick={(e) => e.stopPropagation()}>
+      {/* MODAL 4: Connect GitHub Account (Personal Access Token) */}
+      {showTokenConnectModal && createPortal(
+        <div className="sc-modal-overlay" onClick={() => setShowTokenConnectModal(false)}>
+          <div className="sc-modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="sc-modal-header">
-              <div className="sc-modal-title">
-                <GithubIcon size={18} />
-                <span>Connect GitHub Account</span>
+              <div className="sc-modal-header-left">
+                <div className="sc-modal-icon-wrap">
+                  <GithubIcon size={18} />
+                </div>
+                <div>
+                  <h3 className="sc-modal-title-text">Connect GitHub Account</h3>
+                  <p className="sc-modal-subtitle">Paste your GitHub token for hands-free Git clone, commit, push & pull</p>
+                </div>
               </div>
-              <button className="sc-modal-close" onClick={() => setShowTokenConnectModal(false)}>
-                <X size={16} />
+              <button className="sc-modal-close" onClick={() => setShowTokenConnectModal(false)} title="Close">
+                <X size={15} />
               </button>
             </div>
 
@@ -1271,42 +1359,78 @@ export default function SourceControl({
 
               <div className="sc-form-group">
                 <label>
-                  <Lock size={13} style={{ display: "inline", marginRight: "4px" }} />
+                  <Lock size={13} style={{ display: "inline", marginRight: "5px", verticalAlign: "middle" }} />
                   GitHub Personal Access Token (PAT)
                 </label>
-                <input
-                  type="password"
-                  className="sc-modal-input"
-                  placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                  value={quickTokenInput}
-                  onChange={(e) => setQuickTokenInput(e.target.value)}
-                  required
-                  autoFocus
-                />
+                <div className="sc-input-password-wrap">
+                  <input
+                    type={showTokenPassword ? "text" : "password"}
+                    className="sc-modal-input"
+                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                    value={quickTokenInput}
+                    onChange={(e) => setQuickTokenInput(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    className="sc-input-eye-btn"
+                    onClick={() => setShowTokenPassword((prev) => !prev)}
+                    title={showTokenPassword ? "Hide token" : "Show token"}
+                  >
+                    {showTokenPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
                 <span className="sc-input-hint">
-                  Generate at: GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic). Select 'repo' scope.
+                  Requires <strong>'repo'</strong> scope to push & pull from your repositories.
                 </span>
+              </div>
+
+              <div className="sc-token-help-box">
+                <KeyRound size={15} color="#2BD87F" style={{ flexShrink: 0 }} />
+                <div>
+                  <span>Need a token?</span>
+                  <a
+                    href="https://github.com/settings/tokens/new?scopes=repo,read:user"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="sc-link-external"
+                  >
+                    Generate Personal Access Token on GitHub ↗
+                  </a>
+                  <span style={{ margin: "0 6px", color: "rgba(255,255,255,0.3)" }}>•</span>
+                  <button
+                    type="button"
+                    className="sc-link-btn"
+                    onClick={handleOpenOAuthPopup}
+                    style={{ fontSize: "12px", color: "#38BDF8", textDecoration: "underline", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                  >
+                    Or sign in via OAuth popup ↗
+                  </button>
+                </div>
               </div>
 
               <div className="sc-modal-footer">
                 <button
                   type="button"
-                  className="btn-create-workspace-secondary"
+                  className="sc-modal-btn-cancel"
                   onClick={() => setShowTokenConnectModal(false)}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn-create-workspace-primary"
+                  className="sc-modal-btn-primary"
                   disabled={ghLoading || !quickTokenInput.trim()}
                 >
-                  <span>{ghLoading ? "Verifying..." : "Connect GitHub"}</span>
+                  <GithubIcon size={14} />
+                  <span>{ghLoading ? "Verifying Token..." : "Connect GitHub"}</span>
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </aside>
   );

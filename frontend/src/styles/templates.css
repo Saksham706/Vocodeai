@@ -172,7 +172,7 @@
 /* Templates Grid */
 .templates-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   gap: 20px;
 }
 
@@ -772,4 +772,37 @@
     border-bottom: 1px solid var(--border-primary);
   }
 }
+
+@media (max-width: 480px) {
+  .templates-view-container {
+    padding: 14px 10px;
+  }
+
+  .template-card {
+    padding: 16px 14px;
+    border-radius: 14px;
+  }
+
+  .templates-category-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .templates-category-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .template-cat-tab {
+    flex-shrink: 0;
+  }
+
+  .template-preview-modal-card {
+    width: calc(100vw - 20px) !important;
+    max-height: 90vh !important;
+  }
+}
+
 

@@ -120,3 +120,15 @@
   z-index: 1;
 }
 
+/* ---------------------------------------------------------
+   4. WORKSPACE IDE SEAMLESS INTEGRATION
+   --------------------------------------------------------- */
+.ide-app .app-background-system {
+  opacity: 0.12;
+}
+
+.ide-app.light .app-background-system {
+  opacity: 0.08;
+}
+
+

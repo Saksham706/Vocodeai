@@ -4,7 +4,7 @@ export function auth(req, res, next) {
   const header = req.headers.authorization;
 
   if (!header || !header.startsWith("Bearer ")) {
-    return res.sendStatus(401);
+    return res.status(401).json({ error: "Unauthorized. Please log in." });
   }
 
   const token = header.split(" ")[1];
@@ -19,6 +19,6 @@ export function auth(req, res, next) {
     next();
 
   } catch {
-    res.sendStatus(401);
+    res.status(401).json({ error: "Session expired or invalid. Please re-login." });
   }
 }

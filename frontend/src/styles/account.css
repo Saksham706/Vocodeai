@@ -1004,4 +1004,46 @@
   margin-right: 8px !important;
 }
 
+/* =========================================================
+   RESPONSIVE ACCOUNT SETTINGS VIEW
+   ========================================================= */
+@media (max-width: 768px) {
+  .account-header {
+    padding: 14px 16px;
+  }
+
+  .account-body {
+    padding: 18px 16px;
+  }
+
+  .account-card {
+    padding: 18px 16px;
+  }
+
+  .profile-avatar-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .account-header {
+    padding: 12px;
+  }
+
+  .account-body {
+    padding: 14px 10px;
+  }
+
+  .account-card {
+    padding: 16px 12px;
+  }
+
+  .account-title {
+    font-size: 1.1rem;
+  }
+}
+
+
 

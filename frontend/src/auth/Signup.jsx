@@ -229,6 +229,22 @@ export default function Signup() {
         {/* ================= RIGHT COLUMN ================= */}
         <div className="auth-right-column">
           <div className="auth-card-panel">
+            {/* Mobile-only brand header */}
+            <div
+              className="auth-mobile-brand"
+              onClick={() => navigate("/")}
+              role="button"
+              tabIndex={0}
+              title="Vocodeai — Back to Home"
+            >
+              <img
+                src={theme === "light" ? "/vcode-light.png" : "/vcode.png"}
+                alt="Vocodeai Logo"
+                className="auth-mobile-logo"
+              />
+              <span className="auth-version-pill">v2.0</span>
+            </div>
+
             <h2 className="auth-card-title">Create your free account</h2>
             <p className="auth-card-subtitle">
               Join developers building the future of software with VocodeAI.

@@ -88,8 +88,9 @@ export default function DashboardHeader({
           });
         }}
       >
-        <Plus size={18} />
-        <span>Create Workspace</span>
+        <Plus size={16} />
+        <span className="create-ws-btn-full">Create Workspace</span>
+        <span className="create-ws-btn-short">Create</span>
       </button>
     </header>
   );
