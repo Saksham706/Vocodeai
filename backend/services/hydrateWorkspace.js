@@ -3,6 +3,7 @@ import path from "path";
 import FileNode from "../models/FileNode.js";
 import { getWorkspacesRoot } from "../config/paths.js";
 import { DEFAULT_GITIGNORE } from "./fileService.js";
+import { readFileFromR2 } from "./r2Service.js";
 
 export async function hydrateWorkspace(userId, workspaceId) {
   const workspacePath = path.join(
@@ -44,7 +45,19 @@ export async function hydrateWorkspace(userId, workspaceId) {
     if (node.type === "file") {
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
 
-      const content = node.content || "";
+      let content = node.content || "";
+      // If content was truncated or stored in R2, fetch original from R2
+      if (!content) {
+        try {
+          const r2Content = await readFileFromR2(userId, workspaceId, cleanPath);
+          if (r2Content !== null && r2Content !== undefined) {
+            content = r2Content;
+          }
+        } catch (r2Err) {
+          console.warn(`[Hydrate R2 Warning] ${cleanPath}:`, r2Err.message);
+        }
+      }
+
       if (typeof content === "string" && content.startsWith("data:") && content.includes(";base64,")) {
         const base64Data = content.replace(/^data:.*?;base64,/, "");
         await fs.writeFile(fullPath, Buffer.from(base64Data, "base64"));

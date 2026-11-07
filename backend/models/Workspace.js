@@ -19,6 +19,14 @@ const workspaceSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    r2Prefix: {
+      type: String,
+      default: null,
+    },
+    lastSyncedToR2: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

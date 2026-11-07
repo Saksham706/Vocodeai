@@ -10,6 +10,13 @@ const fileNodeSchema = new mongoose.Schema(
       default: "",
       maxlength: 2_000_000,
     },
+    r2Key: { type: String, default: null },
+    size: { type: Number, default: 0 },
+    storageType: {
+      type: String,
+      enum: ["local", "r2", "hybrid"],
+      default: "hybrid",
+    },
   },
   { timestamps: true }
 );

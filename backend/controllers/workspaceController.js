@@ -16,6 +16,7 @@ import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
 import { getWorkspacesRoot } from "../config/paths.js";
 import { scanLocalDirectory } from "../utils/scanLocalFolder.js";
 import { STARTER_TEMPLATES, getTemplateById } from "../templates/starterTemplates.js";
+import * as r2Service from "../services/r2Service.js";
 
 /* GET STARTER TEMPLATES */
 export async function getTemplates(req, res) {
@@ -54,7 +55,19 @@ export async function createWorkspace(req, res) {
     const ws = await Workspace.create({
       userId: req.user.id,
       name: wsName,
+      r2Prefix: r2Service.getWorkspaceR2Prefix(req.user.id, "temp"),
     });
+
+    // Update actual r2Prefix with real ID
+    ws.r2Prefix = r2Service.getWorkspaceR2Prefix(req.user.id, ws._id.toString());
+    await ws.save();
+
+    // Create workspace directory marker in Cloudflare R2 immediately
+    try {
+      await r2Service.createWorkspaceMarkerInR2(req.user.id, ws._id.toString());
+    } catch (r2Err) {
+      console.warn("R2 create workspace marker warning:", r2Err.message);
+    }
 
     ensureWorkspace(req.user.id, ws._id.toString());
 
@@ -88,6 +101,13 @@ export async function createWorkspace(req, res) {
       } catch (hydrateErr) {
         console.warn("Template hydrate warning:", hydrateErr.message);
       }
+    }
+
+    // Sync initial workspace files to Cloudflare R2
+    try {
+      await r2Service.syncWorkspaceDirToR2(req.user.id, ws._id.toString());
+    } catch (r2Err) {
+      console.warn("R2 initial workspace sync warning:", r2Err.message);
     }
 
     res.json(ws);
@@ -159,7 +179,7 @@ export async function deleteWorkspace(req, res) {
     });
 
     // 4. Archive to RecycleBin so user can restore it from dashboard
-    await RecycleBin.create({
+    const binItem = await RecycleBin.create({
       userId: req.user.id,
       workspaceId: workspace._id,
       workspaceName: workspace.name,
@@ -169,6 +189,22 @@ export async function deleteWorkspace(req, res) {
       items: safeItems,
       deletedAt: new Date(),
     });
+
+    // Move in Cloudflare R2 to trash prefix
+    try {
+      const r2Res = await r2Service.moveWorkspaceToTrashR2(
+        req.user.id,
+        workspace._id.toString(),
+        binItem._id.toString()
+      );
+      if (r2Res?.r2Key) {
+        binItem.r2Key = r2Res.r2Key;
+        binItem.size = r2Res.size;
+        await binItem.save();
+      }
+    } catch (r2Err) {
+      console.warn("R2 workspace move to trash warning:", r2Err.message);
+    }
 
     // 5. Remove active workspace record
     await Workspace.deleteOne({
@@ -232,7 +268,11 @@ export async function duplicateWorkspace(req, res) {
       name: `${old.name} (copy)`,
       type: old.type,
       isPinned: false,
+      r2Prefix: r2Service.getWorkspaceR2Prefix(req.user.id, "temp"),
     });
+
+    copy.r2Prefix = r2Service.getWorkspaceR2Prefix(req.user.id, copy._id.toString());
+    await copy.save();
 
     ensureWorkspace(req.user.id, copy._id.toString());
 
@@ -264,6 +304,12 @@ export async function duplicateWorkspace(req, res) {
       }));
       await FileNode.insertMany(copyOperations);
       await hydrateWorkspace(req.user.id, copy._id.toString());
+    }
+
+    try {
+      await r2Service.syncWorkspaceDirToR2(req.user.id, copy._id.toString());
+    } catch (r2Err) {
+      console.warn("R2 duplicate sync warning:", r2Err.message);
     }
 
     res.json(copy);
@@ -362,6 +408,13 @@ export async function importWorkspace(req, res) {
 
       // Hydrate all files onto the disk directory
       await hydrateWorkspace(req.user.id, wsIdStr);
+
+      // Sync imported workspace files to Cloudflare R2
+      try {
+        await r2Service.syncWorkspaceDirToR2(req.user.id, wsIdStr);
+      } catch (r2Err) {
+        console.warn("R2 import sync warning:", r2Err.message);
+      }
     }
 
     res.json(ws);

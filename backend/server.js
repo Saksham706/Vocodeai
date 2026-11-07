@@ -16,6 +16,7 @@ import passport from "./config/passport.js";
 import compression from "compression";
 
 import { connectDB } from "./config/db.js";
+import { isR2Configured, BUCKET_NAME } from "./config/r2.js";
 import authRoutes from "./routes/authRoutes.js";
 import workspaceRoutes from "./routes/workspaceRoutes.js";
 import fileRoutes from "./routes/fileRoutes.js";
@@ -212,4 +213,9 @@ setupTerminalServer(server);
 const PORT = Number(process.env.PORT) || 8000;
 server.listen(PORT, () => {
   console.log(`🚀 VocodeAI Backend running on http://localhost:${PORT}`);
+  if (isR2Configured) {
+    console.log(`☁️  Cloudflare R2 Storage enabled: Bucket [${BUCKET_NAME}]`);
+  } else {
+    console.log(`⚠️  Cloudflare R2 Storage not configured - running in local-only mode`);
+  }
 });

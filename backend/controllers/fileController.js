@@ -4,6 +4,7 @@ import RecycleBin from "../models/RecycleBin.js";
 import Workspace from "../models/Workspace.js";
 import * as fsService from "../services/fileService.js";
 import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
+import * as r2Service from "../services/r2Service.js";
 
 /* Helper: Normalize file paths to avoid slash and traversal issues */
 export function normalizePath(p) {
@@ -32,6 +33,29 @@ export async function createNode(req, res) {
     const cleanPath = normalizePath(path);
     const wsQuery = buildWsQuery(workspaceId);
 
+    let r2Key = undefined;
+    let size = 0;
+    if (type === "file") {
+      try {
+        const r2Res = await r2Service.saveFileToR2(req.user.id, workspaceId, cleanPath, "");
+        if (r2Res) {
+          r2Key = r2Res.key;
+          size = r2Res.size;
+        }
+      } catch (r2Err) {
+        console.warn("R2 create file warning:", r2Err.message);
+      }
+    } else if (type === "folder") {
+      try {
+        const r2Res = await r2Service.createFolderInR2(req.user.id, workspaceId, cleanPath);
+        if (r2Res) {
+          r2Key = r2Res.key;
+        }
+      } catch (r2Err) {
+        console.warn("R2 create folder warning:", r2Err.message);
+      }
+    }
+
     await FileNode.findOneAndUpdate(
       { ...wsQuery, path: cleanPath },
       {
@@ -39,6 +63,8 @@ export async function createNode(req, res) {
         path: cleanPath,
         type,
         content: type === "file" ? "" : undefined,
+        r2Key,
+        size,
       },
       { upsert: true, new: true }
     );
@@ -73,7 +99,25 @@ export async function readFile(req, res) {
       return res.status(404).json({ error: "File not found" });
     }
 
+    // 1. Try local filesystem
     let content = fsService.readFile(req.user.id, workspaceId, cleanPath);
+
+    // 2. Fallback to Cloudflare R2 if local disk doesn't have it
+    if (!content) {
+      try {
+        const r2Content = await r2Service.readFileFromR2(req.user.id, workspaceId, cleanPath);
+        if (r2Content !== null && r2Content !== undefined) {
+          content = r2Content;
+          try {
+            fsService.saveFile(req.user.id, workspaceId, cleanPath, content);
+          } catch {}
+        }
+      } catch (r2Err) {
+        console.warn("R2 read fallback warning:", r2Err.message);
+      }
+    }
+
+    // 3. Fallback to MongoDB content if needed
     if ((content === "" || content === null || content === undefined) && node.content) {
       content = node.content;
       try {
@@ -100,15 +144,37 @@ export async function saveFile(req, res) {
     const cleanPath = normalizePath(path);
     const wsQuery = buildWsQuery(workspaceId);
 
+    // 1. Save to Cloudflare R2
+    let r2Key = undefined;
+    let size = Buffer.byteLength(content || "", "utf8");
+    try {
+      const r2Res = await r2Service.saveFileToR2(req.user.id, workspaceId, cleanPath, content || "");
+      if (r2Res) {
+        r2Key = r2Res.key;
+        size = r2Res.size;
+      }
+    } catch (r2Err) {
+      console.warn("R2 saveFile warning:", r2Err.message);
+    }
+
+    // 2. Save in MongoDB FileNode
     await FileNode.findOneAndUpdate(
       { ...wsQuery, path: cleanPath, type: "file" },
-      { workspaceId: String(workspaceId), path: cleanPath, type: "file", content: content || "" },
+      {
+        workspaceId: String(workspaceId),
+        path: cleanPath,
+        type: "file",
+        content: content || "",
+        r2Key,
+        size,
+      },
       { upsert: true, new: true }
     );
 
+    // 3. Save to local disk
     fsService.saveFile(req.user.id, workspaceId, cleanPath, content || "");
 
-    res.json({ success: true });
+    res.json({ success: true, r2Key, size });
   } catch (err) {
     console.error("SAVE FILE ERROR:", err);
     res.status(500).json({ error: "Failed to save file: " + err.message });
@@ -136,6 +202,12 @@ export async function renameNode(req, res) {
     }
 
     fsService.renameNode(req.user.id, workspaceId, cleanOld, cleanNew);
+
+    try {
+      await r2Service.renameFileOrFolderInR2(req.user.id, workspaceId, cleanOld, cleanNew);
+    } catch (r2Err) {
+      console.warn("R2 rename warning:", r2Err.message);
+    }
 
     res.json({ success: true });
   } catch (err) {
@@ -171,7 +243,7 @@ export async function deleteNode(req, res) {
     const primary = targetNodes.find((n) => n.path === clean) || targetNodes[0];
     const isFolder = targetNodes.length > 1 || (targetNodes.length === 1 && targetNodes[0].type === "folder");
 
-    // Safely cap content size for RecycleBin so we never exceed MongoDB 16MB document limit
+    // Safely cap content size for MongoDB RecycleBin payload
     let accumulatedSize = 0;
     const MAX_BSON_ITEMS_SIZE = 8 * 1024 * 1024; // 8MB
 
@@ -196,7 +268,7 @@ export async function deleteNode(req, res) {
     const primaryContent = primary?.content || "";
     const primarySafeContent = Buffer.byteLength(primaryContent, "utf8") < MAX_BSON_ITEMS_SIZE ? primaryContent : "";
 
-    await RecycleBin.create({
+    const binItem = await RecycleBin.create({
       userId,
       workspaceId: wsId,
       workspaceName: wsName,
@@ -207,6 +279,18 @@ export async function deleteNode(req, res) {
       items: safeItems,
       deletedAt: new Date(),
     });
+
+    // Move file/folder in Cloudflare R2 to trash prefix
+    try {
+      const r2Trash = await r2Service.moveNodeToTrashR2(userId, wsId, clean, binItem._id.toString());
+      if (r2Trash?.r2Key) {
+        binItem.r2Key = r2Trash.r2Key;
+        binItem.size = r2Trash.size;
+        await binItem.save();
+      }
+    } catch (r2Err) {
+      console.warn("R2 move to trash warning:", r2Err.message);
+    }
 
     await FileNode.deleteMany({
       ...wsQuery,
@@ -255,11 +339,20 @@ export async function restoreRecycleBinItem(req, res) {
           userId,
           name: item.name || "Restored Workspace",
           isPinned: false,
+          r2Prefix: r2Service.getWorkspaceR2Prefix(userId, item.workspaceId.toString()),
         });
       }
 
       fsService.restoreFromTrash(userId, ws._id.toString());
       fsService.ensureWorkspace(userId, ws._id.toString());
+
+      // Restore from Cloudflare R2
+      try {
+        await r2Service.restoreFromTrashR2(userId, ws._id.toString(), id);
+        await r2Service.syncWorkspaceDirFromR2(userId, ws._id.toString());
+      } catch (r2Err) {
+        console.warn("R2 workspace restore warning:", r2Err.message);
+      }
 
       // 2. Re-create all FileNode documents in MongoDB
       if (Array.isArray(item.items) && item.items.length > 0) {
@@ -295,6 +388,14 @@ export async function restoreRecycleBinItem(req, res) {
 
     const wsId = String(item.workspaceId);
 
+    // Restore from Cloudflare R2
+    try {
+      await r2Service.restoreFromTrashR2(userId, wsId, id);
+      await r2Service.syncWorkspaceDirFromR2(userId, wsId);
+    } catch (r2Err) {
+      console.warn("R2 node restore warning:", r2Err.message);
+    }
+
     // Helper: recreate parent directories in FileNode so the tree hierarchy stays intact
     const ensureParents = async (targetPath) => {
       const parts = targetPath.split("/").filter(Boolean);
@@ -314,13 +415,19 @@ export async function restoreRecycleBinItem(req, res) {
 
     // 2. Restore nodes to FileNode collection
     if (item.type === "file") {
+      let content = item.content || "";
+      if (!content) {
+        try {
+          content = fsService.readFile(userId, wsId, item.originalPath) || "";
+        } catch {}
+      }
       await FileNode.findOneAndUpdate(
         { workspaceId: wsId, path: item.originalPath },
         {
           workspaceId: wsId,
           path: item.originalPath,
           type: "file",
-          content: item.content || "",
+          content,
         },
         { upsert: true }
       );
@@ -339,13 +446,19 @@ export async function restoreRecycleBinItem(req, res) {
       if (Array.isArray(item.items)) {
         for (const sub of item.items) {
           await ensureParents(sub.path);
+          let subContent = sub.content || "";
+          if (!subContent && sub.type === "file") {
+            try {
+              subContent = fsService.readFile(userId, wsId, sub.path) || "";
+            } catch {}
+          }
           await FileNode.findOneAndUpdate(
             { workspaceId: wsId, path: sub.path },
             {
               workspaceId: wsId,
               path: sub.path,
               type: sub.type,
-              content: sub.content || "",
+              content: subContent,
             },
             { upsert: true }
           );
@@ -377,6 +490,16 @@ export async function permanentlyDeleteRecycleBinItem(req, res) {
       return res.status(404).json({ error: "Item not found in recycle bin" });
     }
 
+    // Purge from Cloudflare R2
+    try {
+      await r2Service.purgeTrashR2(userId, id);
+      if (deleted.type === "workspace") {
+        await r2Service.deleteWorkspaceFromR2(userId, String(deleted.workspaceId));
+      }
+    } catch (r2Err) {
+      console.warn("R2 purge trash warning:", r2Err.message);
+    }
+
     if (deleted.type === "workspace") {
       await Workspace.deleteOne({ _id: deleted.workspaceId, userId });
       await FileNode.deleteMany({
@@ -400,7 +523,18 @@ export async function emptyRecycleBin(req, res) {
   try {
     const userId = String(req.user.id || req.user._id);
     const items = await RecycleBin.find({ userId }).lean();
+
     for (const it of items) {
+      // Purge from Cloudflare R2
+      try {
+        await r2Service.purgeTrashR2(userId, it._id.toString());
+        if (it.type === "workspace") {
+          await r2Service.deleteWorkspaceFromR2(userId, String(it.workspaceId));
+        }
+      } catch (r2Err) {
+        console.warn("R2 empty trash item error:", r2Err.message);
+      }
+
       if (it.type === "workspace") {
         await Workspace.deleteOne({ _id: it.workspaceId, userId });
         await FileNode.deleteMany({
@@ -599,6 +733,9 @@ export async function replaceInFiles(req, res) {
         file.content = updated;
         await file.save();
         fsService.saveFile(req.user.id, workspaceId, file.path, updated);
+        try {
+          await r2Service.saveFileToR2(req.user.id, workspaceId, file.path, updated);
+        } catch {}
         modifiedFilesCount++;
       }
     }

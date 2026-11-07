@@ -52,6 +52,7 @@ export function isIgnoredFile(relativePath) {
 }
 
 import { getWorkspacesRoot } from "../config/paths.js";
+import { deleteFileFromR2, syncWorkspaceDirToR2 } from "./r2Service.js";
 
 export async function syncWorkspaceToDB(userId, workspaceId) {
   try {
@@ -133,6 +134,9 @@ export async function syncWorkspaceToDB(userId, workspaceId) {
         workspaceId,
         path: { $in: pathsToDelete },
       });
+      for (const p of pathsToDelete) {
+        deleteFileFromR2(userId, workspaceId, p).catch(() => {});
+      }
     }
 
     // Explicitly delete any compiled binary files (.class, a.out, etc.) from MongoDB
@@ -160,6 +164,11 @@ export async function syncWorkspaceToDB(userId, workspaceId) {
       }));
 
       await FileNode.bulkWrite(operations);
+
+      // Asynchronously backup modified workspace files to Cloudflare R2
+      syncWorkspaceDirToR2(userId, workspaceId).catch((r2Err) => {
+        console.warn("R2 async sync warning:", r2Err.message);
+      });
     }
   } catch (err) {
     console.error("❌ syncWorkspaceToDB ERROR:", err.message);

@@ -14,11 +14,22 @@ const recycleBinSchema = new mongoose.Schema(
         path: String,
         type: { type: String },
         content: String,
+        r2Key: String,
+        size: Number,
       },
     ],
+    r2Key: { type: String, default: null },
+    size: { type: Number, default: 0 },
+    storageType: {
+      type: String,
+      enum: ["local", "r2", "hybrid"],
+      default: "hybrid",
+    },
     deletedAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
 );
+
+recycleBinSchema.index({ userId: 1, deletedAt: -1 });
 
 export default mongoose.model("RecycleBin", recycleBinSchema);
