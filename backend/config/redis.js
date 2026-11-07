@@ -27,11 +27,20 @@ export const redisConnection = process.env.REDIS_URL
 redisConnection.on("connect", () => {
   isRedisConnected = true;
   hasLoggedOfflineWarning = false;
-  console.log(`✅ Redis connected (${redisOptions.host}:${redisOptions.port})`);
+  const destination = process.env.REDIS_URL
+    ? process.env.REDIS_URL.replace(/:\/\/[^@]+@/, "://***@") // hide password
+    : `${redisOptions.host}:${redisOptions.port}`;
+  console.log(`✅ Redis connected → ${destination}`);
 });
 
-redisConnection.on("ready", () => {
+redisConnection.on("ready", async () => {
   isRedisConnected = true;
+  // BullMQ requires noeviction policy — set it automatically if Redis allows
+  try {
+    await redisConnection.config("SET", "maxmemory-policy", "noeviction");
+  } catch {
+    // Redis Cloud managed instances may not allow CONFIG SET — warning is cosmetic only
+  }
 });
 
 redisConnection.on("close", () => {
