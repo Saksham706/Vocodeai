@@ -1,0 +1,567 @@
+/* ================= EXTENSIONS PANEL STYLING ================= */
+
+.ext-panel-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-sidebar, #0e161b);
+  color: var(--text-primary, #e2e8f0);
+  user-select: none;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* Header */
+.ext-panel-header {
+  padding: 12px 14px 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(14, 22, 27, 0.95);
+  backdrop-filter: blur(8px);
+}
+
+.ext-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.ext-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ext-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.ext-badge-count {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.ext-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ext-icon-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ext-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.ext-icon-btn.active {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+}
+
+/* Search Box */
+.ext-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.ext-search-icon {
+  position: absolute;
+  left: 9px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.ext-search-input {
+  width: 100%;
+  padding: 7px 28px 7px 30px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #f1f5f9;
+  font-size: 12px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.ext-search-input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.18);
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.ext-search-clear {
+  position: absolute;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.ext-search-clear:hover {
+  color: #f1f5f9;
+}
+
+/* Category Filter Chips */
+.ext-category-scroll {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.ext-category-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.ext-filter-chip {
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  border-radius: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.ext-filter-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f1f5f9;
+}
+
+.ext-filter-chip.active {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+/* View Mode Filter Tabs (All / Installed / Recommended) */
+.ext-view-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.ext-view-tab {
+  flex: 1;
+  text-align: center;
+  padding: 8px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ext-view-tab:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ext-view-tab.active {
+  color: #38bdf8;
+  border-bottom-color: #38bdf8;
+  font-weight: 600;
+}
+
+/* List Content */
+.ext-list-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+}
+
+.ext-list-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ext-list-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+/* Empty State in Extensions */
+.ext-empty-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 16px;
+  color: #64748b;
+}
+
+.ext-empty-icon {
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
+
+.ext-empty-results h5 {
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0 0 6px 0;
+}
+
+.ext-empty-results p {
+  font-size: 11px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Extension Item Card */
+.ext-item-card {
+  display: flex;
+  gap: 12px;
+  padding: 10px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+  margin-bottom: 8px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.ext-item-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.ext-item-card.is-active-theme {
+  border-color: rgba(56, 189, 248, 0.45);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, rgba(14, 22, 27, 0.6) 100%);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.15);
+}
+
+/* Left Icon / Palette Preview */
+.ext-icon-column {
+  flex-shrink: 0;
+  width: 38px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ext-brand-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #38bdf8;
+}
+
+.ext-palette-swatch-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.ext-palette-stripe {
+  flex: 1;
+  width: 100%;
+}
+
+/* Middle Details Column */
+.ext-details-column {
+  flex: 1;
+  min-width: 0;
+}
+
+.ext-name-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+
+.ext-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f8fafc;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ext-verified-badge {
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+.ext-version {
+  font-size: 10px;
+  color: #64748b;
+  margin-left: auto;
+  font-family: monospace;
+}
+
+.ext-publisher-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.ext-publisher {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.ext-category-tag {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+}
+
+.ext-category-tag.theme {
+  background: rgba(168, 85, 247, 0.18);
+  color: #c084fc;
+}
+
+.ext-category-tag.ai {
+  background: rgba(56, 189, 248, 0.18);
+  color: #38bdf8;
+}
+
+.ext-category-tag.formatter {
+  background: rgba(234, 179, 8, 0.18);
+  color: #facc15;
+}
+
+.ext-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.35;
+  margin: 0 0 6px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ext-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 10px;
+  color: #64748b;
+}
+
+.ext-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Actions Column */
+.ext-actions-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Install Button */
+.ext-btn-install {
+  padding: 4px 11px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #0284c7;
+  color: #ffffff;
+  border: 1px solid #38bdf8;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ext-btn-install:hover {
+  background: #0369a1;
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35);
+}
+
+.ext-btn-install:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Installed State */
+.ext-installed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #10b981;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+/* Set Color Theme Button */
+.ext-btn-set-theme {
+  padding: 4px 9px;
+  font-size: 10px;
+  font-weight: 600;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(99, 102, 241, 0.25) 100%);
+  color: #e0e7ff;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.ext-btn-set-theme:hover {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.45) 0%, rgba(99, 102, 241, 0.45) 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(168, 85, 247, 0.3);
+}
+
+.ext-btn-set-theme.active {
+  background: #10b981;
+  border-color: #34d399;
+  color: #064e3b;
+  font-weight: 700;
+}
+
+/* More Options / Gear Button */
+.ext-btn-more {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ext-btn-more:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}
+
+/* Gear Menu Popover */
+.ext-menu-popover {
+  position: absolute;
+  right: 10px;
+  top: 36px;
+  background: #16202a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  min-width: 150px;
+  overflow: hidden;
+}
+
+.ext-menu-action-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 11px;
+  color: #cbd5e1;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.ext-menu-action-item:hover {
+  background: rgba(56, 189, 248, 0.15);
+  color: #ffffff;
+}
+
+.ext-menu-action-item.danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+/* Toast Banner */
+.ext-toast-banner {
+  margin: 8px 10px 0 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+  animation: extToastIn 0.2s ease-out;
+}
+
+@keyframes extToastIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+

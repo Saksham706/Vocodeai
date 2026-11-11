@@ -116,7 +116,7 @@ export default function Signup() {
 
   const handleGoogleSignIn = () => {
     const origin = encodeURIComponent(window.location.origin);
-    window.location.href = `${backendUrl}/api/auth/google?origin=${origin}`;
+    window.location.href = `${backendUrl}/api/auth/google?origin=${origin}&prompt=select_account%20consent`;
   };
 
   return (

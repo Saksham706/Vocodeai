@@ -20,6 +20,11 @@ import WelcomeDashboard from "../components/dashboard/WelcomeDashboard";
 import SettingsView from "../components/settings/SettingsView";
 import SourceControl from "../components/git/SourceControl";
 import GitDiffEditor from "../components/git/GitDiffEditor";
+import ExtensionsPanel from "../components/extensions/ExtensionsPanel";
+import {
+  applyThemeExtension,
+  getActiveThemeExtension,
+} from "../utils/themeRegistry";
 import {
   getGitStatus,
   stageGitFiles,
@@ -149,6 +154,25 @@ function WorkspaceLayout() {
         return;
       }
 
+      // Ctrl+Shift+X: Extensions Marketplace
+      if (isCmdOrCtrl && e.shiftKey && key === "x") {
+        e.preventDefault();
+        if (activityTab === "extensions" && isExplorerOpen) {
+          setIsExplorerOpen(false);
+        } else {
+          setActivityTab("extensions");
+          setIsExplorerOpen(true);
+        }
+        return;
+      }
+
+      // Ctrl+Shift+A or Ctrl+Alt+A: Toggle AI Assistant
+      if (isCmdOrCtrl && (e.shiftKey || e.altKey) && key === "a") {
+        e.preventDefault();
+        setShowAI((prev) => !prev);
+        return;
+      }
+
       // Ctrl+, : Toggle Settings
       if (isCmdOrCtrl && e.key === ",") {
         e.preventDefault();
@@ -168,6 +192,14 @@ function WorkspaceLayout() {
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
+
+  // Initialize and apply saved theme extension
+  useEffect(() => {
+    const activeExtTheme = getActiveThemeExtension();
+    if (activeExtTheme) {
+      applyThemeExtension(activeExtTheme);
+    }
+  }, []);
 
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
@@ -536,6 +568,8 @@ function WorkspaceLayout() {
           setActiveTab={setActivityTab}
           isExplorerOpen={isExplorerOpen}
           toggleExplorer={toggleExplorer}
+          showAI={showAI}
+          toggleAI={toggleAI}
           onOpenSettings={() => setShowSettings((prev) => !prev)}
           onRun={handleMainRun}
           isSettingsOpen={showSettings}
@@ -563,6 +597,8 @@ function WorkspaceLayout() {
                 onRestartTerminal={handleRestartTerminal}
                 onKillTerminal={handleKillTerminal}
               />
+            ) : activityTab === "extensions" ? (
+              <ExtensionsPanel onClose={() => setIsExplorerOpen(false)} />
             ) : (
               <Sidebar onClose={() => setIsExplorerOpen(false)} />
             )}

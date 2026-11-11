@@ -18,61 +18,47 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       },
       async (req, accessToken, refreshToken, profile, done) => {
         try {
-          const email = profile.emails?.[0]?.value;
+          const email = profile.emails?.[0]?.value?.toLowerCase().trim();
 
           if (!email) {
             return done(new Error("No email found in Google profile"), null);
           }
 
-          let stateData = {};
-          if (req.query?.state) {
-            try {
-              stateData = JSON.parse(
-                Buffer.from(req.query.state, "base64").toString("utf-8")
-              );
-            } catch {}
-          }
-
-          // 0️⃣ If userId provided in state, link directly to this user
-          if (stateData.userId) {
-            let user = await User.findById(stateData.userId);
-            if (user) {
-              user.googleId = profile.id;
-              user.googleAccessToken = accessToken;
-              if (refreshToken) user.googleRefreshToken = refreshToken;
-              await user.save();
-              return done(null, user);
-            }
-          }
-
-          // 1️⃣ Check if user already linked with Google
-          let user = await User.findOne({ googleId: profile.id });
-
-          if (user) {
-            user.googleAccessToken = accessToken;
-            if (refreshToken) user.googleRefreshToken = refreshToken;
-            await user.save();
-            return done(null, user);
-          }
-
-          // 2️⃣ Check if email already exists (manual signup user)
-          user = await User.findOne({ email });
+          // 1️⃣ PRIMARY TRUTH: Match user by Google account email
+          let user = await User.findOne({ email });
 
           if (user) {
             user.googleId = profile.id;
             user.googleAccessToken = accessToken;
             if (refreshToken) user.googleRefreshToken = refreshToken;
+            if (!user.isVerified) user.isVerified = true;
             await user.save();
             return done(null, user);
           }
 
-          // 3️⃣ Create completely new user
+          // 2️⃣ If no user with this email, check if another user has this googleId and unlink if email mismatch
+          const existingWithGoogleId = await User.findOne({ googleId: profile.id });
+          if (existingWithGoogleId) {
+            if (existingWithGoogleId.email.toLowerCase() !== email) {
+              existingWithGoogleId.googleId = undefined;
+              existingWithGoogleId.googleAccessToken = undefined;
+              existingWithGoogleId.googleRefreshToken = undefined;
+              await existingWithGoogleId.save();
+            } else {
+              existingWithGoogleId.googleAccessToken = accessToken;
+              if (refreshToken) existingWithGoogleId.googleRefreshToken = refreshToken;
+              await existingWithGoogleId.save();
+              return done(null, existingWithGoogleId);
+            }
+          }
+
+          // 3️⃣ Create completely new user for this Google account (e.g. sakshamagarwal706@gmail.com)
           user = await User.create({
             googleId: profile.id,
             googleAccessToken: accessToken,
             googleRefreshToken: refreshToken || "",
             email,
-            firstName: profile.name?.givenName || "User",
+            firstName: profile.name?.givenName || email.split("@")[0],
             lastName: profile.name?.familyName || "",
             isVerified: true,
           });

@@ -263,6 +263,26 @@ export default function DashboardSidebar({
               </button>
               <button
                 type="button"
+                className="popover-item"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setProfileMenuOpen(false);
+                  try {
+                    await logout();
+                  } catch {}
+                  localStorage.removeItem("accessToken");
+                  localStorage.removeItem("user");
+                  localStorage.removeItem("vocode_ai_provider_config");
+                  navigate("/login?prompt=select_account", { replace: true });
+                }}
+              >
+                <UserCheck size={15} />
+                <span>Switch Account</span>
+              </button>
+              <button
+                type="button"
                 className="popover-item danger"
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={async (e) => {
@@ -276,6 +296,7 @@ export default function DashboardSidebar({
                   } finally {
                     localStorage.removeItem("accessToken");
                     localStorage.removeItem("user");
+                    localStorage.removeItem("vocode_ai_provider_config");
                     navigate("/login", { replace: true });
                   }
                 }}

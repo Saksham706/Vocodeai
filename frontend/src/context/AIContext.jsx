@@ -1,12 +1,17 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { askAI, deleteChatHistory } from "../services/aiApi";
+import {
+  askAI,
+  deleteChatHistory,
+  fetchAICredentials,
+  disconnectAIProviderApi,
+} from "../services/aiApi";
 import { useAuth } from "./AuthContext";
 import { useWorkspace } from "./WorkspaceContext";
 
 const AIContext = createContext();
 
 export function AIProvider({ children }) {
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const {
     openFile,
     updateContent,
@@ -43,21 +48,115 @@ export function AIProvider({ children }) {
     }
   });
 
+  // Dynamically keep aiConfig synchronized with the active user account
+  useEffect(() => {
+    if (!user?.email) return;
+
+    // Check if user has a scoped config saved
+    const userScoped = localStorage.getItem(`vocode_ai_provider_config_${user.email}`);
+    if (userScoped) {
+      try {
+        const parsed = JSON.parse(userScoped);
+        setAiConfig(parsed);
+        localStorage.setItem("vocode_ai_provider_config", userScoped);
+        return;
+      } catch {}
+    }
+
+    // If aiConfig belongs to a different email, adapt or reset
+    if (aiConfig && aiConfig.accountEmail && aiConfig.accountEmail !== user.email) {
+      const updated = {
+        ...aiConfig,
+        accountEmail: user.email,
+        label: `${(aiConfig.label || aiConfig.model).split("(")[0].trim()} (${user.email.split("@")[0]})`,
+      };
+      setAiConfig(updated);
+      try {
+        localStorage.setItem("vocode_ai_provider_config", JSON.stringify(updated));
+        localStorage.setItem(`vocode_ai_provider_config_${user.email}`, JSON.stringify(updated));
+      } catch {}
+    }
+  }, [user?.email]);
+
+  // Listen for external ai-config changes (e.g. from OAuth redirect)
+  useEffect(() => {
+    const handleConfigChange = (e) => {
+      if (e.detail?.aiConfig) {
+        setAiConfig(e.detail.aiConfig);
+      }
+    };
+    window.addEventListener("vocode-ai-config-changed", handleConfigChange);
+    return () => window.removeEventListener("vocode-ai-config-changed", handleConfigChange);
+  }, []);
+
+  // Load credentials from backend on mount if not in localStorage
+  useEffect(() => {
+    let mounted = true;
+    const syncBackendCredentials = async () => {
+      if (!accessToken) return;
+      try {
+        const data = await fetchAICredentials(accessToken);
+        if (!mounted || !data) return;
+
+        if (data.savedProviders && Object.keys(data.savedProviders).length > 0) {
+          setSavedProviderKeys((prev) => {
+            const merged = { ...data.savedProviders, ...prev };
+            try {
+              localStorage.setItem("vocode_ai_saved_keys", JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+        }
+
+        // If local config is empty, restore active from backend
+        if (!aiConfig && data.activeConfig?.provider) {
+          setAiConfig(data.activeConfig);
+          try {
+            localStorage.setItem(
+              "vocode_ai_provider_config",
+              JSON.stringify(data.activeConfig)
+            );
+          } catch {}
+        }
+      } catch (err) {
+        console.warn("Could not sync AI credentials from backend:", err);
+      }
+    };
+    syncBackendCredentials();
+    return () => {
+      mounted = false;
+    };
+  }, [accessToken]);
+
   // Connect or switch active AI model & account
   const connectProvider = (config) => {
     setAiConfig(config);
     try {
       localStorage.setItem("vocode_ai_provider_config", JSON.stringify(config));
+      if (config.accountEmail) {
+        localStorage.setItem(
+          `vocode_ai_provider_config_${config.accountEmail}`,
+          JSON.stringify(config)
+        );
+      }
       const updatedKeys = {
         ...savedProviderKeys,
         [config.provider]: {
-          apiKey: config.apiKey,
+          apiKey: config.apiKey || "",
           model: config.model,
+          authMethod: config.authMethod,
+          accountEmail: config.accountEmail,
           updatedAt: new Date().toISOString(),
         },
       };
       setSavedProviderKeys(updatedKeys);
       localStorage.setItem("vocode_ai_saved_keys", JSON.stringify(updatedKeys));
+      if (config.accountEmail) {
+        localStorage.setItem(
+          `vocode_ai_saved_keys_${config.accountEmail}`,
+          JSON.stringify(updatedKeys)
+        );
+      }
     } catch (err) {
       console.warn("Could not persist AI config to localStorage:", err);
     }
@@ -70,6 +169,9 @@ export function AIProvider({ children }) {
       localStorage.removeItem("vocode_ai_provider_config");
     } catch (err) {
       console.warn("Could not remove AI config:", err);
+    }
+    if (accessToken) {
+      disconnectAIProviderApi(accessToken).catch(() => {});
     }
   };
 

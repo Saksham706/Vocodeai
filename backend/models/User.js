@@ -26,6 +26,31 @@ const userSchema = new mongoose.Schema(
 
     resetOTP: String,
     resetOTPExpiry: Date,
+
+    // AI Integration credentials (per-user / per-model)
+    aiCredentials: {
+      type: Map,
+      of: new mongoose.Schema(
+        {
+          provider: String,
+          model: String,
+          accountEmail: String,
+          apiKey: String,
+          authMethod: String,
+          connectedAt: Date,
+        },
+        { _id: false }
+      ),
+      default: {},
+    },
+    activeAiConfig: {
+      provider: String,
+      model: String,
+      accountEmail: String,
+      apiKey: String,
+      authMethod: String,
+      label: String,
+    },
   },
   { timestamps: true }
 );

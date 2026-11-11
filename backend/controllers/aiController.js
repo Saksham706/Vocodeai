@@ -276,26 +276,94 @@ Persona: Friendly, witty, concise, highly encouraging, tech-savvy. You can use m
 export async function handleVerifyKey(req, res) {
   try {
     const { provider, model, apiKey, authMethod, accountEmail } = req.body;
+    const userId = req.user?.id || req.user?._id;
+    const email = accountEmail || req.user?.email || "Account";
 
     if (authMethod === "google") {
-      const email = accountEmail || req.user?.email || "Google Account";
+      const googleEmail = accountEmail || req.user?.email || "Google Account";
+
+      if (userId) {
+        try {
+          const userDoc = await User.findById(userId);
+          if (userDoc) {
+            if (!userDoc.aiCredentials) userDoc.aiCredentials = new Map();
+            userDoc.aiCredentials.set("gemini", {
+              provider: "gemini",
+              model: model || "gemini-1.5-pro",
+              accountEmail: googleEmail,
+              apiKey: "",
+              authMethod: "google",
+              connectedAt: new Date(),
+            });
+            userDoc.activeAiConfig = {
+              provider: "gemini",
+              model: model || "gemini-1.5-pro",
+              accountEmail: googleEmail,
+              apiKey: "",
+              authMethod: "google",
+              label: `Google Gemini (${googleEmail.split("@")[0]})`,
+            };
+            await userDoc.save();
+          }
+        } catch (dbErr) {
+          console.warn("Could not save Google AI config to user document:", dbErr.message);
+        }
+      }
+
       return res.json({
         success: true,
         provider: provider || "gemini",
         model: model || "gemini-1.5-pro",
         authMethod: "google",
-        accountEmail: email,
-        message: `Successfully connected with Google account (${email})!`,
+        accountEmail: googleEmail,
+        message: `Successfully connected with Google account (${googleEmail})!`,
       });
     }
 
-    if (!provider || !apiKey) {
+    if (!provider) {
       return res.status(400).json({
-        error: "Provider and API Key are required.",
+        error: "Provider is required.",
       });
     }
 
-    const verification = await verifyAIKey({ provider, model, apiKey, authMethod, accountEmail });
+    const verification = await verifyAIKey({
+      provider,
+      model,
+      apiKey,
+      authMethod,
+      accountEmail: email,
+    });
+
+    // If authenticated user and verification succeeded, persist credentials to DB
+    if (userId && verification.success) {
+      try {
+        const userDoc = await User.findById(userId);
+        if (userDoc) {
+          if (!userDoc.aiCredentials) userDoc.aiCredentials = new Map();
+          const p = provider || "openai";
+          userDoc.aiCredentials.set(p, {
+            provider: p,
+            model: model || verification.model,
+            accountEmail: email,
+            apiKey: apiKey ? String(apiKey).trim() : "",
+            authMethod: authMethod || (apiKey ? "token" : "cloud"),
+            connectedAt: new Date(),
+          });
+          userDoc.activeAiConfig = {
+            provider: p,
+            model: model || verification.model,
+            accountEmail: email,
+            apiKey: apiKey ? String(apiKey).trim() : "",
+            authMethod: authMethod || (apiKey ? "token" : "cloud"),
+            label: `${verification.model || p} (${email.split("@")[0]})`,
+          };
+          await userDoc.save();
+        }
+      } catch (dbErr) {
+        console.warn("Could not persist AI credentials to user document:", dbErr.message);
+      }
+    }
+
     return res.json(verification);
   } catch (err) {
     console.warn("AI Key Verification Failed:", err.message);
@@ -303,6 +371,59 @@ export async function handleVerifyKey(req, res) {
       success: false,
       error: err.message,
     });
+  }
+}
+
+/* ================= GET SAVED USER AI CREDENTIALS ================= */
+export async function getAICredentials(req, res) {
+  try {
+    const userId = req.user?.id || req.user?._id;
+    if (!userId) {
+      return res.json({ activeConfig: null, savedProviders: {} });
+    }
+
+    const userDoc = await User.findById(userId).lean();
+    if (!userDoc) {
+      return res.json({ activeConfig: null, savedProviders: {} });
+    }
+
+    const savedProviders = {};
+    if (userDoc.aiCredentials) {
+      for (const [key, val] of Object.entries(userDoc.aiCredentials)) {
+        savedProviders[key] = {
+          provider: val.provider || key,
+          model: val.model,
+          accountEmail: val.accountEmail,
+          apiKey: val.apiKey || "",
+          authMethod: val.authMethod,
+          connectedAt: val.connectedAt,
+        };
+      }
+    }
+
+    return res.json({
+      activeConfig: userDoc.activeAiConfig || null,
+      savedProviders,
+    });
+  } catch (err) {
+    return res.json({ activeConfig: null, savedProviders: {} });
+  }
+}
+
+/* ================= DISCONNECT AI CREDENTIAL ================= */
+export async function disconnectAICredential(req, res) {
+  try {
+    const userId = req.user?.id || req.user?._id;
+    if (userId) {
+      const userDoc = await User.findById(userId);
+      if (userDoc) {
+        userDoc.activeAiConfig = null;
+        await userDoc.save();
+      }
+    }
+    return res.json({ success: true, message: "AI provider disconnected." });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to disconnect AI provider." });
   }
 }
 

@@ -142,6 +142,14 @@ export default function SourceControl({
   // Clone state
   const [cloneUrl, setCloneUrl] = useState("");
   const [cloneLoading, setCloneLoading] = useState(false);
+  const [cloneTab, setCloneTab] = useState("url"); // "url" | "templates"
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+
+  const handleOpenCloneWithUrl = (url) => {
+    setCloneUrl(url);
+    setCloneTab("url");
+    setShowCloneModal(true);
+  };
 
   // Status message / toast banner
   const [banner, setBanner] = useState(null);
@@ -762,7 +770,7 @@ export default function SourceControl({
             </p>
             <div className="sc-empty-btn-group">
               <button
-                className="btn-create-workspace-primary"
+                className="sc-btn-init-repo"
                 onClick={handleInitRepo}
                 disabled={loading}
               >
@@ -770,12 +778,54 @@ export default function SourceControl({
                 <span>Initialize Repository</span>
               </button>
               <button
-                className="btn-create-workspace-secondary"
-                onClick={() => setShowCloneModal(true)}
+                className="sc-btn-clone-repo"
+                onClick={() => {
+                  setCloneTab("url");
+                  setShowCloneModal(true);
+                }}
               >
-                <DownloadCloud size={15} />
+                <GithubIcon size={16} />
                 <span>Clone from GitHub</span>
               </button>
+            </div>
+
+            {/* Quick Starters */}
+            <div className="sc-quick-clone-section">
+              <span className="sc-quick-clone-title">Quick Starters:</span>
+              <div className="sc-quick-clone-chips">
+                <button
+                  type="button"
+                  className="sc-quick-chip-btn"
+                  onClick={() => handleOpenCloneWithUrl("https://github.com/vitejs/vite")}
+                  title="Clone React + Vite Starter"
+                >
+                  ⚛️ React
+                </button>
+                <button
+                  type="button"
+                  className="sc-quick-chip-btn"
+                  onClick={() => handleOpenCloneWithUrl("https://github.com/expressjs/express")}
+                  title="Clone Express API Starter"
+                >
+                  🟢 Node.js
+                </button>
+                <button
+                  type="button"
+                  className="sc-quick-chip-btn"
+                  onClick={() => handleOpenCloneWithUrl("https://github.com/fastapi/fastapi")}
+                  title="Clone Python FastAPI Starter"
+                >
+                  🐍 Python
+                </button>
+                <button
+                  type="button"
+                  className="sc-quick-chip-btn"
+                  onClick={() => handleOpenCloneWithUrl("https://github.com/vercel/next.js")}
+                  title="Clone Next.js Starter"
+                >
+                  ▲ Next.js
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -1268,24 +1318,103 @@ export default function SourceControl({
         document.body
       )}
 
-      {/* MODAL 3: Clone Repository (Public & Private) */}
+      {/* MODAL 3: Clone Repository (Public, Private & Starter Templates) */}
       {showCloneModal && createPortal(
         <div className="sc-modal-overlay" onClick={() => setShowCloneModal(false)}>
-          <div className="sc-modal-card" onClick={(e) => e.stopPropagation()}>
+          <div className="sc-modal-card" style={{ maxWidth: "520px" }} onClick={(e) => e.stopPropagation()}>
             <div className="sc-modal-header">
               <div className="sc-modal-header-left">
-                <div className="sc-modal-icon-wrap">
-                  <DownloadCloud size={18} color="#2BD87F" />
+                <div className="sc-modal-icon-wrap" style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8" }}>
+                  <DownloadCloud size={18} />
                 </div>
                 <div>
                   <h3 className="sc-modal-title-text">Clone Repository</h3>
-                  <p className="sc-modal-subtitle">Clone any public or private GitHub repository directly into this workspace</p>
+                  <p className="sc-modal-subtitle">Clone any public or private GitHub repository or starter template</p>
                 </div>
               </div>
               <button className="sc-modal-close" onClick={() => setShowCloneModal(false)} title="Close">
                 <X size={15} />
               </button>
             </div>
+
+            {/* Mode Tabs */}
+            <div className="sc-clone-tabs">
+              <button
+                type="button"
+                className={`sc-clone-tab ${cloneTab === "url" ? "active" : ""}`}
+                onClick={() => setCloneTab("url")}
+              >
+                Repository URL
+              </button>
+              <button
+                type="button"
+                className={`sc-clone-tab ${cloneTab === "templates" ? "active" : ""}`}
+                onClick={() => setCloneTab("templates")}
+              >
+                Starter Templates
+              </button>
+            </div>
+
+            {cloneTab === "templates" ? (
+              <div>
+                <div className="sc-template-grid">
+                  {[
+                    {
+                      name: "React + Vite",
+                      desc: "Modern React with Vite build and fast HMR",
+                      url: "https://github.com/vitejs/vite",
+                      icon: "⚛️",
+                    },
+                    {
+                      name: "Node.js Express",
+                      desc: "Minimalist REST API with Express and ES Modules",
+                      url: "https://github.com/expressjs/express",
+                      icon: "🟢",
+                    },
+                    {
+                      name: "FastAPI Python",
+                      desc: "Modern high-performance Python web framework",
+                      url: "https://github.com/fastapi/fastapi",
+                      icon: "🐍",
+                    },
+                    {
+                      name: "Next.js App",
+                      desc: "Full-stack React framework with App Router",
+                      url: "https://github.com/vercel/next.js",
+                      icon: "▲",
+                    },
+                    {
+                      name: "Spring Boot",
+                      desc: "Enterprise Java backend microservice foundation",
+                      url: "https://github.com/spring-projects/spring-boot",
+                      icon: "☕",
+                    },
+                    {
+                      name: "Tailwind CSS",
+                      desc: "Utility-first CSS framework for modern UIs",
+                      url: "https://github.com/tailwindlabs/tailwindcss",
+                      icon: "🎨",
+                    },
+                  ].map((tpl) => (
+                    <div
+                      key={tpl.name}
+                      className={`sc-template-card ${cloneUrl === tpl.url ? "active" : ""}`}
+                      onClick={() => {
+                        setCloneUrl(tpl.url);
+                        setCloneTab("url");
+                      }}
+                      title={`Click to select ${tpl.name}`}
+                    >
+                      <span className="sc-template-name">
+                        <span>{tpl.icon}</span>
+                        <span>{tpl.name}</span>
+                      </span>
+                      <span className="sc-template-desc">{tpl.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div className="sc-clone-type-badge">
               <Globe size={16} color="#38BDF8" style={{ marginTop: "2px", flexShrink: 0 }} />
@@ -1297,7 +1426,30 @@ export default function SourceControl({
 
             <form onSubmit={handleClone}>
               <div className="sc-form-group">
-                <label>GitHub Repository URL</label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                  <label style={{ margin: 0 }}>GitHub Repository URL</label>
+                  <button
+                    type="button"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#38bdf8",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                    onClick={async () => {
+                      try {
+                        const clip = await navigator.clipboard?.readText?.();
+                        if (clip && (clip.startsWith("http") || clip.startsWith("git@"))) {
+                          setCloneUrl(clip.trim());
+                        }
+                      } catch {}
+                    }}
+                  >
+                    Paste from Clipboard
+                  </button>
+                </div>
                 <input
                   type="text"
                   className="sc-modal-input"
@@ -1307,7 +1459,7 @@ export default function SourceControl({
                   required
                   autoFocus
                 />
-                <span className="sc-input-hint">Paste HTTPS URL (e.g. https://github.com/Saksham706/dp.git or https://github.com/torvalds/linux)</span>
+                <span className="sc-input-hint">Paste HTTPS URL (e.g. https://github.com/username/project.git)</span>
               </div>
 
               <div className="sc-modal-footer">
