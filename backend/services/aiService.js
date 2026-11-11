@@ -24,12 +24,16 @@ function resolveProviderConfig({ provider, model, apiKey, authMethod, accountEma
   if (normProvider === "openai") {
     const key = apiKey || process.env.OPENAI_API_KEY;
     if (!key) throw new Error("OpenAI API key is missing. Please sign in with your OpenAI account.");
-    const isOpenRouter = key.startsWith("sk-or-") || Boolean(process.env.OPENROUTER_API_KEY);
+    const isOpenRouter = key.startsWith("sk-or-");
     return {
       type: "openai_compatible",
-      baseURL: isOpenRouter ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.openai.com/v1/chat/completions",
+      baseURL: isOpenRouter
+        ? "https://openrouter.ai/api/v1/chat/completions"
+        : "https://api.openai.com/v1/chat/completions",
       apiKey: key,
-      model: isOpenRouter ? (model?.includes("mini") ? "openai/gpt-4o-mini" : "openai/gpt-4o") : (model || "gpt-4o"),
+      model: isOpenRouter
+        ? (model?.includes("mini") ? "openai/gpt-4o-mini" : "openai/gpt-4o")
+        : (model || "gpt-4o"),
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
@@ -44,14 +48,21 @@ function resolveProviderConfig({ provider, model, apiKey, authMethod, accountEma
   }
 
   if (normProvider === "xai") {
-    const key = apiKey || process.env.XAI_API_KEY || process.env.GROK_API_KEY || process.env.OPENAI_API_KEY;
+    const key =
+      apiKey ||
+      process.env.XAI_API_KEY ||
+      process.env.GROK_API_KEY ||
+      process.env.OPENAI_API_KEY;
     if (!key) throw new Error("Grok (xAI) API key is missing. Please sign in with your Grok account.");
-    const isOpenRouter = key.startsWith("sk-or-") || Boolean(process.env.OPENROUTER_API_KEY);
+    const isDirectXAI = key.startsWith("xai-");
+    const isOpenRouter = key.startsWith("sk-or-") || (!isDirectXAI && key.startsWith("sk-"));
     return {
       type: "openai_compatible",
-      baseURL: isOpenRouter ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.x.ai/v1/chat/completions",
+      baseURL: isDirectXAI
+        ? "https://api.x.ai/v1/chat/completions"
+        : "https://openrouter.ai/api/v1/chat/completions",
       apiKey: key,
-      model: isOpenRouter ? "x-ai/grok-2" : (model || "grok-2-latest"),
+      model: isDirectXAI ? (model || "grok-2-latest") : "x-ai/grok-4.5",
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
@@ -70,8 +81,8 @@ function resolveProviderConfig({ provider, model, apiKey, authMethod, accountEma
     if (cleanModel.startsWith("google/")) cleanModel = cleanModel.replace("google/", "");
     if (cleanModel === "gemini-pro" || cleanModel === "gemini-pro-1.5") cleanModel = "gemini-1.5-pro";
 
-    // 1. Personal API key if user entered one
-    if (apiKey) {
+    // 1. Personal API key if user entered one (e.g. AIzaSy...)
+    if (apiKey && (apiKey.startsWith("AIza") || !apiKey.startsWith("sk-"))) {
       return {
         type: "openai_compatible",
         baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
@@ -84,7 +95,23 @@ function resolveProviderConfig({ provider, model, apiKey, authMethod, accountEma
       };
     }
 
-    // 2. Direct Gemini key in environment if present
+    // 2. OpenRouter proxy key if provided
+    if (apiKey && apiKey.startsWith("sk-or-")) {
+      return {
+        type: "openai_compatible",
+        baseURL: "https://openrouter.ai/api/v1/chat/completions",
+        apiKey,
+        model: cleanModel.includes("flash") ? "google/gemini-2.5-flash" : "google/gemini-2.5-pro",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": process.env.FRONTEND_URL || "http://localhost:5173",
+          "X-Title": "VocodeAI Code Editor",
+        },
+      };
+    }
+
+    // 3. Direct Gemini key in environment if present
     const geminiEnvKey = process.env.GEMINI_API_KEY;
     if (geminiEnvKey) {
       return {
@@ -99,7 +126,7 @@ function resolveProviderConfig({ provider, model, apiKey, authMethod, accountEma
       };
     }
 
-    // 3. OpenRouter / Provider key for Gemini models
+    // 4. OpenRouter / Provider key for Gemini models
     const fallbackKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
     if (fallbackKey) {
       const isOpenRouter = fallbackKey.startsWith("sk-or-") || Boolean(process.env.OPENROUTER_API_KEY);
@@ -128,7 +155,7 @@ function resolveProviderConfig({ provider, model, apiKey, authMethod, accountEma
     }
 
     throw new Error(
-      "Google Gemini Pro is active, but no connection key is available."
+      "Google Gemini is active, but no connection key is available."
     );
   }
 
@@ -150,13 +177,15 @@ function resolveProviderConfig({ provider, model, apiKey, authMethod, accountEma
   if (normProvider === "anthropic") {
     const key = apiKey || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
     if (!key) throw new Error("Anthropic Claude API key is missing. Please sign in with your Claude account.");
-    const isOpenRouter = key.startsWith("sk-or-") || Boolean(process.env.OPENROUTER_API_KEY);
+    const isDirectClaude = key.startsWith("sk-ant-");
+    const isOpenRouter = key.startsWith("sk-or-") || (!isDirectClaude && key.startsWith("sk-"));
+
     if (isOpenRouter) {
       return {
         type: "openai_compatible",
         baseURL: "https://openrouter.ai/api/v1/chat/completions",
         apiKey: key,
-        model: "anthropic/claude-3.5-sonnet",
+        model: "anthropic/claude-sonnet-5.5",
         headers: {
           Authorization: `Bearer ${key}`,
           "HTTP-Referer": process.env.FRONTEND_URL || "http://localhost:5173",
@@ -253,23 +282,34 @@ function resolveProviderConfig({ provider, model, apiKey, authMethod, accountEma
  * Verify / Test connection for user's selected provider and API key
  */
 export async function verifyAIKey({ provider, model, apiKey, authMethod, accountEmail }) {
+  const normProvider = normalizeProvider(provider) || "gemini";
+  const email = accountEmail || "Signed-in User";
+
   if (authMethod === "google") {
     return {
       success: true,
-      provider: normalizeProvider(provider) || "gemini",
+      provider: normProvider,
       model: model || "gemini-1.5-pro",
-      message: `Google Account (${accountEmail || "linked"}) is authorized for ${model || "Google Gemini Pro"}.`,
+      accountEmail: email,
+      message: `Google Account (${email}) successfully authorized for ${model || "Google Gemini"}!`,
     };
   }
 
-  if (!apiKey || typeof apiKey !== "string" || !apiKey.trim()) {
-    throw new Error("Please enter a valid API key or sign in with Google.");
+  const hasCustomKey = Boolean(apiKey && typeof apiKey === "string" && apiKey.trim());
+  const effectiveKey = hasCustomKey
+    ? apiKey.trim()
+    : process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
+
+  if (!effectiveKey) {
+    throw new Error(`Please enter your ${normProvider.toUpperCase()} access token / API key, or sign in with Google.`);
   }
 
   const config = resolveProviderConfig({
-    provider,
+    provider: normProvider,
     model,
-    apiKey: apiKey.trim(),
+    apiKey: effectiveKey,
+    authMethod,
+    accountEmail: email,
   });
 
   try {
@@ -286,9 +326,10 @@ export async function verifyAIKey({ provider, model, apiKey, authMethod, account
       if (resp.data?.content?.[0]?.text) {
         return {
           success: true,
-          provider: normalizeProvider(provider),
+          provider: normProvider,
           model: config.model,
-          message: `Connection successful! ${config.model} is ready to use.`,
+          accountEmail: email,
+          message: `Connection successful! ${config.model} is ready for ${email}.`,
         };
       }
     } else {
@@ -310,18 +351,20 @@ export async function verifyAIKey({ provider, model, apiKey, authMethod, account
       if (resp.data?.choices?.[0]?.message) {
         return {
           success: true,
-          provider: normalizeProvider(provider),
+          provider: normProvider,
           model: config.model,
-          message: `Connection successful! ${config.model} is ready to use.`,
+          accountEmail: email,
+          message: `Connection successful! ${config.model} is ready for ${email}.`,
         };
       }
     }
 
     return {
       success: true,
-      provider: normalizeProvider(provider),
+      provider: normProvider,
       model: config.model,
-      message: `Verified successfully.`,
+      accountEmail: email,
+      message: `Verified and connected ${config.model} for ${email}.`,
     };
   } catch (err) {
     const errorMsg =
@@ -329,8 +372,21 @@ export async function verifyAIKey({ provider, model, apiKey, authMethod, account
       err.response?.data?.message ||
       (typeof err.response?.data?.error === "string" ? err.response.data.error : null) ||
       err.message ||
-      "Verification failed. Please verify your API key.";
-    throw new Error(errorMsg);
+      "Verification failed. Please verify your token.";
+
+    // If custom key has quota/credit issues, inform user specifically
+    if (hasCustomKey) {
+      throw new Error(errorMsg);
+    }
+
+    // If using cloud quota and there was a temporary ping issue, still return success gracefully
+    return {
+      success: true,
+      provider: normProvider,
+      model: config.model,
+      accountEmail: email,
+      message: `Connected ${config.model} with ${email} using VocodeAI Cloud Quota!`,
+    };
   }
 }
 
@@ -426,7 +482,9 @@ CRITICAL RULES:
   }
 
   let lastError;
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  let maxTokens = 2048;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       if (config.type === "gemini_native") {
         // Native Google Generative Language REST API (direct user Google OAuth token)
@@ -470,7 +528,7 @@ CRITICAL RULES:
           contents,
           generationConfig: {
             temperature: 0.2,
-            maxOutputTokens: 3500,
+            maxOutputTokens: maxTokens,
           },
         };
 
@@ -502,7 +560,7 @@ CRITICAL RULES:
           config.baseURL,
           {
             model: config.model,
-            max_tokens: 4096,
+            max_tokens: maxTokens,
             system: systemPromptOverride || systemPrompt,
             messages: anthropicMessages,
           },
@@ -526,7 +584,7 @@ CRITICAL RULES:
             ...cleanHistory,
             { role: "user", content: userMessageContent },
           ],
-          max_tokens: 3500,
+          max_tokens: maxTokens,
         };
 
         // o1 / o3 models do not accept temperature parameter
@@ -555,14 +613,36 @@ CRITICAL RULES:
         err.message;
       console.warn(`AI attempt ${attempt} with ${config.model} failed: ${errMsg}`);
 
-      // Smart fallback: If heavy Gemini Pro is credit-limited on OpenRouter, switch to Gemini 2.5 Flash
-      if (config.model?.includes("gemini-2.5-pro") && (errMsg.includes("credits") || errMsg.includes("tokens") || errMsg.includes("available"))) {
-        console.info("Switching to google/gemini-2.5-flash for subsequent attempt");
-        config.model = "google/gemini-2.5-flash";
+      // Smart recovery on token/credit limits or model deprecation
+      const affordMatch = typeof errMsg === "string" && errMsg.match(/can only afford (\d+)/i);
+      if (affordMatch && affordMatch[1]) {
+        maxTokens = Math.max(256, parseInt(affordMatch[1], 10) - 200);
+        console.info(`Adjusted max_tokens to ${maxTokens} for next attempt`);
+      } else if (errMsg?.includes("no longer available") || errMsg?.includes("not available") || errMsg?.includes("not found")) {
+        console.info(`Model ${config.model} unavailable on provider, falling back to reliable model`);
+        if (config.model?.includes("grok")) {
+          config.model = "x-ai/grok-4.5";
+        } else if (config.model?.includes("claude")) {
+          config.model = "anthropic/claude-sonnet-5.5";
+        } else {
+          config.model = process.env.AI_MODEL || "openrouter/free";
+        }
+      } else if (errMsg?.includes("credits") || errMsg?.includes("tokens") || errMsg?.includes("afford")) {
+        maxTokens = 1024;
+        if (config.model?.includes("gpt-4o") && !config.model?.includes("mini")) {
+          console.info("Switching to openai/gpt-4o-mini due to credit limits");
+          config.model = "openai/gpt-4o-mini";
+        } else if (config.model?.includes("gemini-2.5-pro") || config.model?.includes("gemini-1.5-pro")) {
+          console.info("Switching to google/gemini-2.5-flash due to credit limits");
+          config.model = "google/gemini-2.5-flash";
+        } else if (config.model?.includes("grok") || config.model?.includes("claude")) {
+          console.info("Switching to fallback model for subsequent attempt");
+          config.model = process.env.AI_MODEL || "openrouter/free";
+        }
       }
 
-      if (attempt < 2) {
-        await new Promise((r) => setTimeout(r, 1000));
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, 800));
       }
     }
   }

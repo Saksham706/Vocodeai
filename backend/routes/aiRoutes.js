@@ -1,7 +1,15 @@
 import express from "express";
 import jwt from "jsonwebtoken";
 import { auth } from "../middleware/auth.js";
-import { handleAI, deleteChatHistory, handleVocaAI, handleVerifyKey, getGoogleAIStatus } from "../controllers/aiController.js";
+import {
+  handleAI,
+  deleteChatHistory,
+  handleVocaAI,
+  handleVerifyKey,
+  getGoogleAIStatus,
+  getAICredentials,
+  disconnectAICredential,
+} from "../controllers/aiController.js";
 
 const router = express.Router();
 
@@ -19,6 +27,8 @@ function optionalAuth(req, res, next) {
 router.post("/voca", handleVocaAI);
 
 router.get("/google-status", optionalAuth, getGoogleAIStatus);
+router.get("/credentials", auth, getAICredentials);
+router.post("/disconnect", auth, disconnectAICredential);
 router.post("/verify-key", optionalAuth, handleVerifyKey);
 router.post("/", auth, handleAI);
 router.delete("/history/:workspaceId", auth, deleteChatHistory);

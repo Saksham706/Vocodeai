@@ -36,14 +36,13 @@ router.get("/google", (req, res, next) => {
   const returnTo = req.query.returnTo || "";
   const provider = req.query.provider || "gemini";
   const model = req.query.model || "gemini-1.5-pro";
-  const userId = req.query.userId || "";
   const state = Buffer.from(
-    JSON.stringify({ origin, action, returnTo, provider, model, userId })
+    JSON.stringify({ origin, action, returnTo, provider, model })
   ).toString("base64");
 
   passport.authenticate("google", {
     scope: ["profile", "email"],
-    prompt: "consent",
+    prompt: req.query.prompt || "select_account consent",
     accessType: "offline",
     state,
   })(req, res, next);
@@ -94,16 +93,17 @@ router.get(
           email: req.user.email,
           firstName: req.user.firstName,
           lastName: req.user.lastName,
-          hasGoogleAuth: Boolean(req.user.googleAccessToken),
+          hasGoogleAuth: Boolean(req.user.googleAccessToken || req.user.googleId),
         })
       );
 
       const googleParam = action === "ai_connect" ? "&googleConnected=true" : "";
+      const googleEmailParam = `&googleEmail=${encodeURIComponent(req.user.email)}`;
       const returnParam = returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : "";
       const modelParam = `&provider=${encodeURIComponent(provider)}&model=${encodeURIComponent(model)}`;
 
       res.redirect(
-        `${targetOrigin}/oauth-success?token=${accessToken}&refreshToken=${refreshToken}&user=${userJson}${googleParam}${returnParam}${modelParam}`
+        `${targetOrigin}/oauth-success?token=${accessToken}&refreshToken=${refreshToken}&user=${userJson}${googleParam}${googleEmailParam}${returnParam}${modelParam}`
       );
     } catch (err) {
       console.error("Google OAuth callback error:", err);

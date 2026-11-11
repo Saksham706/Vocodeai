@@ -4,6 +4,10 @@ import { useWorkspace } from "../../context/WorkspaceContext";
 import { LANGUAGE_META } from "../../config/languages";
 import { DEFAULT_SETTINGS } from "../../config/defaultSettings";
 import { getEffectiveSettings } from "../../utils/settingsStorage";
+import {
+  registerMonacoThemes,
+  getActiveThemeExtension,
+} from "../../utils/themeRegistry";
 import { Code2, Plus } from "lucide-react";
 import ImageViewer from "./ImageViewer";
 import MarkdownViewer from "./MarkdownViewer";
@@ -148,12 +152,21 @@ export default function CodeEditor({ file }) {
   }, [editorSettings]);
 
   const [editorTheme, setEditorTheme] = useState(() => {
+    const extTheme = getActiveThemeExtension();
+    if (extTheme) return extTheme;
     return localStorage.getItem("vocode_theme") === "light" ? "light" : "vs-dark";
   });
 
   useEffect(() => {
     const updateTheme = () => {
-      const current = document.documentElement.getAttribute("data-theme") || localStorage.getItem("vocode_theme");
+      const extTheme = getActiveThemeExtension();
+      if (extTheme) {
+        setEditorTheme(extTheme);
+        return;
+      }
+      const current =
+        document.documentElement.getAttribute("data-theme") ||
+        localStorage.getItem("vocode_theme");
       setEditorTheme(current === "light" ? "light" : "vs-dark");
     };
 
@@ -162,13 +175,23 @@ export default function CodeEditor({ file }) {
     const observer = new MutationObserver(updateTheme);
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-theme"],
+      attributeFilter: ["data-theme", "data-theme-extension"],
     });
 
+    const handleThemeExtChange = (e) => {
+      if (e.detail?.themeId) {
+        setEditorTheme(e.detail.themeId);
+      } else {
+        updateTheme();
+      }
+    };
+
+    window.addEventListener("vocode-theme-extension-changed", handleThemeExtChange);
     window.addEventListener("storage", updateTheme);
 
     return () => {
       observer.disconnect();
+      window.removeEventListener("vocode-theme-extension-changed", handleThemeExtChange);
       window.removeEventListener("storage", updateTheme);
     };
   }, []);
@@ -246,6 +269,9 @@ export default function CodeEditor({ file }) {
     <div className="ide-monaco-wrapper">
       <Editor
         theme={editorTheme}
+        beforeMount={(monaco) => {
+          registerMonacoThemes(monaco);
+        }}
         path={currentFile}
         defaultLanguage={meta.monaco || "plaintext"}
         language={meta.monaco || "plaintext"}

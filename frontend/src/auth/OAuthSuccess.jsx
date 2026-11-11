@@ -20,15 +20,17 @@ export default function OAuthSuccess() {
         const userParam = params.get("user");
         const returnTo = params.get("returnTo");
         const googleConnected = params.get("googleConnected");
+        const googleEmail = params.get("googleEmail");
 
         if (token && userParam) {
           const user = JSON.parse(decodeURIComponent(userParam));
           login(token, user);
 
+          const email = googleEmail || user?.email || "Google Account";
+
           if (googleConnected) {
             const provider = params.get("provider") || "gemini";
             const model = params.get("model") || "gemini-1.5-pro";
-            const email = user?.email || "Google Account";
             const modelLabel =
               model.includes("flash")
                 ? `Google Gemini Flash (${email.split("@")[0]})`
@@ -43,15 +45,22 @@ export default function OAuthSuccess() {
               connectedAt: new Date().toISOString(),
             };
 
+            // Save globally and user-scoped
             localStorage.setItem(
               "vocode_ai_provider_config",
+              JSON.stringify(aiConfig)
+            );
+            localStorage.setItem(
+              `vocode_ai_provider_config_${email}`,
               JSON.stringify(aiConfig)
             );
 
             // Also record in saved keys for instant re-selection
             try {
               const currentSaved = JSON.parse(
-                localStorage.getItem("vocode_ai_saved_keys") || "{}"
+                localStorage.getItem(`vocode_ai_saved_keys_${email}`) ||
+                localStorage.getItem("vocode_ai_saved_keys") ||
+                "{}"
               );
               currentSaved[provider] = {
                 authMethod: "google",
@@ -63,7 +72,17 @@ export default function OAuthSuccess() {
                 "vocode_ai_saved_keys",
                 JSON.stringify(currentSaved)
               );
+              localStorage.setItem(
+                `vocode_ai_saved_keys_${email}`,
+                JSON.stringify(currentSaved)
+              );
             } catch {}
+
+            window.dispatchEvent(
+              new CustomEvent("vocode-ai-config-changed", {
+                detail: { aiConfig },
+              })
+            );
           }
 
           if (returnTo) {

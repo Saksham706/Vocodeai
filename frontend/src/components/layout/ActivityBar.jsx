@@ -6,6 +6,7 @@ import {
   Play,
   Grid2X2,
   Settings,
+  Bot,
 } from "lucide-react";
 import "../../styles/activitybar.css";
 
@@ -14,6 +15,8 @@ export default function ActivityBar({
   setActiveTab,
   isExplorerOpen,
   toggleExplorer,
+  showAI = false,
+  toggleAI,
   onOpenSettings,
   onRun,
   isSettingsOpen = false,
@@ -85,12 +88,22 @@ export default function ActivityBar({
 
         {/* 5. Extensions */}
         <button
-          className={`activity-bar-btn ${activeTab === "extensions" ? "active" : ""}`}
+          className={`activity-bar-btn ${activeTab === "extensions" && isExplorerOpen ? "active" : ""}`}
           onClick={() => handleItemClick("extensions")}
           title="Extensions (Ctrl+Shift+X)"
           aria-label="Extensions"
         >
           <Grid2X2 size={20} strokeWidth={1.8} />
+        </button>
+
+        {/* 6. AI Assistant Tab */}
+        <button
+          className={`activity-bar-btn ${showAI ? "active" : ""}`}
+          onClick={toggleAI}
+          title="AI Assistant (Ctrl+Alt+A)"
+          aria-label="AI Assistant"
+        >
+          <Bot size={20} strokeWidth={1.8} />
         </button>
       </div>
 

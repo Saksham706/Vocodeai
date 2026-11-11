@@ -93,6 +93,36 @@ export async function getGoogleAIStatus(token) {
   }
 }
 
+export async function fetchAICredentials(token) {
+  const activeToken = token || localStorage.getItem("accessToken") || "";
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/ai/credentials`, {
+      headers: {
+        Authorization: `Bearer ${activeToken}`,
+      },
+    });
+    if (!res.ok) return { activeConfig: null, savedProviders: {} };
+    return await res.json();
+  } catch {
+    return { activeConfig: null, savedProviders: {} };
+  }
+}
+
+export async function disconnectAIProviderApi(token) {
+  const activeToken = token || localStorage.getItem("accessToken") || "";
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/ai/disconnect`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${activeToken}`,
+      },
+    });
+    return await res.json();
+  } catch {
+    return { success: false };
+  }
+}
+
 export async function deleteChatHistory(token, workspaceId) {
   const activeToken = token || localStorage.getItem("accessToken") || "";
   const url = workspaceId

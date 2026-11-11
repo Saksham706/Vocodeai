@@ -81,14 +81,19 @@ export default function AIChat({
 
   const activeProvider = useMemo(() => {
     return (
-      AI_PROVIDERS.find((p) => p.id === aiConfig?.provider) ||
-      AI_PROVIDERS[0]
+      AI_PROVIDERS.find(
+        (p) => p.id === aiConfig?.model || p.provider === aiConfig?.provider
+      ) || AI_PROVIDERS[0]
     );
   }, [aiConfig]);
 
   const otherSavedProviders = useMemo(() => {
     return AI_PROVIDERS.filter(
-      (p) => p.id !== aiConfig?.provider && savedProviderKeys?.[p.id]?.apiKey
+      (p) =>
+        p.id !== aiConfig?.model &&
+        (savedProviderKeys?.[p.provider]?.apiKey ||
+          savedProviderKeys?.[p.provider]?.accountEmail ||
+          savedProviderKeys?.[p.id]?.apiKey)
     );
   }, [aiConfig, savedProviderKeys]);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
@@ -125,19 +130,20 @@ export default function AIChat({
 
   // Clean, compact model display name for header pill
   const shortModelDisplayName = useMemo(() => {
-    if (!aiConfig) return activeProvider?.name || "Select AI";
-    const modelObj = activeProvider?.models?.find((m) => m.id === aiConfig.model);
-    if (modelObj?.name) {
-      return modelObj.name.replace(/^Google\s+/, "");
+    if (!aiConfig) return "Select AI Model";
+    const found = AI_PROVIDERS.find(
+      (m) => m.id === aiConfig.model || m.provider === aiConfig.provider
+    );
+    if (found?.name) {
+      return found.name;
     }
     if (aiConfig.label) {
-      const stripped = aiConfig.label.replace(/\s*\([^)]*\)/, "").trim();
-      return stripped.replace(/^Google\s+/, "");
+      return aiConfig.label;
     }
     if (aiConfig.model) {
       return aiConfig.model.replace(/^google\//, "").replace(/-/g, " ");
     }
-    return activeProvider?.name || "AI";
+    return activeProvider?.name || "AI Assistant";
   }, [aiConfig, activeProvider]);
 
   // Flatten workspace tree to get all available files and folders
@@ -740,63 +746,47 @@ export default function AIChat({
                     <span className="ai-dropdown-section-title">Active Model</span>
                     <span className="ai-dropdown-badge">
                       {aiConfig?.authMethod === "google"
-                        ? "Google Account"
-                        : aiConfig?.isFreeTier
-                          ? "Free Tier"
-                          : "Personal Key"}
+                        ? "Google OAuth"
+                        : aiConfig?.authMethod === "cloud"
+                        ? "Cloud Quota"
+                        : "Personal Token"}
                     </span>
                   </div>
-                  {aiConfig?.accountEmail && (
-                    <div className="ai-dropdown-account-info" title={aiConfig.accountEmail}>
-                      <span className="ai-dropdown-account-label">User:</span>
-                      <span className="ai-dropdown-account-email">{aiConfig.accountEmail}</span>
+                  {(aiConfig?.accountEmail || user?.email) && (
+                    <div className="ai-dropdown-account-info" title={aiConfig?.accountEmail || user?.email}>
+                      <span className="ai-dropdown-account-label">Signed in:</span>
+                      <span className="ai-dropdown-account-email">{aiConfig?.accountEmail || user?.email}</span>
                     </div>
                   )}
                 </div>
 
-                {/* Sub-models under active provider */}
-                {activeProvider?.models?.length > 0 && (
-                  <div className="ai-model-dropdown-sublist">
-                    <span className="ai-dropdown-sub-label">Switch Version:</span>
-                    {activeProvider.models.map((m) => (
-                      <div
-                        key={m.id}
-                        className={`ai-model-item ${m.id === aiConfig?.model ? "active" : ""}`}
-                        onClick={() => {
-                          updateAiModel(m.id);
-                          setModelDropdownOpen(false);
-                          showToast(`Switched to ${m.name}`);
-                        }}
-                      >
-                        <span className="ai-model-item-name">{m.name}</span>
-                        {m.id === aiConfig?.model && <Check size={12} />}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
                 {/* Other previously saved providers */}
                 {otherSavedProviders.length > 0 && (
                   <div className="ai-model-dropdown-sublist">
-                    <span className="ai-dropdown-sub-label">Quick Switch:</span>
+                    <span className="ai-dropdown-sub-label">Saved Models:</span>
                     {otherSavedProviders.map((p) => {
-                      const saved = savedProviderKeys[p.id];
+                      const saved = savedProviderKeys[p.provider] || savedProviderKeys[p.id];
+                      const currentAccountEmail = saved?.accountEmail || user?.email || aiConfig?.accountEmail || "User";
+                      const emailTag = currentAccountEmail ? ` (${currentAccountEmail.split("@")[0]})` : "";
                       return (
                         <div
                           key={p.id}
                           className="ai-model-item"
                           onClick={() => {
                             connectProvider({
-                              provider: p.id,
-                              model: saved.model || p.defaultModel,
-                              apiKey: saved.apiKey,
-                              label: `${p.name} (${saved.model || p.defaultModel})`,
+                              provider: p.provider,
+                              model: p.id,
+                              apiKey: saved?.apiKey || "",
+                              authMethod: saved?.authMethod || (saved?.apiKey ? "token" : "cloud"),
+                              accountEmail: currentAccountEmail,
+                              label: `${p.name}${emailTag}`,
+                              connectedAt: new Date().toISOString(),
                             });
                             setModelDropdownOpen(false);
                             showToast(`Switched to ${p.name}`);
                           }}
                         >
-                          <span className="ai-model-item-name">Switch to {p.name}</span>
+                          <span className="ai-model-item-name">Switch to {p.name}{emailTag}</span>
                         </div>
                       );
                     })}
