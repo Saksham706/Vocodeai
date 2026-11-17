@@ -2,6 +2,33 @@ import { DEFAULT_SETTINGS } from "../config/defaultSettings";
 
 const USER_SETTINGS_KEY = "vocode_user_settings";
 const WORKSPACE_SETTINGS_PREFIX = "vocode_workspace_settings_";
+const LEGACY_AI_KEY_FIELDS = [
+  "geminiApiKey",
+  "openaiApiKey",
+  "groqApiKey",
+  "anthropicApiKey",
+];
+function migrateLegacyAISettings(settings) {
+  const aiSettings = settings?.["vocode.ai"];
+  let changed = false;
+  if (aiSettings && typeof aiSettings === "object") {
+    for (const field of LEGACY_AI_KEY_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(aiSettings, field)) {
+        delete aiSettings[field];
+        changed = true;
+      }
+    }
+    if (aiSettings.defaultModel !== "gemini-3.8-flash") {
+      aiSettings.defaultModel = "gemini-3.8-flash";
+      changed = true;
+    }
+  }
+  if (settings?.antigravity && settings.antigravity.activeModel !== "gemini-3.8-flash") {
+    settings.antigravity.activeModel = "gemini-3.8-flash";
+    changed = true;
+  }
+  return changed;
+}
 
 /**
  * Deep merge utility to combine base default settings with user overrides
@@ -117,6 +144,9 @@ export function getUserSettings() {
     const raw = localStorage.getItem(USER_SETTINGS_KEY);
     if (!raw) return DEFAULT_SETTINGS;
     const parsed = JSON.parse(raw);
+    if (migrateLegacyAISettings(parsed)) {
+      localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify(parsed, null, 2));
+    }
     return deepMerge(DEFAULT_SETTINGS, parsed);
   } catch (e) {
     console.warn("Failed to parse user settings, using defaults", e);
@@ -143,7 +173,15 @@ export function getWorkspaceOverrides(workspaceId) {
   if (!workspaceId) return {};
   try {
     const raw = localStorage.getItem(`${WORKSPACE_SETTINGS_PREFIX}${workspaceId}`);
-    return raw ? JSON.parse(raw) : {};
+    if (!raw) return {};
+    const overrides = JSON.parse(raw);
+    if (migrateLegacyAISettings(overrides)) {
+      localStorage.setItem(
+        `${WORKSPACE_SETTINGS_PREFIX}${workspaceId}`,
+        JSON.stringify(overrides, null, 2)
+      );
+    }
+    return overrides;
   } catch (e) {
     console.warn("Failed to parse workspace settings", e);
     return {};

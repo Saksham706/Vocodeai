@@ -1,27 +1,23 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useAI } from "../../context/AIContext";
-import { getGoogleAIStatus, verifyAIKey } from "../../services/aiApi";
-import { BACKEND_URL } from "../../config/apiConfig";
+import { useWorkspace } from "../../context/WorkspaceContext";
+import { getEffectiveSettings, getNestedValue } from "../../utils/settingsStorage";
+import { verifyAIKeyApi } from "../../services/aiApi";
 import {
-  Zap,
   CheckCircle2,
   AlertCircle,
   ChevronRight,
   ArrowLeft,
+  Key,
   ShieldCheck,
   RotateCcw,
   Bot,
   X,
-  User,
-  Mail,
-  KeyRound,
-  Eye,
-  EyeOff,
   ExternalLink,
   Sparkles,
 } from "lucide-react";
-import { RobotAvatar } from "./RobotIllustration";
+import AntigravityLogo from "../common/AntigravityLogo";
 
 // Google 4-color SVG Logo
 export function GoogleGLogo({ size = 18 }) {
@@ -49,82 +45,56 @@ export function GoogleGLogo({ size = 18 }) {
 
 export const COMPACT_MODELS = [
   {
-    id: "gemini-1.5-pro",
+    id: "gemini-3.8-flash",
     provider: "gemini",
-    name: "Google Gemini Pro",
-    company: "Google",
-    badge: "RECOMMENDED",
+    name: "Gemini 3.8 Flash Medium",
+    company: "Google Antigravity",
+    badge: "DEFAULT",
     badgeColor: "#38bdf8",
-    desc: "Google flagship reasoning model for deep code analysis & architecture.",
-    color: "#4285F4",
-    iconType: "google",
-    tokenPlaceholder: "AIzaSy... or personal Gemini API key",
-    tokenHelpUrl: "https://aistudio.google.com/apikey",
-    tokenHelpLabel: "Google AI Studio",
+    desc: "Google's premier agent-first coding model with deep reasoning and file creation.",
+    color: "#38bdf8",
+    iconType: "antigravity",
   },
   {
-    id: "gemini-2.0-flash",
+    id: "gemini-1.5-pro",
     provider: "gemini",
-    name: "Google Gemini Flash",
+    name: "Gemini 1.5 Pro",
     company: "Google",
-    badge: "ULTRA FAST",
-    badgeColor: "#34D399",
-    desc: "Next-gen lightning speed model with sub-second response times.",
-    color: "#38bdf8",
+    badge: "HIGH REASONING",
+    badgeColor: "#818cf8",
+    desc: "Extensive context window with deep architectural and multi-file reasoning.",
+    color: "#4285F4",
     iconType: "gemini",
-    tokenPlaceholder: "AIzaSy... or personal Gemini API key",
-    tokenHelpUrl: "https://aistudio.google.com/apikey",
-    tokenHelpLabel: "Google AI Studio",
   },
   {
     id: "gpt-4o",
     provider: "openai",
     name: "ChatGPT (GPT-4o)",
     company: "OpenAI",
-    badge: "POPULAR",
-    badgeColor: "#10b981",
-    desc: "OpenAI flagship model with strong multimodal vision and logic.",
+    badge: "FLAGSHIP",
+    badgeColor: "#10a37f",
+    desc: "OpenAI's flagship omni model for high precision logic, coding, and debugging.",
     color: "#10a37f",
     iconType: "openai",
-    tokenPlaceholder: "sk-proj-... or personal OpenAI token",
-    tokenHelpUrl: "https://platform.openai.com/api-keys",
-    tokenHelpLabel: "OpenAI Platform",
   },
   {
-    id: "grok-2-latest",
-    provider: "xai",
-    name: "Grok-2",
-    company: "xAI",
-    badge: "NEXT GEN",
-    badgeColor: "#F59E0B",
-    desc: "Real-time reasoning and architectural decomposition by xAI.",
-    color: "#FFFFFF",
-    iconType: "xai",
-    tokenPlaceholder: "xai-... or personal Grok token",
-    tokenHelpUrl: "https://console.x.ai",
-    tokenHelpLabel: "xAI Console",
-  },
-  {
-    id: "claude-3-5-sonnet-20241022",
-    provider: "anthropic",
-    name: "Claude 3.5 Sonnet",
-    company: "Anthropic",
-    badge: "TOP CODING",
-    badgeColor: "#EC4899",
-    desc: "Nuanced code refactoring, clean architecture, and debugging.",
-    color: "#F59E0B",
-    iconType: "anthropic",
-    tokenPlaceholder: "sk-ant-... or personal Claude token",
-    tokenHelpUrl: "https://console.anthropic.com/settings/keys",
-    tokenHelpLabel: "Anthropic Console",
+    id: "gpt-4o-mini",
+    provider: "openai",
+    name: "ChatGPT (GPT-4o Mini)",
+    company: "OpenAI",
+    badge: "FAST",
+    badgeColor: "#34d399",
+    desc: "Fast, efficient model for rapid prototyping, explanations, and quick edits.",
+    color: "#10a37f",
+    iconType: "openai",
   },
 ];
 
 export const AI_PROVIDERS = COMPACT_MODELS;
 
 export function CompactModelIcon({ iconType, color, size = 18 }) {
-  if (iconType === "google") {
-    return <GoogleGLogo size={size} />;
+  if (iconType === "antigravity") {
+    return <AntigravityLogo size={size} />;
   }
   if (iconType === "gemini") {
     return (
@@ -140,255 +110,106 @@ export function CompactModelIcon({ iconType, color, size = 18 }) {
       </svg>
     );
   }
-  if (iconType === "xai") {
-    return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="#FFFFFF">
-        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-      </svg>
-    );
-  }
-  if (iconType === "anthropic") {
-    return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={color || "#F59E0B"}>
-        <path d="M14.053 2.5a1.2 1.2 0 0 0-1.106.74L6.2 18.5h3.14l1.37-3.4h5.58l1.37 3.4h3.14L15.16 3.24a1.2 1.2 0 0 0-1.107-.74zm-.053 4.35 1.95 4.95h-3.9z" />
-      </svg>
-    );
-  }
   return <Bot size={size} />;
 }
 
-export default function AIModelSelector({ onCancel, isDismissible = false }) {
-  const { user, accessToken } = useAuth();
-  const { aiConfig, savedProviderKeys, connectProvider } = useAI();
-
-  // Step 1 = Select Model, Step 2 = Sign In & Credential
-  const [currentStep, setCurrentStep] = useState(1);
-
-  // Default to Google Gemini Pro
-  const [selectedModelId, setSelectedModelId] = useState(
-    aiConfig?.model || "gemini-1.5-pro"
+export default function AIModelSelector({
+  onCancel,
+  isDismissible = false,
+  initialModelId = null,
+  initialStep = 1,
+}) {
+  const { accessToken } = useAuth();
+  const { aiConfig, connectProvider } = useAI();
+  const { currentProject } = useWorkspace();
+  const preferredModelId = getNestedValue(
+    getEffectiveSettings(currentProject),
+    "vocode.ai.defaultModel"
   );
+  const validPreferredModelId = COMPACT_MODELS.some((model) => model.id === preferredModelId)
+    ? preferredModelId
+    : "gemini-3.8-flash";
+  const validActiveModelId = COMPACT_MODELS.some((model) => model.id === aiConfig?.model)
+    ? aiConfig.model
+    : validPreferredModelId;
 
-  const selectedModelObj =
-    COMPACT_MODELS.find((m) => m.id === selectedModelId) || COMPACT_MODELS[0];
+  const [currentStep, setCurrentStep] = useState(initialStep);
+  const [selectedModelId, setSelectedModelId] = useState(
+    COMPACT_MODELS.some((model) => model.id === initialModelId)
+      ? initialModelId
+      : validActiveModelId
+  );
+  const selectedModelObj = COMPACT_MODELS.find((m) => m.id === selectedModelId) || COMPACT_MODELS[0];
 
-  const isGoogle = selectedModelObj.provider === "gemini";
-
-  // Account Email state - user can enter the required email they want to sign in with
-  const [accountEmail, setAccountEmail] = useState(() => {
-    return (
-      user?.email ||
-      aiConfig?.accountEmail ||
-      savedProviderKeys?.[selectedModelObj.provider]?.accountEmail ||
-      ""
-    );
-  });
-
-  // Keep accountEmail in sync with the dynamically active user
-  useEffect(() => {
-    if (user?.email) {
-      setAccountEmail(user.email);
+  const [apiKeyInput, setApiKeyInput] = useState(() => {
+    if (aiConfig?.provider === selectedModelObj.provider && aiConfig?.apiKey) {
+      return aiConfig.apiKey;
     }
-  }, [user?.email]);
-
-  // Token / Credential input state
-  const [tokenInput, setTokenInput] = useState(() => {
-    return (
-      savedProviderKeys?.[selectedModelObj.provider]?.apiKey ||
-      aiConfig?.apiKey ||
-      ""
-    );
+    return "";
   });
 
-  const [showToken, setShowToken] = useState(false);
-
-  const [googleStatus, setGoogleStatus] = useState({
-    hasGoogleToken: false,
-    email: null,
-  });
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Check if current user already has Google OAuth linked on backend
-  useEffect(() => {
-    let mounted = true;
-    const fetchStatus = async () => {
-      try {
-        const token = accessToken || localStorage.getItem("accessToken") || "";
-        const res = await getGoogleAIStatus(token);
-        if (mounted) {
-          setGoogleStatus(res);
-        }
-      } catch {
-        if (mounted) {
-          setGoogleStatus({ hasGoogleToken: false, email: null });
-        }
-      }
-    };
-    fetchStatus();
-    return () => {
-      mounted = false;
-    };
-  }, [accessToken, currentStep]);
-
-  // Sync email & token when selected model changes
   const handleSelectModel = (model) => {
+    setSelectedModelId(model.id);
+    connectProvider({
+      provider: model.provider,
+      model: model.id,
+      label: model.name,
+      apiKey: aiConfig?.provider === model.provider ? (aiConfig?.apiKey || "") : "",
+    });
+    setSuccessMsg(`Switched to ${model.name}`);
+    setTimeout(() => onCancel?.(), 300);
+  };
+
+  const handleOpenKeyConfig = (model, e) => {
+    e.stopPropagation();
     setSelectedModelId(model.id);
     setErrorMsg("");
     setSuccessMsg("");
-
-    const saved = savedProviderKeys?.[model.provider];
-    if (saved?.accountEmail) {
-      setAccountEmail(saved.accountEmail);
-    } else if (user?.email) {
-      setAccountEmail(user.email);
-    }
-
-    if (saved?.apiKey) {
-      setTokenInput(saved.apiKey);
+    if (aiConfig?.provider === model.provider && aiConfig?.apiKey) {
+      setApiKeyInput(aiConfig.apiKey);
     } else {
-      setTokenInput("");
+      setApiKeyInput("");
     }
-
     setCurrentStep(2);
   };
 
-  // Direct Google OAuth authorization (VS Code extension model)
-  const handleGoogleSignIn = (forceSwitch = false) => {
-    setLoading(true);
-    setErrorMsg("");
-
-    const origin = window.location.origin;
-    const returnTo = window.location.pathname;
-
-    const oauthUrl = `${BACKEND_URL}/api/auth/google?action=ai_connect&provider=${encodeURIComponent(
-      selectedModelObj.provider
-    )}&model=${encodeURIComponent(
-      selectedModelObj.id
-    )}&origin=${encodeURIComponent(origin)}&returnTo=${encodeURIComponent(
-      returnTo
-    )}&prompt=select_account%20consent`;
-
-    window.location.href = oauthUrl;
-  };
-
-  // When already linked with Google, activate immediately
-  const handleActivateLinked = () => {
-    const email = (accountEmail || googleStatus.email || user?.email || "Google Account").trim();
-
-    connectProvider({
-      provider: selectedModelObj.provider,
-      model: selectedModelObj.id,
-      authMethod: "google",
-      accountEmail: email,
-      apiKey: "",
-      label: `${selectedModelObj.name} (${email.split("@")[0]})`,
-      connectedAt: new Date().toISOString(),
-    });
-
-    setSuccessMsg(`Activated ${selectedModelObj.name} with ${email}!`);
-    setTimeout(() => {
-      onCancel?.();
-    }, 400);
-  };
-
-  // Sign In with Email & Custom Model Credential / Token
-  const handleConnectWithToken = async (e) => {
+  const handleConnect = async (e) => {
     e?.preventDefault?.();
-    const email = accountEmail.trim();
-
-    if (!email) {
-      setErrorMsg("Please enter your account email to sign in.");
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setErrorMsg("Please enter a valid email address (e.g. name@example.com).");
-      return;
-    }
+    const cleanKey = apiKeyInput.trim();
 
     setLoading(true);
     setErrorMsg("");
     setSuccessMsg("");
 
     try {
-      const token = accessToken || localStorage.getItem("accessToken") || "";
-      const trimmedKey = tokenInput.trim();
-
-      const res = await verifyAIKey(token, {
-        provider: selectedModelObj.provider,
-        model: selectedModelObj.id,
-        apiKey: trimmedKey,
-        authMethod: trimmedKey ? "token" : "cloud",
-        accountEmail: email,
-      });
-
-      const label = `${selectedModelObj.name} (${email.split("@")[0]})`;
+      if (cleanKey) {
+        // Verify key against first-party endpoint
+        const token = accessToken || localStorage.getItem("accessToken") || "";
+        await verifyAIKeyApi(token, {
+          provider: selectedModelObj.provider,
+          apiKey: cleanKey,
+        });
+      }
 
       connectProvider({
         provider: selectedModelObj.provider,
         model: selectedModelObj.id,
-        apiKey: trimmedKey,
-        authMethod: trimmedKey ? "token" : "cloud",
-        accountEmail: email,
-        label,
-        connectedAt: new Date().toISOString(),
+        label: selectedModelObj.name,
+        apiKey: cleanKey,
       });
 
       setSuccessMsg(
-        res.message || `Signed in as ${email}. ${selectedModelObj.name} activated!`
+        cleanKey
+          ? `${selectedModelObj.name} key verified & activated!`
+          : `${selectedModelObj.name} activated with server credentials!`
       );
-      setTimeout(() => {
-        onCancel?.();
-      }, 500);
+      setTimeout(() => onCancel?.(), 500);
     } catch (err) {
-      setErrorMsg(
-        err.message || "Failed to verify credentials. Please verify your token."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Quick Connect with Cloud Quota (Instant Workable Setup)
-  const handleQuickConnectCloud = async () => {
-    const email = (accountEmail || user?.email || "developer@vocode.ai").trim();
-    setLoading(true);
-    setErrorMsg("");
-    setSuccessMsg("");
-
-    try {
-      const token = accessToken || localStorage.getItem("accessToken") || "";
-      const res = await verifyAIKey(token, {
-        provider: selectedModelObj.provider,
-        model: selectedModelObj.id,
-        apiKey: "",
-        authMethod: "cloud",
-        accountEmail: email,
-      });
-
-      const label = `${selectedModelObj.name} (${email.split("@")[0]})`;
-
-      connectProvider({
-        provider: selectedModelObj.provider,
-        model: selectedModelObj.id,
-        apiKey: "",
-        authMethod: "cloud",
-        accountEmail: email,
-        label,
-        connectedAt: new Date().toISOString(),
-      });
-
-      setSuccessMsg(
-        `Cloud Quota activated for ${email} with ${selectedModelObj.name}!`
-      );
-      setTimeout(() => {
-        onCancel?.();
-      }, 500);
-    } catch (err) {
-      setErrorMsg(err.message || "Quick connect failed.");
+      setErrorMsg(err.message || "Failed to verify API key. Please check credentials.");
     } finally {
       setLoading(false);
     }
@@ -399,14 +220,11 @@ export default function AIModelSelector({ onCancel, isDismissible = false }) {
       {/* Header */}
       <div className="ai-wizard-header">
         <div className="ai-wizard-brand">
-          <RobotAvatar size={28} />
+          <CompactModelIcon iconType={selectedModelObj.iconType} color={selectedModelObj.color} size={22} />
           <div className="ai-wizard-titles">
-            <h4 className="ai-wizard-title">AI Assistant Setup</h4>
+            <h4 className="ai-wizard-title">VocodeAI Assistant - Select Engine</h4>
             <span className="ai-wizard-step-tag">
-              Step {currentStep} of 2:{" "}
-              {currentStep === 1
-                ? "Select AI Model"
-                : `Sign In with ${selectedModelObj.company || selectedModelObj.name}`}
+              Step {currentStep} of 2: {currentStep === 1 ? "Select Engine" : `Configure Key`}
             </span>
           </div>
         </div>
@@ -423,12 +241,12 @@ export default function AIModelSelector({ onCancel, isDismissible = false }) {
         )}
       </div>
 
-      {/* Sequential Stepper Progress Bar */}
+      {/* Stepper Progress Bar */}
       <div className="ai-wizard-progress-bar">
         <div
           className={`ai-step-indicator ${currentStep >= 1 ? "active" : ""}`}
           onClick={() => setCurrentStep(1)}
-          title="Click to go back to Model Selection"
+          title="Click to switch models"
         >
           <span className="step-num">1</span>
           <span className="step-label">Select Model</span>
@@ -440,7 +258,7 @@ export default function AIModelSelector({ onCancel, isDismissible = false }) {
         >
           <span className="step-num">2</span>
           <span className="step-label">
-            Sign In ({selectedModelObj.company || selectedModelObj.name.split(" ")[0]})
+            API Key ({selectedModelObj.company})
           </span>
         </div>
       </div>
@@ -452,17 +270,18 @@ export default function AIModelSelector({ onCancel, isDismissible = false }) {
           <div className="ai-step-view">
             <div className="ai-step-heading">
               <span className="ai-step-instruction">
-                Choose the AI model you want to work with:
+                Choose your AI engine (runs directly on backend/.env keys):
               </span>
             </div>
 
             <div className="ai-compact-model-list">
               {COMPACT_MODELS.map((model) => {
                 const isSelected = model.id === selectedModelId;
+                const isActive = aiConfig?.model === model.id;
                 return (
                   <div
                     key={model.id}
-                    className={`ai-compact-model-card ${isSelected ? "selected" : ""}`}
+                    className={`ai-compact-model-card ${isSelected ? "selected" : ""} ${isActive ? "active-model" : ""}`}
                     onClick={() => handleSelectModel(model)}
                   >
                     <div className="ai-compact-card-left">
@@ -491,6 +310,18 @@ export default function AIModelSelector({ onCancel, isDismissible = false }) {
                               {model.badge}
                             </span>
                           )}
+                          {isActive && (
+                            <span
+                              className="ai-compact-badge"
+                              style={{
+                                color: "#10b981",
+                                borderColor: "#10b98140",
+                                backgroundColor: "#10b98115",
+                              }}
+                            >
+                              ACTIVE
+                            </span>
+                          )}
                         </div>
                         <span className="ai-compact-desc">{model.desc}</span>
                       </div>
@@ -506,7 +337,7 @@ export default function AIModelSelector({ onCancel, isDismissible = false }) {
           </div>
         )}
 
-        {/* ================= STEP 2: SIGN IN & CREDENTIAL IMPLEMENTATION ================= */}
+        {/* ================= STEP 2: CONFIGURE API KEY ================= */}
         {currentStep === 2 && (
           <div className="ai-step-view">
             {/* Selected Model Summary Badge */}
@@ -540,156 +371,70 @@ export default function AIModelSelector({ onCancel, isDismissible = false }) {
               </button>
             </div>
 
-            {/* Sign-In & Model Credential Container */}
+            {/* API Key Form */}
             <div className="ai-google-signin-box" style={{ marginTop: "10px" }}>
               <div className="ai-step-subdesc">
-                Sign in with your <strong>{selectedModelObj.company} account email</strong> and
-                implement your access token to activate <strong>{selectedModelObj.name}</strong>{" "}
-                (VS Code style):
+                Direct official API key for <strong>{selectedModelObj.company}</strong>. No third-party proxies.
               </div>
 
-              {/* 1-Click Google OAuth Option (If Gemini selected) */}
-              {isGoogle && (() => {
-                const isLinked = Boolean(googleStatus.hasGoogleToken && googleStatus.email);
-                const isMatchingEmail =
-                  isLinked &&
-                  accountEmail &&
-                  googleStatus.email.toLowerCase() === accountEmail.toLowerCase();
-
-                return (
-                  <div className="ai-google-oauth-section" style={{ marginBottom: "12px" }}>
-                    {isMatchingEmail ? (
-                      <>
-                        <div className="ai-user-account-badge" style={{ marginBottom: "8px" }}>
-                          <div className="ai-user-account-avatar">
-                            <GoogleGLogo size={16} />
-                          </div>
-                          <div className="ai-user-account-details">
-                            <span className="ai-user-account-label">Google Account Linked</span>
-                            <span className="ai-user-account-email">
-                              {googleStatus.email}
-                            </span>
-                          </div>
-                          <CheckCircle2 size={16} color="#10b981" />
-                        </div>
-
-                        <button
-                          type="button"
-                          className="ai-google-login-btn"
-                          onClick={handleActivateLinked}
-                          disabled={loading}
-                        >
-                          <GoogleGLogo size={18} />
-                          <span>Continue with {googleStatus.email}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="ai-google-switch-btn"
-                          onClick={() => handleGoogleSignIn(true)}
-                          disabled={loading}
-                          style={{ marginTop: "6px" }}
-                        >
-                          Sign In with a different Google Account
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        className="ai-google-login-btn"
-                        onClick={() => handleGoogleSignIn(true)}
-                        disabled={loading}
-                      >
-                        {loading ? (
-                          <>
-                            <RotateCcw size={15} className="spin-icon" />
-                            <span>Connecting with Google...</span>
-                          </>
-                        ) : (
-                          <>
-                            <GoogleGLogo size={18} />
-                            <span>
-                              {accountEmail
-                                ? `Sign in with Google (${accountEmail})`
-                                : "1-Click Sign In with Google Account"}
-                            </span>
-                          </>
-                        )}
-                      </button>
-                    )}
-
-                    <div className="ai-auth-divider">
-                      <span>OR ENTER ACCOUNT CREDENTIALS</span>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Email & Token Sign-In Form */}
-              <form onSubmit={handleConnectWithToken} className="ai-auth-credentials-form">
-                {/* Email Field */}
-                <div className="ai-auth-field-group">
-                  <label className="ai-auth-label">
-                    <Mail size={13} />
-                    <span>Account Email (Sign-in Email)</span>
-                    <span className="ai-auth-required">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    className="ai-auth-input"
-                    placeholder="e.g. developer@company.com"
-                    value={accountEmail}
-                    onChange={(e) => setAccountEmail(e.target.value)}
-                    required
-                  />
-                  <span className="ai-auth-hint">
-                    Enter the email you want to associate with this {selectedModelObj.company} session.
-                  </span>
-                </div>
-
-                {/* Token / Credential Field */}
+              <form onSubmit={handleConnect} className="ai-auth-credentials-form">
                 <div className="ai-auth-field-group" style={{ marginTop: "10px" }}>
                   <div className="ai-auth-label-row">
-                    <label className="ai-auth-label">
-                      <KeyRound size={13} />
-                      <span>{selectedModelObj.name} Access Token / API Key</span>
+                    <label className="ai-auth-label" htmlFor="model-api-key">
+                      <Key size={14} style={{ marginRight: 5 }} />
+                      <span>{selectedModelObj.provider === "openai" ? "OpenAI API Key" : "Gemini API Key"}</span>
                     </label>
-                    {selectedModelObj.tokenHelpUrl && (
-                      <a
-                        href={selectedModelObj.tokenHelpUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ai-token-get-link"
-                        title={`Open ${selectedModelObj.tokenHelpLabel} in new tab`}
-                      >
-                        <span>Get Token</span>
-                        <ExternalLink size={10} />
-                      </a>
-                    )}
-                  </div>
-                  <div className="ai-auth-input-wrapper">
-                    <input
-                      type={showToken ? "text" : "password"}
-                      className="ai-auth-input token-input"
-                      placeholder={selectedModelObj.tokenPlaceholder}
-                      value={tokenInput}
-                      onChange={(e) => setTokenInput(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      className="ai-pw-toggle-btn"
-                      onClick={() => setShowToken(!showToken)}
-                      title={showToken ? "Hide token" : "Show token"}
+                    <a
+                      href={
+                        selectedModelObj.provider === "openai"
+                          ? "https://platform.openai.com/api-keys"
+                          : "https://aistudio.google.com/app/apikey"
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ai-token-get-link"
+                      style={{ display: "inline-flex", alignItems: "center", gap: 3 }}
                     >
-                      {showToken ? <EyeOff size={13} /> : <Eye size={13} />}
-                    </button>
+                      <span>Get API Key</span>
+                      <ExternalLink size={10} />
+                    </a>
                   </div>
-                  <span className="ai-auth-hint">
-                    Token is securely implemented and linked to your {selectedModelObj.name} model.
+
+                  <input
+                    id="model-api-key"
+                    type="password"
+                    className="ai-auth-input"
+                    placeholder={
+                      selectedModelObj.provider === "openai"
+                        ? "sk-proj-... (leave empty to use server .env)"
+                        : "AIzaSy... (leave empty to use server .env)"
+                    }
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    autoComplete="off"
+                  />
+                  <span className="ai-auth-hint" style={{ marginTop: "6px", display: "block" }}>
+                    {apiKeyInput.trim()
+                      ? "Your personal API key will be verified and used for this session."
+                      : "Leaving this empty will automatically use the server's preconfigured environment key."}
                   </span>
                 </div>
 
-                {/* Primary Sign-In & Activate Button */}
+                {errorMsg && (
+                  <div className="ai-wizard-alert error" style={{ marginTop: "10px" }}>
+                    <AlertCircle size={14} />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
+
+                {successMsg && (
+                  <div className="ai-wizard-alert success" style={{ marginTop: "10px" }}>
+                    <CheckCircle2 size={14} />
+                    <span>{successMsg}</span>
+                  </div>
+                )}
+
+                {/* Submit button */}
                 <button
                   type="submit"
                   className="ai-model-connect-btn"
@@ -699,15 +444,7 @@ export default function AIModelSelector({ onCancel, isDismissible = false }) {
                     background:
                       selectedModelObj.provider === "openai"
                         ? "linear-gradient(135deg, #10a37f, #059669)"
-                        : selectedModelObj.provider === "xai"
-                        ? "linear-gradient(135deg, #27272a, #09090b)"
-                        : selectedModelObj.provider === "anthropic"
-                        ? "linear-gradient(135deg, #d97706, #b45309)"
                         : "linear-gradient(135deg, #2563eb, #1d4ed8)",
-                    border:
-                      selectedModelObj.provider === "xai"
-                        ? "1px solid rgba(255, 255, 255, 0.25)"
-                        : "none",
                   }}
                 >
                   {loading ? (
@@ -717,70 +454,16 @@ export default function AIModelSelector({ onCancel, isDismissible = false }) {
                     </>
                   ) : (
                     <>
-                      <CompactModelIcon
-                        iconType={selectedModelObj.iconType}
-                        color="#ffffff"
-                        size={15}
-                      />
-                      <span>Sign In & Activate {selectedModelObj.name}</span>
+                      <ShieldCheck size={15} />
+                      <span>
+                        {apiKeyInput.trim()
+                          ? `Verify & Activate ${selectedModelObj.name}`
+                          : `Activate ${selectedModelObj.name}`}
+                      </span>
                     </>
                   )}
                 </button>
-
-                {/* Quick Connect / Cloud Quota Option */}
-                <button
-                  type="button"
-                  className="ai-quick-connect-btn"
-                  onClick={handleQuickConnectCloud}
-                  disabled={loading}
-                  title="Connect instantly using VocodeAI Cloud Quota without needing a personal token"
-                >
-                  <Zap size={13} color="#10b981" />
-                  <span>Instant Connect with Cloud Quota</span>
-                </button>
               </form>
-
-              {/* Benefits Checklist */}
-              <div className="ai-google-benefits" style={{ marginTop: "12px" }}>
-                <div className="ai-benefit-item">
-                  <CheckCircle2 size={13} color="#10b981" />
-                  <span>Connected with your required email & personal quota</span>
-                </div>
-                <div className="ai-benefit-item">
-                  <CheckCircle2 size={13} color="#10b981" />
-                  <span>Model credential implemented directly for code generation & pair programming</span>
-                </div>
-                <div className="ai-benefit-item">
-                  <ShieldCheck size={13} color="#10b981" />
-                  <span>VS Code extension architecture with encrypted local persistence</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Error / Success Feedback */}
-            {errorMsg && (
-              <div className="ai-compact-alert error" style={{ marginTop: "10px" }}>
-                <AlertCircle size={14} />
-                <span>{errorMsg}</span>
-              </div>
-            )}
-            {successMsg && (
-              <div className="ai-compact-alert success" style={{ marginTop: "10px" }}>
-                <CheckCircle2 size={14} />
-                <span>{successMsg}</span>
-              </div>
-            )}
-
-            {/* Bottom Stepper Back Button */}
-            <div className="ai-wizard-bottom-actions" style={{ marginTop: "12px" }}>
-              <button
-                type="button"
-                className="ai-wizard-back-btn"
-                onClick={() => setCurrentStep(1)}
-              >
-                <ArrowLeft size={13} />
-                <span>Back to Models</span>
-              </button>
             </div>
           </div>
         )}

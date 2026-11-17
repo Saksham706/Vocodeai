@@ -86,6 +86,7 @@ function renderFileIcon(filePath) {
 
 export default function SourceControl({
   workspaceId,
+  aiConfig,
   onOpenDiff,
   onCloseSidebar,
 }) {
@@ -438,9 +439,16 @@ export default function SourceControl({
   // Generate Commit Message with AI
   const handleGenerateAiCommit = async () => {
     if (isGeneratingAi) return;
+    const hasGoogleGemini = Boolean(
+      aiConfig?.authMethod === "google" && aiConfig?.provider === "gemini" && aiConfig?.projectId
+    );
+    if (!hasGoogleGemini) {
+      showBanner("Connect Google Gemini in the AI panel first.", "error");
+      return;
+    }
     try {
       setIsGeneratingAi(true);
-      const res = await generateAiCommitMessage(accessToken, workspaceId);
+      const res = await generateAiCommitMessage(accessToken, workspaceId, aiConfig);
       if (res?.message) {
         setCommitMessage(res.message);
         showBanner("Generated commit message with AI", "success");

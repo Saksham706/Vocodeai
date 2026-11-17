@@ -12,7 +12,7 @@ export const STARTER_TEMPLATES = [
     badge: "Featured AI",
     icon: "Mic",
     color: "#10B981",
-    tags: ["Voice", "Speech Recognition", "OpenAI", "Web Audio"],
+    tags: ["Voice", "Speech Recognition", "Gemini", "Web Audio"],
     recommendedFile: "index.html",
     files: [
       {
@@ -327,7 +327,7 @@ function generateAIResponse(input) {
   } else if (lower.includes("time")) {
     return "The current time is " + new Date().toLocaleTimeString();
   } else {
-    return \`I received: "\${input}". Hook this up to OpenAI or Gemini for full reasoning!\`;
+    return \`I received: "\${input}". Connect this to Google Gemini for full reasoning!\`;
   }
 }
 

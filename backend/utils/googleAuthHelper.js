@@ -2,63 +2,94 @@ import axios from "axios";
 import User from "../models/User.js";
 
 /**
- * Refreshes the user's Google OAuth access token if expired
- * @param {string} userId - User ID in MongoDB
- * @returns {Promise<string|null>} Fresh Google access token or null
+ * Returns a usable Google OAuth access token for Gemini without asking the user
+ * to sign in again. OAuth tokens and refresh tokens stay on the server.
  */
 export async function getValidGoogleAccessToken(userId) {
-  if (!userId) return null;
+  const user = await User.findById(userId).select(
+    "googleAccessToken googleRefreshToken googleAccessTokenExpiresAt"
+  );
+
+  if (!user || (!user.googleAccessToken && !user.googleRefreshToken)) {
+    throw new Error("Sign in to VocodeAI with Google to use Gemini with your Google account.");
+  }
+
+  const expiresAt = user.googleAccessTokenExpiresAt
+    ? new Date(user.googleAccessTokenExpiresAt).getTime()
+    : 0;
+  const needsRefresh = Boolean(
+    user.googleRefreshToken &&
+    (!user.googleAccessToken || !expiresAt || expiresAt <= Date.now() + 120000)
+  );
+
+  if (!needsRefresh) {
+    if (user.googleAccessToken && expiresAt > Date.now()) {
+      return user.googleAccessToken;
+    }
+    throw new Error("Your Google sign-in has expired. Sign in with Google again once to reconnect Gemini.");
+  }
+
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    throw new Error("Google Gemini sign-in is not configured on this server.");
+  }
 
   try {
-    const user = await User.findById(userId);
-    if (!user) return null;
-
-    let accessToken = user.googleAccessToken;
-    const refreshToken = user.googleRefreshToken;
-
-    // Test token validity with Google Userinfo / Tokeninfo
-    if (accessToken) {
-      try {
-        const verifyRes = await axios.get(
-          `https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`,
-          { timeout: 5000 }
-        );
-        if (verifyRes.data?.expires_in && verifyRes.data.expires_in > 60) {
-          return accessToken;
-        }
-      } catch (tokenErr) {
-        // Token expired or invalid, proceed to refresh
-        console.info("Google access token expired, refreshing with refresh token...");
+    const body = new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      refresh_token: user.googleRefreshToken,
+      grant_type: "refresh_token",
+    });
+    const response = await axios.post(
+      "https://oauth2.googleapis.com/token",
+      body.toString(),
+      {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        timeout: 15000,
       }
+    );
+
+    if (!response.data?.access_token) {
+      throw new Error("Google did not return an access token.");
     }
 
-    // Refresh if refresh token exists
-    if (refreshToken && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-      const refreshRes = await axios.post(
-        "https://oauth2.googleapis.com/token",
-        new URLSearchParams({
-          client_id: process.env.GOOGLE_CLIENT_ID,
-          client_secret: process.env.GOOGLE_CLIENT_SECRET,
-          refresh_token: refreshToken,
-          grant_type: "refresh_token",
-        }).toString(),
-        {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          timeout: 10000,
-        }
+    user.googleAccessToken = response.data.access_token;
+    if (response.data.refresh_token) {
+      user.googleRefreshToken = response.data.refresh_token;
+    }
+    if (Number(response.data.expires_in)) {
+      user.googleAccessTokenExpiresAt = new Date(
+        Date.now() + Number(response.data.expires_in) * 1000
       );
-
-      if (refreshRes.data?.access_token) {
-        user.googleAccessToken = refreshRes.data.access_token;
-        await user.save();
-        return refreshRes.data.access_token;
-      }
     }
-
-    return accessToken || null;
-  } catch (err) {
-    console.warn("Failed to retrieve or refresh Google access token:", err.message);
-    return null;
+    await user.save();
+    return user.googleAccessToken;
+  } catch (error) {
+    // Do not log or expose Axios request details, which may contain credentials.
+    const providerMessage =
+      error.response?.data?.error_description ||
+      error.response?.data?.error ||
+      error.message;
+    throw new Error(
+      `Could not refresh your Google sign-in for Gemini. Sign in with Google again once to reconnect. ${providerMessage}`
+    );
   }
 }
 
+export async function getGoogleAIAccountStatus(userId) {
+  const user = await User.findById(userId)
+    .select("googleId googleAccessToken googleRefreshToken googleOAuthScopes email")
+    .lean();
+
+  const connected = Boolean(
+    user?.googleId && (user.googleRefreshToken || user.googleAccessToken)
+  );
+  return {
+    connected,
+    geminiAuthorized: Boolean(
+      user?.googleOAuthScopes?.split(/\s+/).includes("https://www.googleapis.com/auth/cloud-platform") &&
+      user?.googleOAuthScopes?.split(/\s+/).includes("https://www.googleapis.com/auth/generative-language.retriever")
+    ),
+    email: connected ? user.email || null : null,
+  };
+}

@@ -59,11 +59,19 @@ export async function commitGit(token, workspaceId, message, stageAll = false, a
   return handleResponse(res);
 }
 
-export async function generateAiCommitMessage(token, workspaceId) {
+export async function generateAiCommitMessage(token, workspaceId, aiConfig = {}) {
   const res = await fetch(`${BASE}/generate-commit-message`, {
     method: "POST",
     headers: authHeaders(token),
-    body: JSON.stringify({ workspaceId }),
+    body: JSON.stringify({
+      workspaceId,
+      aiConfig: {
+        provider: aiConfig?.provider,
+        model: aiConfig?.model,
+        authMethod: aiConfig?.authMethod,
+        projectId: aiConfig?.projectId,
+      },
+    }),
   });
   return handleResponse(res);
 }

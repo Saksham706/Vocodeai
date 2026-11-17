@@ -591,3 +591,46 @@
   color: #FF8B32 !important;
   border-color: rgba(255, 139, 50, 0.3) !important;
 }
+
+/* ================= TOP COMMAND BAR BUTTON ================= */
+
+.ide-nav-command-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 320px;
+  max-width: 38vw;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 0 10px;
+  color: #cbd5e1;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.ide-nav-command-bar:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #ffffff;
+}
+
+.ide-command-bar-title {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ide-command-bar-hint {
+  font-size: 10.5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: #94a3b8;
+  margin-left: 8px;
+}

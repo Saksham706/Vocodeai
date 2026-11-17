@@ -44,10 +44,13 @@ import {
   setNestedValue,
   resetSettingToDefault,
 } from "../../utils/settingsStorage";
+import AntigravityLogo from "../common/AntigravityLogo";
+import GeminiSettingsPanel from "./GeminiSettingsPanel";
 import "../../styles/settings.css";
 
 // Map string icon names to Lucide icon components
 const ICON_MAP = {
+  Antigravity: AntigravityLogo,
   Code2,
   Eye,
   Sparkles,
@@ -66,12 +69,16 @@ const ICON_MAP = {
 // Logical grouping matching Docs Knowledge Base structure
 const SETTINGS_GROUPS = [
   {
+    group: "VOCODEAI ASSISTANT",
+    categoryIds: ["vocode.ai"],
+  },
+  {
     group: "EDITOR & WORKBENCH",
     categoryIds: ["editor", "preview", "workbench"],
   },
   {
     group: "AI & RUNTIME",
-    categoryIds: ["vocode.ai", "terminal", "runner"],
+    categoryIds: ["terminal", "runner"],
   },
   {
     group: "SYSTEM & ENVIRONMENT",
@@ -515,6 +522,42 @@ export default function SettingsView({
             <div className="wb-badge">Zoom Level: <strong>{wb.zoomLevel || 100}%</strong></div>
             <div className="wb-badge">Density: <strong>{wb.layoutDensity || "default"}</strong></div>
             <div className="wb-badge">Tab Sizing: <strong>{wb.tabSizing || "fit"}</strong></div>
+          </div>
+        </div>
+      );
+    }
+
+    // 4. VocodeAI Assistant Panel
+    if (catId === "vocode.ai") {
+      return <GeminiSettingsPanel />;
+    }
+
+    // 5. Account & User Profile Preview
+    if (catId === "account") {
+      return (
+        <div className="settings-live-preview-box account-preview animate-fade-in" style={{ borderColor: "rgba(56, 189, 248, 0.3)", background: "#0a131c" }}>
+          <div className="preview-top-bar">
+            <span className="preview-title">VocodeAI User Profile</span>
+            <span className="preview-indicator" style={{ color: "#38bdf8" }}>
+              Active Account
+            </span>
+          </div>
+          <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "linear-gradient(135deg, #0284c7, #6366f1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "#fff" }}>
+                {user?.name ? user.name[0].toUpperCase() : "U"}
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc" }}>{user?.name || "Developer"}</span>
+                  <span style={{ fontSize: 10, padding: "1px 6px", background: "rgba(56, 189, 248, 0.2)", color: "#38bdf8", borderRadius: 4, fontWeight: 600 }}>VOCODEAI USER</span>
+                </div>
+                <div style={{ fontSize: 11.5, color: "#94a3b8" }}>{user?.email || "Signed in"}</div>
+              </div>
+            </div>
+            <div className="wb-badge" style={{ background: "rgba(34, 197, 94, 0.15)", color: "#4ade80", borderColor: "rgba(34, 197, 94, 0.3)" }}>
+              Authenticated
+            </div>
           </div>
         </div>
       );

@@ -20,11 +20,17 @@ export async function askAI(
       workspaceId,
       activeFile,
       attachments,
-      provider: aiConfig?.provider,
-      model: aiConfig?.model,
+      provider: aiConfig?.provider || "gemini",
+      model: aiConfig?.model || "gemini-3.8-flash",
       apiKey: aiConfig?.apiKey,
+      backupKeys: Array.isArray(aiConfig?.backupKeys) ? aiConfig.backupKeys : [],
+      apiKeys: Array.isArray(aiConfig?.apiKeys) && aiConfig.apiKeys.length > 0
+        ? aiConfig.apiKeys
+        : (aiConfig?.apiKey
+          ? [aiConfig.apiKey, ...(Array.isArray(aiConfig?.backupKeys) ? aiConfig.backupKeys : [])]
+          : []),
       authMethod: aiConfig?.authMethod,
-      accountEmail: aiConfig?.accountEmail,
+      projectId: aiConfig?.projectId,
     }),
   });
 
@@ -43,10 +49,18 @@ export async function askAI(
   return data;
 }
 
-export async function verifyAIKey(
-  token,
-  { provider, model, apiKey, authMethod, accountEmail }
-) {
+export async function getAIUsageApi(token) {
+  const activeToken = token || localStorage.getItem("accessToken") || "";
+  const res = await fetch(`${BACKEND_URL}/api/ai/usage`, {
+    headers: {
+      Authorization: `Bearer ${activeToken}`,
+    },
+  });
+  if (!res.ok) throw new Error("Failed to load AI usage statistics");
+  return await res.json();
+}
+
+export async function verifyAIKeyApi(token, { provider, apiKey }) {
   const activeToken = token || localStorage.getItem("accessToken") || "";
   const res = await fetch(`${BACKEND_URL}/api/ai/verify-key`, {
     method: "POST",
@@ -54,46 +68,39 @@ export async function verifyAIKey(
       "Content-Type": "application/json",
       Authorization: `Bearer ${activeToken}`,
     },
-    body: JSON.stringify({
-      provider,
-      model,
-      apiKey,
-      authMethod,
-      accountEmail,
-    }),
+    body: JSON.stringify({ provider, apiKey }),
   });
-
-  let data;
-  try {
-    data = await res.json();
-  } catch {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `Verification failed with status ${res.status}`);
-  }
-
-  if (!res.ok) {
-    throw new Error(data.error || "Failed to verify credentials");
-  }
-
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "API key verification failed");
   return data;
 }
 
-export async function getGoogleAIStatus(token) {
+export async function getGoogleAIAccountStatus(token) {
   const activeToken = token || localStorage.getItem("accessToken") || "";
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/ai/google-status`, {
-      headers: {
-        Authorization: `Bearer ${activeToken}`,
-      },
-    });
-    if (!res.ok) return { hasGoogleToken: false, email: null };
-    return await res.json();
-  } catch {
-    return { hasGoogleToken: false, email: null };
-  }
+  const res = await fetch(`${BACKEND_URL}/api/ai/google-account`, {
+    headers: { Authorization: `Bearer ${activeToken}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Could not check Google sign-in status");
+  return data;
 }
 
-export async function fetchAICredentials(token) {
+export async function verifyGoogleAI(token, { projectId }) {
+  const activeToken = token || localStorage.getItem("accessToken") || "";
+  const res = await fetch(`${BACKEND_URL}/api/ai/verify-google`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${activeToken}`,
+    },
+    body: JSON.stringify({ projectId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Could not connect this Google project");
+  return data;
+}
+
+export async function clearLegacyAICredentials(token) {
   const activeToken = token || localStorage.getItem("accessToken") || "";
   try {
     const res = await fetch(`${BACKEND_URL}/api/ai/credentials`, {

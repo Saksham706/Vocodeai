@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
-  PanelsTopLeft,
+  PanelLeft,
   PanelBottom,
+  PanelRight,
+  PanelsTopLeft,
   Columns2,
   Search,
   Sun,
@@ -84,7 +86,7 @@ function renderQuickFileIcon(filePath) {
       const IconComp = icon;
       return <IconComp size={15} />;
     }
-  } catch {}
+  } catch { }
   return <FileCode2 size={15} color="#38BDF8" />;
 }
 
@@ -104,6 +106,7 @@ export default function Navbar({
   onOpenGit,
   onOpenDebug,
   onOpenSettings,
+  onOpenCommandPalette,
 }) {
   const navigate = useNavigate();
   const {
@@ -123,6 +126,7 @@ export default function Navbar({
     clearTerminal,
     restartTerminal,
     activeTerminal,
+    currentWorkspace,
   } = useWorkspace();
 
   const isHTML = Boolean(
@@ -269,10 +273,10 @@ export default function Navbar({
         return;
       }
 
-      // Ctrl+Shift+P: Shortcuts Modal
-      if (isCmdOrCtrl && e.shiftKey && key === "p") {
+      // Ctrl+Shift+P / F1: Command Palette
+      if ((isCmdOrCtrl && e.shiftKey && key === "p") || e.key === "F1") {
         e.preventDefault();
-        setShowShortcutsModal((prev) => !prev);
+        onOpenCommandPalette?.();
         return;
       }
 
@@ -656,6 +660,17 @@ export default function Navbar({
                         className="ide-menu-entry"
                         onClick={() => {
                           closeMenu();
+                          onOpenCommandPalette?.();
+                        }}
+                      >
+                        <span>Command Palette...</span>
+                        <kbd>Ctrl+Shift+P</kbd>
+                      </button>
+                      <div className="ide-menu-divider" />
+                      <button
+                        className="ide-menu-entry"
+                        onClick={() => {
+                          closeMenu();
                           if (onOpenExplorer) onOpenExplorer();
                           else toggleExplorer();
                         }}
@@ -918,11 +933,20 @@ export default function Navbar({
                         className="ide-menu-entry"
                         onClick={() => {
                           closeMenu();
+                          onOpenCommandPalette?.();
+                        }}
+                      >
+                        <span>Command Palette</span>
+                        <kbd>Ctrl+Shift+P</kbd>
+                      </button>
+                      <button
+                        className="ide-menu-entry"
+                        onClick={() => {
+                          closeMenu();
                           setShowShortcutsModal(true);
                         }}
                       >
                         <span>Keyboard Shortcuts</span>
-                        <kbd>Ctrl+Shift+P</kbd>
                       </button>
                       <button
                         className="ide-menu-entry"
@@ -931,7 +955,7 @@ export default function Navbar({
                           if (!showAI) toggleAI();
                         }}
                       >
-                        <span>AI Assistant Prompt</span>
+                        <span>AI Assistant / Antigravity</span>
                       </button>
                       <div className="ide-menu-divider" />
                       <button
@@ -952,9 +976,20 @@ export default function Navbar({
         </nav>
       </div>
 
-      {/* 2. CENTER: APPLICATION TITLE */}
+      {/* 2. CENTER: APPLICATION COMMAND / SEARCH BAR */}
       <div className="ide-nav-center">
-        <span className="ide-app-title">Vocodeai IDE</span>
+        <button
+          type="button"
+          className="ide-nav-command-bar"
+          onClick={() => onOpenCommandPalette?.()}
+          title="Search files or run commands (Ctrl+Shift+P / Ctrl+P)"
+        >
+          <Search size={13} style={{ marginRight: 6, color: "#94a3b8" }} />
+          <span className="ide-command-bar-title">
+            {currentWorkspace?.name || "Vocodeai IDE"}
+          </span>
+          <span className="ide-command-bar-hint">Ctrl+Shift+P</span>
+        </button>
       </div>
 
       {/* 3. RIGHT: TOOLBAR CONTROLS & WINDOW BUTTONS */}
@@ -987,33 +1022,33 @@ export default function Navbar({
           )}
         </button>
 
-        {/* Layout Panel Toggles */}
+        {/* Layout Panel Toggles (Left Sidebar, Bottom Terminal, Right AI Assistant) */}
         <div className="ide-panel-controls">
           <button
-            className={`ide-nav-icon-btn ${showAI ? "active" : ""}`}
-            onClick={toggleAI}
-            title="Toggle AI Assistant (Right Panel)"
-            aria-label="Toggle AI Assistant"
+            className={`ide-nav-icon-btn ${isExplorerOpen ? "active" : ""}`}
+            onClick={toggleExplorer}
+            title="Toggle Explorer Sidebar (Left Panel - Ctrl+B)"
+            aria-label="Toggle Explorer Sidebar"
           >
-            <PanelsTopLeft size={16} strokeWidth={1.7} />
+            <PanelLeft size={16} strokeWidth={1.7} />
           </button>
 
           <button
             className={`ide-nav-icon-btn ${showTerminal ? "active" : ""}`}
             onClick={toggleTerminal}
-            title="Toggle Integrated Terminal (Bottom Panel)"
+            title="Toggle Integrated Terminal (Bottom Panel - Ctrl+`)"
             aria-label="Toggle Terminal"
           >
             <PanelBottom size={16} strokeWidth={1.7} />
           </button>
 
           <button
-            className={`ide-nav-icon-btn ${isExplorerOpen ? "active" : ""}`}
-            onClick={toggleExplorer}
-            title="Toggle Explorer Sidebar (Left Panel)"
-            aria-label="Toggle Explorer"
+            className={`ide-nav-icon-btn ${showAI ? "active" : ""}`}
+            onClick={toggleAI}
+            title="Toggle VocodeAI Assistant (Right Panel - Ctrl+Alt+A)"
+            aria-label="Toggle VocodeAI Assistant"
           >
-            <Columns2 size={16} strokeWidth={1.7} />
+            <PanelRight size={16} strokeWidth={1.7} />
           </button>
         </div>
 

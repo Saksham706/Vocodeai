@@ -1,9 +1,13 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useAuth } from "../../context/AuthContext";
 import { useAI } from "../../context/AIContext";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { getEffectiveSettings } from "../../utils/settingsStorage";
+import { verifyAIKeyApi, getAIUsageApi } from "../../services/aiApi";
 import VoiceInput from "./VoiceInput";
 import { RobotAvatar, RobotIllustration } from "./RobotIllustration";
+import AntigravityLogo from "../common/AntigravityLogo";
+import VocodeLogo from "../common/VocodeLogo";
 import {
   Code2,
   ShieldAlert,
@@ -22,6 +26,7 @@ import {
   WandSparkles,
   HelpCircle,
   Bug,
+  Bot,
   MessageSquare,
   Paperclip,
   Image as ImageIcon,
@@ -40,9 +45,95 @@ import {
   Download,
   Search,
   ExternalLink,
+  GitBranch,
+  MoreHorizontal,
+  Columns2,
+  Terminal,
+  Play,
+  Settings,
+  Key,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  ArrowRight,
+  Layers,
+  Sliders,
+  RefreshCw,
+  AlertCircle,
+  Activity,
+  Server,
+  Gauge,
+  CheckCircle2,
 } from "lucide-react";
 import "../../styles/aichat.css";
-import AIModelSelector, { AI_PROVIDERS } from "./AIModelSelector";
+import AIModelSelector, {
+  AI_PROVIDERS,
+  COMPACT_MODELS,
+  CompactModelIcon,
+} from "./AIModelSelector";
+
+function renderInlineMarkdown(text) {
+  const tokens = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\((?:https?:\/\/)[^)]+\))/g;
+  return text.split(tokens).filter(Boolean).map((token, index) => {
+    if (token.startsWith("**") && token.endsWith("**")) {
+      return <strong key={index}>{token.slice(2, -2)}</strong>;
+    }
+    if (token.startsWith("*") && token.endsWith("*")) {
+      return <em key={index}>{token.slice(1, -1)}</em>;
+    }
+    if (token.startsWith("`") && token.endsWith("`")) {
+      return <code key={index}>{token.slice(1, -1)}</code>;
+    }
+    const link = token.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
+    if (link) {
+      return <a key={index} href={link[2]} target="_blank" rel="noopener noreferrer">{link[1]}</a>;
+    }
+    return token;
+  });
+}
+
+function renderMarkdownText(text) {
+  const lines = text.split(/\r?\n/);
+  const blocks = [];
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index].trimEnd();
+    if (!line.trim()) {
+      index++;
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
+    if (heading) {
+      const Heading = `h${Math.min(heading[1].length, 4)}`;
+      blocks.push(<Heading key={`h-${index}`}>{renderInlineMarkdown(heading[2])}</Heading>);
+      index++;
+      continue;
+    }
+
+    const listItem = line.match(/^\s*(?:[-*]|\d+\.)\s+(.+)$/);
+    if (listItem) {
+      const items = [];
+      while (index < lines.length) {
+        const item = lines[index].match(/^\s*(?:[-*]|\d+\.)\s+(.+)$/);
+        if (!item) break;
+        items.push(<li key={`li-${index}`}>{renderInlineMarkdown(item[1])}</li>);
+        index++;
+      }
+      blocks.push(<ul key={`ul-${index}`}>{items}</ul>);
+      continue;
+    }
+
+    const paragraph = [line.trim()];
+    index++;
+    while (index < lines.length && lines[index].trim() && !/^(#{1,6})\s+/.test(lines[index]) && !/^\s*(?:[-*]|\d+\.)\s+/.test(lines[index])) {
+      paragraph.push(lines[index].trim());
+      index++;
+    }
+    blocks.push(<p key={`p-${index}`}>{renderInlineMarkdown(paragraph.join(" "))}</p>);
+  }
+  return blocks;
+}
 
 export default function AIChat({
   workspaceId,
@@ -50,12 +141,13 @@ export default function AIChat({
   isMaximized = false,
   onToggleMaximize,
 }) {
+  const { user, accessToken } = useAuth();
   const {
     aiConfig,
-    savedProviderKeys,
     connectProvider,
     disconnectProvider,
     updateAiModel,
+    saveAiSettings,
     sendMessage,
     messages,
     loading,
@@ -67,35 +159,141 @@ export default function AIChat({
     saveChatToFile,
   } = useAI();
 
-  const { activeFile, openFile, tree, applyFileChange } = useWorkspace();
+  const {
+    activeFile,
+    openFile,
+    tree,
+    applyFileChange,
+    currentWorkspace,
+    runCode,
+    setShowTerminal,
+    openNewTerminal,
+    terminals,
+  } = useWorkspace();
 
   const [activeTab, setActiveTab] = useState("chat");
+  const [terminalCmdInput, setTerminalCmdInput] = useState("");
   const [input, setInput] = useState("");
-  const [showModelSelector, setShowModelSelector] = useState(!aiConfig);
+  const [showModelSelector, setShowModelSelector] = useState(false);
+  const [modelToConfigure, setModelToConfigure] = useState(null);
+
+  // Settings: AI Requests & Quota Limits State
+  const [usageStats, setUsageStats] = useState({
+    todayRequests: 0,
+    totalRequests: 0,
+    dailyLimit: 150,
+    remainingRequests: 150,
+    resetIn: "24h 00m",
+    status: "Optimal",
+    quotaPercentage: 0,
+    managedBackendKeys: true,
+    sequentialFailover: true,
+  });
+  const [loadingUsage, setLoadingUsage] = useState(false);
+  const [settingsModel, setSettingsModel] = useState(aiConfig?.model || "gemini-2.5-flash");
+  const [settingsProvider, setSettingsProvider] = useState(aiConfig?.provider || "gemini");
+
+  const fetchAIUsage = async () => {
+    if (!accessToken) return;
+    setLoadingUsage(true);
+    try {
+      const data = await getAIUsageApi(accessToken);
+      if (data && data.success) {
+        setUsageStats(data);
+      }
+    } catch (err) {
+      console.warn("Could not fetch AI usage statistics:", err);
+    } finally {
+      setLoadingUsage(false);
+    }
+  };
+
+  const sessionRequestCount = useMemo(() => {
+    return (messages || []).filter((m) => m && m.role === "user").length;
+  }, [messages]);
 
   useEffect(() => {
-    if (!aiConfig) {
-      setShowModelSelector(true);
+    if (activeTab === "settings") {
+      fetchAIUsage();
     }
-  }, [aiConfig]);
+  }, [activeTab, accessToken]);
+
+  const handleSelectModel = (modelId, providerName) => {
+    setSettingsModel(modelId);
+    setSettingsProvider(providerName);
+    updateAiModel?.(modelId);
+    showToast(`Switched active model to ${modelId} ⚡`);
+  };
+
+  // Antigravity installed detection
+  const [isAntigravityInstalled, setIsAntigravityInstalled] = useState(() => {
+    try {
+      const saved = localStorage.getItem("vocode_installed_extensions");
+      if (saved) {
+        return JSON.parse(saved).includes("google.google-antigravity");
+      }
+    } catch {}
+    return true; // Default Antigravity mode active in workspace
+  });
+
+  const [quickModelOpen, setQuickModelOpen] = useState(false);
+  const quickModelRef = useRef(null);
+
+  // Listen to extension and command palette events
+  useEffect(() => {
+    const handleInstalled = (e) => {
+      if (
+        e.detail?.extensionId === "google.google-antigravity" ||
+        e.detail?.extension?.id === "google.google-antigravity"
+      ) {
+        setIsAntigravityInstalled(true);
+      }
+    };
+    const handleUninstalled = (e) => {
+      if (
+        e.detail?.extensionId === "google.google-antigravity" ||
+        e.detail?.extension?.id === "google.google-antigravity"
+      ) {
+        setIsAntigravityInstalled(false);
+      }
+    };
+    const handleNewChat = () => {
+      createNewSession();
+      setActiveTab("chat");
+      setTimeout(() => inputRef.current?.focus(), 80);
+    };
+    const handleFocus = () => {
+      setActiveTab("chat");
+      setTimeout(() => inputRef.current?.focus(), 80);
+    };
+    const handlePrompt = (e) => {
+      if (e.detail?.prompt) {
+        setInput(e.detail.prompt);
+        setTimeout(() => inputRef.current?.focus(), 80);
+      }
+    };
+    window.addEventListener("vocode-extension-installed", handleInstalled);
+    window.addEventListener("vocode-extension-uninstalled", handleUninstalled);
+    window.addEventListener("vocode-antigravity-new-chat", handleNewChat);
+    window.addEventListener("vocode-antigravity-focus", handleFocus);
+    window.addEventListener("vocode-antigravity-prompt", handlePrompt);
+    return () => {
+      window.removeEventListener("vocode-extension-installed", handleInstalled);
+      window.removeEventListener("vocode-extension-uninstalled", handleUninstalled);
+      window.removeEventListener("vocode-antigravity-new-chat", handleNewChat);
+      window.removeEventListener("vocode-antigravity-focus", handleFocus);
+      window.removeEventListener("vocode-antigravity-prompt", handlePrompt);
+    };
+  }, []);
 
   const activeProvider = useMemo(() => {
     return (
       AI_PROVIDERS.find(
         (p) => p.id === aiConfig?.model || p.provider === aiConfig?.provider
-      ) || AI_PROVIDERS[0]
+      ) || null
     );
   }, [aiConfig]);
 
-  const otherSavedProviders = useMemo(() => {
-    return AI_PROVIDERS.filter(
-      (p) =>
-        p.id !== aiConfig?.model &&
-        (savedProviderKeys?.[p.provider]?.apiKey ||
-          savedProviderKeys?.[p.provider]?.accountEmail ||
-          savedProviderKeys?.[p.id]?.apiKey)
-    );
-  }, [aiConfig, savedProviderKeys]);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [filePickerOpen, setFilePickerOpen] = useState(false);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
@@ -128,23 +326,29 @@ export default function AIChat({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Clean, compact model display name for header pill
-  const shortModelDisplayName = useMemo(() => {
-    if (!aiConfig) return "Select AI Model";
-    const found = AI_PROVIDERS.find(
-      (m) => m.id === aiConfig.model || m.provider === aiConfig.provider
-    );
-    if (found?.name) {
-      return found.name;
+  const handleRunTerminalCommand = (commandToRun) => {
+    if (!commandToRun) return;
+    const cleanCmd = commandToRun.trim();
+    setShowTerminal?.(true);
+    if (runCode) {
+      runCode(null, cleanCmd);
     }
-    if (aiConfig.label) {
-      return aiConfig.label;
-    }
-    if (aiConfig.model) {
-      return aiConfig.model.replace(/^google\//, "").replace(/-/g, " ");
-    }
-    return activeProvider?.name || "AI Assistant";
-  }, [aiConfig, activeProvider]);
+    showToast(`Executing in terminal: ${cleanCmd.slice(0, 32)}${cleanCmd.length > 32 ? "..." : ""}`);
+  };
+
+  const handleChooseModel = (model) => {
+    connectProvider({
+      ...(aiConfig || {}),
+      provider: model.provider,
+      model: model.id,
+      label: model.name,
+      apiKey: aiConfig?.provider === model.provider ? aiConfig?.apiKey : "",
+    });
+    showToast(`Switched to ${model.name}`);
+  };
+
+  // Clean model display name: always VocodeAI
+  const shortModelDisplayName = "VocodeAI";
 
   // Flatten workspace tree to get all available files and folders
   const { allWorkspaceFiles, allWorkspaceFolders } = useMemo(() => {
@@ -183,6 +387,9 @@ export default function AIChat({
     const handleClickOutside = (e) => {
       if (modelMenuRef.current && !modelMenuRef.current.contains(e.target)) {
         setModelDropdownOpen(false);
+      }
+      if (quickModelRef.current && !quickModelRef.current.contains(e.target)) {
+        setQuickModelOpen(false);
       }
       if (filePickerRef.current && !filePickerRef.current.contains(e.target)) {
         setFilePickerOpen(false);
@@ -368,13 +575,18 @@ export default function AIChat({
     const query = typeof textToSend === "string" ? textToSend : input;
     if ((!query.trim() && attachments.length === 0) || loading) return;
 
-    if (!aiConfig) {
-      setShowModelSelector(true);
-      showToast("Please choose an AI model and connect your account first.");
+    let finalQuery = query.trim();
+
+    // Check if input is a direct terminal command (e.g. > npm run dev, $ git status, /run python app.py)
+    const isDirectCmd = /^(>|\$|\/run\s+|\/term\s+|\/terminal\s+)/.test(finalQuery);
+    if (isDirectCmd) {
+      const cmdToRun = finalQuery.replace(/^(>|\$|\/run\s+|\/term\s+|\/terminal\s+)/, "").trim();
+      handleRunTerminalCommand(cmdToRun);
+      setInput("");
+      sendMessage(`$ ${cmdToRun}`, workspaceId, attachments);
+      setActiveTab("chat");
       return;
     }
-
-    let finalQuery = query.trim();
 
     // Append attachments summary to prompt context
     if (attachments.length > 0) {
@@ -614,32 +826,48 @@ export default function AIChat({
     }
 
     if (parts.length === 0) {
-      return trimmed;
+      return <div className="bubble-text">{renderMarkdownText(trimmed)}</div>;
     }
 
     return parts.map((part, pIdx) => {
       if (part.type === "text") {
         return (
           <div key={pIdx} className="bubble-text">
-            {part.content}
+            {renderMarkdownText(part.content)}
           </div>
         );
       }
 
       const isCopied = copiedIndex === `${msgIndex}-${pIdx}`;
+      const isRunnable =
+        /^(bash|sh|shell|zsh|terminal|powershell|cmd|node|python|py)/i.test(part.language) ||
+        /^(npm|npx|node|python|python3|pip|yarn|pnpm|git|docker|curl|cat|gcc|g\+\+|ls|cd|echo)\s+/m.test(part.code);
 
       return (
         <div key={pIdx} className="ai-code-block-wrap">
           <div className="ai-code-block-bar">
             <span>{part.language || "code"}</span>
-            <button
-              type="button"
-              className="ai-code-copy-btn"
-              onClick={() => handleCopyCode(part.code, `${msgIndex}-${pIdx}`)}
-            >
-              {isCopied ? <Check size={11} color="#22C55E" /> : <Copy size={11} />}
-              <span>{isCopied ? "Copied" : "Copy"}</span>
-            </button>
+            <div className="ai-code-actions-group">
+              {isRunnable && (
+                <button
+                  type="button"
+                  className="ai-code-run-terminal-btn"
+                  onClick={() => handleRunTerminalCommand(part.code)}
+                  title="Run command directly in integrated terminal"
+                >
+                  <Play size={10} className="fill-current" />
+                  <span>Run</span>
+                </button>
+              )}
+              <button
+                type="button"
+                className="ai-code-copy-btn"
+                onClick={() => handleCopyCode(part.code, `${msgIndex}-${pIdx}`)}
+              >
+                {isCopied ? <Check size={11} color="#22C55E" /> : <Copy size={11} />}
+                <span>{isCopied ? "Copied" : "Copy"}</span>
+              </button>
+            </div>
           </div>
           <pre className="ai-code-pre">
             <code>{part.code}</code>
@@ -655,17 +883,6 @@ export default function AIChat({
     const q = historySearch.toLowerCase();
     return sessions.filter((s) => s.title.toLowerCase().includes(q));
   }, [sessions, historySearch]);
-
-  if (showModelSelector) {
-    return (
-      <div className="ide-ai-panel">
-        <AIModelSelector
-          isDismissible={Boolean(aiConfig)}
-          onCancel={() => setShowModelSelector(false)}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="ide-ai-panel">
@@ -698,190 +915,229 @@ export default function AIChat({
       {/* Toast Notification */}
       {toastMessage && <div className="ai-status-toast">{toastMessage}</div>}
 
-      {/* ================= 1. ASSISTANT HEADER ================= */}
-      <div className="ide-ai-header">
-        <div className="ide-ai-brand">
-          <div className="ide-ai-avatar-wrapper">
-            <RobotAvatar size={30} />
-            <span className="ide-ai-pulse-dot" />
+      {/* ================= 1. PREMIUM UNIFIED ASSISTANT HEADER ================= */}
+      <div className="vocode-ai-header">
+        <div className="vocode-header-brand-row">
+          <div
+            className="vocode-brand-left"
+            onClick={() => setActiveTab("chat")}
+            style={{ cursor: "pointer" }}
+            title="VocodeAI Assistant"
+          >
+            <VocodeLogo size={22} glow={true} />
+            <div className="vocode-brand-meta">
+              <span className="vocode-brand-title">VocodeAI Assistant</span>
+            </div>
           </div>
-          <div className="ide-ai-title-wrap">
-            <h4 className="ide-ai-title">VocodeAI Assistant</h4>
-            <p className="ide-ai-sub">Your AI pair programmer</p>
-          </div>
-        </div>
 
-        <div className="ide-ai-header-right">
-          {/* Active Model & Account Pill */}
-          <div className="ai-model-wrap" ref={modelMenuRef}>
+          <div className="vocode-header-right-tools">
+            {/* + New Conversation Button */}
             <button
               type="button"
-              className="ai-model-pill"
-              onClick={() => setModelDropdownOpen((prev) => !prev)}
-              aria-label="Manage AI Model & Account"
-              title={
-                aiConfig?.accountEmail
-                  ? `Connected: ${aiConfig.accountEmail} (${aiConfig?.label || aiConfig?.model || "Google Gemini Pro"})`
-                  : aiConfig?.label
-                    ? `Active: ${aiConfig.label}`
-                    : "Click to manage AI model and account"
-              }
+              className="vocode-head-icon-btn"
+              onClick={() => {
+                createNewSession();
+                setActiveTab("chat");
+                showToast("Started New Conversation");
+              }}
+              title="New Conversation (Ctrl+L)"
             >
-              <span
-                className={`ai-active-status-dot ${aiConfig?.apiKey || aiConfig?.authMethod === "google"
-                    ? "connected"
-                    : "free"
-                  }`}
-              />
-              <span className="ai-active-model-name">
-                {shortModelDisplayName}
-              </span>
-              <ChevronDown size={11} className="ai-pill-chevron" />
+              <Plus size={15} />
             </button>
 
-            {modelDropdownOpen && (
-              <div className="ai-model-dropdown">
-                <div className="ai-model-dropdown-header">
-                  <div className="ai-dropdown-header-top">
-                    <span className="ai-dropdown-section-title">Active Model</span>
-                    <span className="ai-dropdown-badge">
-                      {aiConfig?.authMethod === "google"
-                        ? "Google OAuth"
-                        : aiConfig?.authMethod === "cloud"
-                        ? "Cloud Quota"
-                        : "Personal Token"}
-                    </span>
-                  </div>
-                  {(aiConfig?.accountEmail || user?.email) && (
-                    <div className="ai-dropdown-account-info" title={aiConfig?.accountEmail || user?.email}>
-                      <span className="ai-dropdown-account-label">Signed in:</span>
-                      <span className="ai-dropdown-account-email">{aiConfig?.accountEmail || user?.email}</span>
-                    </div>
-                  )}
+            {/* History Section Toggle Button */}
+            <button
+              type="button"
+              className={`vocode-head-icon-btn ${activeTab === "history" ? "active" : ""}`}
+              onClick={() => setActiveTab(activeTab === "history" ? "chat" : "history")}
+              title={`Conversation History (${sessions.length})`}
+            >
+              <Clock size={15} />
+              {sessions.length > 0 && (
+                <span className="vocode-head-badge">{sessions.length}</span>
+              )}
+            </button>
+
+            {/* Quick Terminal Toggle Button */}
+            <button
+              type="button"
+              className={`vocode-head-icon-btn ${activeTab === "terminal" ? "active" : ""}`}
+              onClick={() => {
+                setShowTerminal?.(true);
+                setActiveTab(activeTab === "terminal" ? "chat" : "terminal");
+              }}
+              title="Terminal Command Runner"
+            >
+              <Terminal size={15} />
+            </button>
+
+            {/* More Options Dropdown */}
+            <div style={{ position: "relative" }} ref={modelMenuRef}>
+              <button
+                type="button"
+                className="vocode-head-icon-btn"
+                onClick={() => setModelDropdownOpen((prev) => !prev)}
+                title="More Actions"
+              >
+                <MoreHorizontal size={15} />
+              </button>
+
+              {modelDropdownOpen && (
+                <div className="ai-model-dropdown">
+                  <button
+                    type="button"
+                    className="ai-model-dropdown-action-btn"
+                    onClick={() => {
+                      setModelDropdownOpen(false);
+                      createNewSession();
+                      setActiveTab("chat");
+                    }}
+                  >
+                    <Plus size={12} />
+                    <span>New Conversation</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="ai-model-dropdown-action-btn"
+                    onClick={() => {
+                      setModelDropdownOpen(false);
+                      setActiveTab("history");
+                    }}
+                  >
+                    <Clock size={12} />
+                    <span>View Chat History ({sessions.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="ai-model-dropdown-action-btn"
+                    onClick={() => {
+                      setModelDropdownOpen(false);
+                      if (currentSessionId) saveChatToFile(currentSessionId);
+                    }}
+                  >
+                    <FileCode2 size={12} />
+                    <span>Export Chat (.md)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="ai-model-dropdown-action-btn"
+                    onClick={() => {
+                      setModelDropdownOpen(false);
+                      setShowTerminal?.(true);
+                    }}
+                  >
+                    <Terminal size={12} />
+                    <span>Open Integrated Terminal</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="ai-model-dropdown-action-btn"
+                    onClick={() => {
+                      setModelDropdownOpen(false);
+                      setActiveTab("settings");
+                    }}
+                  >
+                    <Settings size={12} />
+                    <span>AI Settings & API Failover</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="ai-model-dropdown-action-btn disconnect"
+                    onClick={() => {
+                      setModelDropdownOpen(false);
+                      if (currentSessionId) deleteSession(currentSessionId);
+                    }}
+                  >
+                    <Trash2 size={12} />
+                    <span>Clear Current Chat</span>
+                  </button>
                 </div>
+              )}
+            </div>
 
-                {/* Other previously saved providers */}
-                {otherSavedProviders.length > 0 && (
-                  <div className="ai-model-dropdown-sublist">
-                    <span className="ai-dropdown-sub-label">Saved Models:</span>
-                    {otherSavedProviders.map((p) => {
-                      const saved = savedProviderKeys[p.provider] || savedProviderKeys[p.id];
-                      const currentAccountEmail = saved?.accountEmail || user?.email || aiConfig?.accountEmail || "User";
-                      const emailTag = currentAccountEmail ? ` (${currentAccountEmail.split("@")[0]})` : "";
-                      return (
-                        <div
-                          key={p.id}
-                          className="ai-model-item"
-                          onClick={() => {
-                            connectProvider({
-                              provider: p.provider,
-                              model: p.id,
-                              apiKey: saved?.apiKey || "",
-                              authMethod: saved?.authMethod || (saved?.apiKey ? "token" : "cloud"),
-                              accountEmail: currentAccountEmail,
-                              label: `${p.name}${emailTag}`,
-                              connectedAt: new Date().toISOString(),
-                            });
-                            setModelDropdownOpen(false);
-                            showToast(`Switched to ${p.name}`);
-                          }}
-                        >
-                          <span className="ai-model-item-name">Switch to {p.name}{emailTag}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+            {/* Maximize / Restore Width Button */}
+            {onToggleMaximize && (
+              <button
+                type="button"
+                className="vocode-head-icon-btn"
+                onClick={onToggleMaximize}
+                title={isMaximized ? "Restore Width" : "Maximize Width"}
+              >
+                {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              </button>
+            )}
 
-                <div className="ai-dropdown-divider" />
-
-                <button
-                  type="button"
-                  className="ai-model-dropdown-action-btn"
-                  onClick={() => {
-                    setModelDropdownOpen(false);
-                    setShowModelSelector(true);
-                  }}
-                >
-                  <RotateCcw size={12} />
-                  <span>Choose Another Model</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="ai-model-dropdown-action-btn disconnect"
-                  onClick={() => {
-                    setModelDropdownOpen(false);
-                    disconnectProvider();
-                    setShowModelSelector(true);
-                  }}
-                >
-                  <X size={12} />
-                  <span>Disconnect Account</span>
-                </button>
-              </div>
+            {/* Close Panel Button */}
+            {onClose && (
+              <button
+                type="button"
+                className="vocode-head-icon-btn close-btn"
+                onClick={onClose}
+                title="Close Assistant"
+              >
+                <X size={15} />
+              </button>
             )}
           </div>
-
-          {/* Expand / Decrease Width Button */}
-          {onToggleMaximize && (
-            <button
-              type="button"
-              className="ai-header-icon-btn"
-              onClick={onToggleMaximize}
-              title={isMaximized ? "Restore Width" : "Expand Assistant Width"}
-              aria-label={isMaximized ? "Restore Width" : "Expand Assistant Width"}
-            >
-              {isMaximized ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-            </button>
-          )}
-
-          {/* Close Panel Button */}
-          {onClose && (
-            <button
-              type="button"
-              className="ai-close-btn"
-              onClick={onClose}
-              title="Close Assistant"
-              aria-label="Close Assistant"
-            >
-              <X size={16} />
-            </button>
-          )}
         </div>
-      </div>
 
-      {/* ================= 2. NAVIGATION TABS ================= */}
-      <div className="ai-nav-tabs-bar">
-        <div className="ai-nav-tabs-group">
+        {/* Clean, Modern Navigation Tab Bar */}
+        <div className="vocode-nav-bar">
           <button
             type="button"
-            className={`ai-nav-tab ${activeTab === "chat" ? "active" : ""}`}
+            className={`vocode-nav-tab ${activeTab === "chat" ? "active" : ""}`}
             onClick={() => setActiveTab("chat")}
           >
+            <Sparkles size={12} />
             <span>Chat</span>
           </button>
           <button
             type="button"
-            className={`ai-nav-tab ${activeTab === "tools" ? "active" : ""}`}
+            className={`vocode-nav-tab ${activeTab === "history" ? "active" : ""}`}
+            onClick={() => setActiveTab("history")}
+          >
+            <Clock size={12} />
+            <span>History</span>
+            {sessions.length > 0 && (
+              <span className="vocode-tab-count-pill">{sessions.length}</span>
+            )}
+          </button>
+          <button
+            type="button"
+            className={`vocode-nav-tab ${activeTab === "terminal" ? "active" : ""}`}
+            onClick={() => setActiveTab("terminal")}
+          >
+            <Terminal size={12} />
+            <span>Terminal</span>
+          </button>
+          <button
+            type="button"
+            className={`vocode-nav-tab ${activeTab === "tools" ? "active" : ""}`}
             onClick={() => setActiveTab("tools")}
           >
+            <Bot size={12} />
             <span>Tools</span>
           </button>
           <button
             type="button"
-            className={`ai-nav-tab ${activeTab === "context" ? "active" : ""}`}
+            className={`vocode-nav-tab ${activeTab === "context" ? "active" : ""}`}
             onClick={() => setActiveTab("context")}
           >
+            <FileCode2 size={12} />
             <span>Context</span>
           </button>
           <button
             type="button"
-            className={`ai-nav-tab ${activeTab === "history" ? "active" : ""}`}
-            onClick={() => setActiveTab("history")}
+            className={`vocode-nav-tab ${activeTab === "settings" ? "active" : ""}`}
+            onClick={() => setActiveTab("settings")}
           >
-            <span>History</span>
-            {sessions.length > 0 && <span className="ai-tab-badge">{sessions.length}</span>}
+            <Settings size={12} />
+            <span>Settings</span>
           </button>
         </div>
       </div>
@@ -892,162 +1148,77 @@ export default function AIChat({
         {activeTab === "chat" && (
           <>
             {messages.length === 0 ? (
-              <>
-                {/* 1. Welcome Section */}
-                <div className="ai-welcome-section">
-                  <RobotIllustration size={76} />
-                  <div className="ai-welcome-text-col">
-                    <h3 className="ai-welcome-title">
-                      Hello! <span className="accent-name">I'm VocodeAI</span>
-                    </h3>
-                    <p className="ai-welcome-desc">
-                      Your AI pair programmer. I can help you write, debug, optimize and
-                      understand your code.
-                    </p>
-                  </div>
+              <div className="vocode-welcome-view">
+                <div className="vocode-hero-watermark">
+                  <VocodeLogo size={180} glow={false} />
                 </div>
-
-                {/* 2. Feature Cards */}
-                <div className="ai-features-grid">
-                  {featureCards.map((card) => (
-                    <div
-                      key={card.id}
-                      className="ai-feature-card"
-                      onClick={() => handleSend(card.prompt)}
-                      title={`Run ${card.title}`}
-                    >
-                      <div className={`ai-feat-icon-tile ${card.iconTileClass}`}>
-                        {card.icon}
-                      </div>
-                      <div className="ai-feat-info">
-                        <h5 className="ai-feat-title">{card.title}</h5>
-                        <p className="ai-feat-desc">{card.desc}</p>
-                      </div>
-                      <ChevronRight size={13} className="ai-feat-chevron" />
-                    </div>
-                  ))}
-                </div>
-
-                {/* 3. Quick Actions Section */}
-                <div className="ai-quick-actions-wrap">
-                  <h5 className="ai-section-title">Quick Actions</h5>
-                  <div className="ai-quick-row">
-                    {quickActions.map((qa, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        className="ai-quick-btn"
-                        onClick={qa.onClick}
-                      >
-                        {qa.icon}
-                        <span>{qa.label}</span>
-                      </button>
-                    ))}
+                <div className="vocode-welcome-hero">
+                  <div className="vocode-hero-avatar-wrap">
+                    <VocodeLogo size={62} glow={true} />
+                    <div className="vocode-hero-pulse-ring" />
                   </div>
-                </div>
-
-                {/* 4. Current File Card */}
-                <div className="ai-current-file-card" ref={filePickerRef}>
-                  <div className="ai-current-file-left">
-                    <div className="ai-current-file-icon-box">
-                      <FileCode2 size={16} />
-                    </div>
-                    <div className="ai-current-file-meta">
-                      <span className="ai-current-file-label">Current File</span>
-                      <span className="ai-current-file-name" title={displayFile}>
-                        {displayFile}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div style={{ position: "relative" }}>
+                  <h2 className="vocode-hero-greeting">
+                    Hey <span className="vocode-hero-user">{user?.name || user?.username || "Saksham"}</span>, what should we build today?
+                  </h2>
+                  <p className="vocode-hero-sub">
+                    Autonomous AI pair programmer with live code & terminal execution
+                  </p>
+                  <div className="vocode-starter-chips">
                     <button
                       type="button"
-                      className="ai-change-file-btn"
-                      onClick={() => setFilePickerOpen((prev) => !prev)}
+                      className="vocode-starter-chip"
+                      onClick={() => handleSend("Debug my active file and identify any runtime issues")}
                     >
-                      Change
+                      <ShieldAlert size={12} color="#f87171" />
+                      <span>Debug code</span>
                     </button>
-
-                    {filePickerOpen && (
-                      <div className="ai-model-dropdown" style={{ minWidth: 200, maxHeight: 220 }}>
-                        {allWorkspaceFiles.map((file) => (
-                          <div
-                            key={file}
-                            className={`ai-model-item ${file === activeFile ? "active" : ""}`}
-                            onClick={() => {
-                              openFile?.(file);
-                              setFilePickerOpen(false);
-                            }}
-                          >
-                            <span style={{ fontSize: 11.5 }}>{file}</span>
-                            {file === activeFile && <Check size={12} />}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      className="vocode-starter-chip"
+                      onClick={() => handleSend("Optimize this code for performance and clean architecture")}
+                    >
+                      <Zap size={12} color="#fbbf24" />
+                      <span>Optimize performance</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="vocode-starter-chip"
+                      onClick={() => handleSend("Generate unit test cases for the active code")}
+                    >
+                      <SquareCheckBig size={12} color="#34d399" />
+                      <span>Generate tests</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="vocode-starter-chip"
+                      onClick={() => setActiveTab("terminal")}
+                    >
+                      <Terminal size={12} color="#38bdf8" />
+                      <span>Run terminal</span>
+                    </button>
                   </div>
                 </div>
-
-                {/* 5. Import File, Import Folder, Add Selection */}
-                <div className="ai-import-row">
-                  <button
-                    type="button"
-                    className="ai-import-btn"
-                    onClick={() => {
-                      if (activeFile) {
-                        attachWorkspaceItem(activeFile, "file");
-                      } else {
-                        setFilePickerOpen(true);
-                      }
-                    }}
-                    title="Attach active file to context"
-                  >
-                    <Plus size={12} />
-                    <span>Import File</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="ai-import-btn"
-                    onClick={() => {
-                      setFolderPickerOpen(true);
-                    }}
-                    title="Attach workspace folder"
-                  >
-                    <Plus size={12} />
-                    <span>Import Folder</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="ai-import-btn"
-                    onClick={() => {
-                      setInput(
-                        (prev) =>
-                          `${prev} Review the active code in ${displayFile} and suggest improvements: `
-                      );
-                      inputRef.current?.focus();
-                    }}
-                  >
-                    <Plus size={12} />
-                    <span>Add Selection</span>
-                  </button>
-                </div>
-              </>
+              </div>
             ) : (
               /* Active Chat Conversation List */
               <div className="ai-messages-list">
                 <div className="ai-conversation-header">
-                  <span className="ai-conversation-title">Pair Programming Session</span>
+                  <span className="ai-conversation-title">
+                    {isAntigravityInstalled
+                      ? "VocodeAI Session"
+                      : "Pair Programming Session"}
+                  </span>
                   <button
                     type="button"
                     className="ai-new-chat-btn"
-                    onClick={() => createNewSession()}
-                    title="Start fresh chat session"
+                    onClick={() => {
+                      createNewSession();
+                      showToast("Started New Conversation");
+                    }}
+                    title="New Conversation"
                   >
-                    <RotateCcw size={11} />
-                    <span>New Chat</span>
+                    <Plus size={11} />
+                    <span>New Conversation</span>
                   </button>
                 </div>
 
@@ -1055,12 +1226,70 @@ export default function AIChat({
                   <div key={i} className={`ai-chat-bubble ${m.role}`}>
                     <div className="bubble-header">
                       <div className="bubble-author-icon">
-                        {m.role === "user" ? <User size={12} /> : <Sparkles size={12} />}
+                        {m.role === "user" ? (
+                          <User size={12} />
+                        ) : (
+                          <VocodeLogo size={16} glow={true} />
+                        )}
                       </div>
                       <span className="bubble-author">
-                        {m.role === "user" ? "You" : "VocodeAI"}
+                        {m.role === "user"
+                          ? "You"
+                          : (m.modelName || `VocodeAI Assistant (${shortModelDisplayName})`)}
                       </span>
                     </div>
+
+                    {/* Action chips for terminal command executions */}
+                    {m.actions && m.actions.some((a) => a.action === "run_code" || a.action === "terminal") && (
+                      <div className="ai-terminal-actions-container">
+                        {m.actions
+                          .filter((a) => a.action === "run_code" || a.action === "terminal")
+                          .map((act, actIdx) => (
+                            <div key={actIdx} className="ai-terminal-action-card">
+                              <div className="terminal-card-header">
+                                <div className="terminal-card-tag">
+                                  <Terminal size={12} />
+                                  <span>TERMINAL EXECUTION</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="terminal-card-run-btn"
+                                  onClick={() => handleRunTerminalCommand(act.command || act.path)}
+                                  title="Re-run in terminal"
+                                >
+                                  <Play size={10} />
+                                  <span>Run</span>
+                                </button>
+                              </div>
+                              <pre className="terminal-card-cmd">
+                                <code>{act.command || act.path}</code>
+                              </pre>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+
+                    {/* Action chips for created/modified files */}
+                    {m.actions && m.actions.some((a) => a.action === "create_file" || a.action === "write_file") && (
+                      <div className="antigravity-action-chips-row">
+                        {m.actions
+                          .filter((a) => a.action === "create_file" || a.action === "write_file")
+                          .map((act, actIdx) => (
+                            <div
+                              key={actIdx}
+                              className="antigravity-file-action-badge"
+                              onClick={() => openFile?.(act.path)}
+                              title="Click to view file in editor"
+                            >
+                              <FileCode2 size={13} color="#38bdf8" />
+                              <span className="file-badge-path">{act.path}</span>
+                              <span className="file-badge-tag">
+                                {act.action === "create_file" ? "CREATED" : "UPDATED"}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    )}
 
                     {/* Render message attachments if present */}
                     {m.attachments && m.attachments.length > 0 && (
@@ -1091,18 +1320,24 @@ export default function AIChat({
                 ))}
 
                 {loading && (
-                  <div className="ai-chat-bubble assistant">
+                  <div className="ai-chat-bubble assistant vocode-thinking-bubble">
                     <div className="bubble-header">
                       <div className="bubble-author-icon">
-                        <Sparkles size={12} />
+                        <VocodeLogo size={16} glow={true} />
                       </div>
-                      <span className="bubble-author">VocodeAI</span>
+                      <span className="bubble-author">
+                        VocodeAI
+                      </span>
                     </div>
-                    <div className="loading-pulse-dots">
-                      <span className="dot" />
-                      <span className="dot" />
-                      <span className="dot" />
-                      <span className="loading-label">Analyzing code & reasoning...</span>
+                    <div className="vocode-thinking-body">
+                      <div className="vocode-pulse-wave">
+                        <span className="pulse-bar bar-1" />
+                        <span className="pulse-bar bar-2" />
+                        <span className="pulse-bar bar-3" />
+                      </div>
+                      <span className="vocode-thinking-shimmer">
+                        vocodeai....
+                      </span>
                     </div>
                   </div>
                 )}
@@ -1305,10 +1540,267 @@ export default function AIChat({
             )}
           </div>
         )}
+
+        {/* ============ TAB: TERMINAL RUNNER ============ */}
+        {activeTab === "terminal" && (
+          <div className="ai-terminal-tab-container">
+            <div className="ai-terminal-hero">
+              <div className="ai-terminal-icon-box">
+                <Terminal size={22} />
+              </div>
+              <h5 className="ai-terminal-title">VocodeAI Terminal Runner</h5>
+              <p className="ai-terminal-desc">
+                Execute build commands, tests, scripts, and package managers directly in your cloud workspace.
+              </p>
+            </div>
+
+            {/* Direct Command Input */}
+            <div className="ai-terminal-cmd-box">
+              <span className="terminal-prompt-symbol">$</span>
+              <input
+                type="text"
+                className="ai-terminal-cmd-input"
+                placeholder="Type command (e.g. npm run dev, git status)..."
+                value={terminalCmdInput}
+                onChange={(e) => setTerminalCmdInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && terminalCmdInput.trim()) {
+                    handleRunTerminalCommand(terminalCmdInput.trim());
+                    setTerminalCmdInput("");
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="ai-terminal-run-submit"
+                onClick={() => {
+                  if (terminalCmdInput.trim()) {
+                    handleRunTerminalCommand(terminalCmdInput.trim());
+                    setTerminalCmdInput("");
+                  }
+                }}
+                disabled={!terminalCmdInput.trim()}
+              >
+                <Play size={11} />
+                <span>Run</span>
+              </button>
+            </div>
+
+            {/* Quick Commands Grid */}
+            <div className="ai-terminal-quick-section">
+              <h5 className="ai-section-title">Quick Commands</h5>
+              <div className="ai-terminal-quick-grid">
+                {[
+                  { label: "npm run dev", cmd: "npm run dev", desc: "Start dev server" },
+                  { label: "npm install", cmd: "npm install", desc: "Install packages" },
+                  { label: "python3 main.py", cmd: "python3 main.py", desc: "Run python script" },
+                  { label: "git status", cmd: "git status", desc: "Git status" },
+                  { label: "git log", cmd: "git log --oneline -5", desc: "Recent commits" },
+                  { label: "ls -la", cmd: "ls -la", desc: "List all files" },
+                  { label: "clear", cmd: "clear", desc: "Clear terminal" },
+                ].map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="ai-terminal-chip-btn"
+                    onClick={() => handleRunTerminalCommand(item.cmd)}
+                    title={item.desc}
+                  >
+                    <Play size={10} color="#10b981" />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Open / Focus Terminal Dock */}
+            <div className="ai-terminal-dock-action">
+              <button
+                type="button"
+                className="ai-terminal-dock-btn"
+                onClick={() => {
+                  setShowTerminal?.(true);
+                  showToast("Integrated Terminal Opened");
+                }}
+              >
+                <Terminal size={14} />
+                <span>Open / Focus Integrated Terminal Dock</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ============ TAB: SETTINGS & AI REQUEST LIMITS ============ */}
+        {activeTab === "settings" && (
+          <div className="vocode-settings-container">
+            {/* Header Hero */}
+            <div className="vocode-settings-hero">
+              <div className="vocode-settings-icon-box">
+                <Gauge size={22} />
+              </div>
+              <div className="vocode-settings-hero-text">
+                <div className="vocode-settings-hero-header-row">
+                  <h5 className="vocode-settings-title">AI Usage & Quota Limits</h5>
+                  <button
+                    type="button"
+                    className="vocode-refresh-usage-btn"
+                    onClick={fetchAIUsage}
+                    title="Refresh AI Usage Statistics"
+                    disabled={loadingUsage}
+                  >
+                    <RefreshCw size={12} className={loadingUsage ? "ai-spin" : ""} />
+                    <span>{loadingUsage ? "Refreshing..." : "Refresh"}</span>
+                  </button>
+                </div>
+                <p className="vocode-settings-desc">
+                  Live tracking for your active AI requests and limits. All requests are securely powered by the backend API key pool with automatic sequential failover.
+                </p>
+              </div>
+            </div>
+
+            {/* ================= LINE 1: TODAY'S REQUESTS & ACTIVE QUOTA LIMIT ================= */}
+            <div className="vocode-quota-line-card line-today">
+              <div className="vocode-line-header">
+                <div className="vocode-line-title-row">
+                  <div className="vocode-line-icon-box line-green">
+                    <Activity size={15} />
+                  </div>
+                  <div>
+                    <h6 className="vocode-line-title">Daily Request Quota</h6>
+                    <span className="vocode-line-desc">Active 24-hour limit & live prompt consumption</span>
+                  </div>
+                </div>
+                <span className="vocode-line-status-pill green">
+                  <CheckCircle2 size={11} />
+                  <span>{usageStats.status || "Optimal"}</span>
+                </span>
+              </div>
+
+              <div className="vocode-line-stat-row">
+                <div className="vocode-line-main-metric">
+                  <span className="vocode-line-big-num">{usageStats.todayRequests}</span>
+                  <span className="vocode-line-limit-sep">/ {usageStats.dailyLimit}</span>
+                  <span className="vocode-line-unit">requests used today</span>
+                </div>
+                <div className="vocode-line-remaining-tag">
+                  <span className="highlight-emerald">{usageStats.remainingRequests} requests remaining</span>
+                </div>
+              </div>
+
+              <div className="vocode-line-progress-track">
+                <div
+                  className="vocode-line-progress-fill green-grad"
+                  style={{ width: `${Math.max(3, usageStats.quotaPercentage)}%` }}
+                />
+              </div>
+
+              <div className="vocode-line-chips-row">
+                <div className="vocode-line-chip">
+                  <span className="chip-label">Daily Capacity:</span>
+                  <span className="chip-val">{usageStats.dailyLimit} req / day</span>
+                </div>
+                <div className="vocode-line-chip">
+                  <span className="chip-label">Current Chat Session:</span>
+                  <span className="chip-val">{sessionRequestCount} req executed</span>
+                </div>
+                <div className="vocode-line-chip">
+                  <span className="chip-label">Quota Consumed:</span>
+                  <span className="chip-val">{usageStats.quotaPercentage}% utilized</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ================= LINE 2: AI RATE LIMITS & SPEED CAPACITIES ================= */}
+            <div className="vocode-quota-line-card line-speed">
+              <div className="vocode-line-header">
+                <div className="vocode-line-title-row">
+                  <div className="vocode-line-icon-box line-blue">
+                    <Gauge size={15} />
+                  </div>
+                  <div>
+                    <h6 className="vocode-line-title">AI Rate Limits & Speed</h6>
+                    <span className="vocode-line-desc">Concurrency, throughput & token window limits</span>
+                  </div>
+                </div>
+                <span className="vocode-line-status-pill blue">
+                  <Zap size={11} />
+                  <span>High-Speed Tier</span>
+                </span>
+              </div>
+
+              <div className="vocode-line-specs-grid">
+                <div className="vocode-spec-box">
+                  <span className="spec-label">Rate Limit (RPM)</span>
+                  <span className="spec-val">15 req / min</span>
+                  <span className="spec-sub">Burst protected</span>
+                </div>
+                <div className="vocode-spec-box">
+                  <span className="spec-label">Max Output Limit</span>
+                  <span className="spec-val">4,096 tokens</span>
+                  <span className="spec-sub">Per code response</span>
+                </div>
+                <div className="vocode-spec-box">
+                  <span className="spec-label">Context Window</span>
+                  <span className="spec-val">128k tokens</span>
+                  <span className="spec-sub">Multi-file scope</span>
+                </div>
+                <div className="vocode-spec-box">
+                  <span className="spec-label">Average Latency</span>
+                  <span className="spec-val">&lt; 0.8s</span>
+                  <span className="spec-sub">Ultra-fast engine</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ================= LINE 3: RENEWAL SCHEDULE & LIFETIME REQUESTS ================= */}
+            <div className="vocode-quota-line-card line-reset">
+              <div className="vocode-line-header">
+                <div className="vocode-line-title-row">
+                  <div className="vocode-line-icon-box line-amber">
+                    <Clock size={15} />
+                  </div>
+                  <div>
+                    <h6 className="vocode-line-title">Reset Schedule & Lifetime Requests</h6>
+                    <span className="vocode-line-desc">Quota renewal countdown & workspace interaction count</span>
+                  </div>
+                </div>
+                <span className="vocode-line-status-pill amber">
+                  <Clock size={11} />
+                  <span>Auto-Renewing</span>
+                </span>
+              </div>
+
+              <div className="vocode-line-stat-row">
+                <div className="vocode-line-main-metric">
+                  <span className="vocode-line-big-num">{usageStats.resetIn}</span>
+                  <span className="vocode-line-unit">until next quota renewal</span>
+                </div>
+                <div className="vocode-line-remaining-tag">
+                  <span>Renews daily at 00:00 UTC</span>
+                </div>
+              </div>
+
+              <div className="vocode-line-chips-row">
+                <div className="vocode-line-chip">
+                  <span className="chip-label">Lifetime Prompts:</span>
+                  <span className="chip-val">{usageStats.totalRequests} total requests</span>
+                </div>
+                <div className="vocode-line-chip">
+                  <span className="chip-label">Server Infrastructure:</span>
+                  <span className="chip-val">Multi-Key Backend Cluster</span>
+                </div>
+                <div className="vocode-line-chip">
+                  <span className="chip-label">Failover Engine:</span>
+                  <span className="chip-val">Zero-Downtime Protected</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ================= 4. ATTACHMENT CHIPS PREVIEW (ABOVE INPUT) ================= */}
-      {attachments.length > 0 && (
+      {activeTab !== "settings" && attachments.length > 0 && (
         <div className="ai-attachments-tray">
           <div className="ai-att-tray-header">
             <span className="ai-att-tray-title">Attached Context ({attachments.length})</span>
@@ -1349,7 +1841,8 @@ export default function AIChat({
       )}
 
       {/* ================= 5. FIXED BOTTOM CHAT INPUT ================= */}
-      <div className="ai-bottom-fixed-area">
+      {activeTab !== "settings" && (
+        <div className="ai-bottom-fixed-area">
         {/* Dropdown for folder picking */}
         {folderPickerOpen && (
           <div className="ai-workspace-picker-popover" ref={folderPickerRef}>
@@ -1433,86 +1926,96 @@ export default function AIChat({
           </div>
         )}
 
-        {/* Pill-shaped Input Container */}
-        <div className="ai-input-pill-container">
-          {/* Attachment Paperclip Button */}
-          <button
-            type="button"
-            className={`ai-attach-btn ${attachMenuOpen ? "active" : ""}`}
-            title="Attach file, folder or image"
-            onClick={() => setAttachMenuOpen((prev) => !prev)}
-          >
-            <Paperclip size={16} />
-          </button>
+          <div className="antigravity-input-box">
+            {/* Top Workspace Chip */}
+            <div className="antigravity-chips-top">
+              <div className="antigravity-chip" title="Current Workspace">
+                <Folder size={11} style={{ marginRight: 4, color: "#38bdf8" }} />
+                <span>{currentWorkspace?.name || "Workspace"}</span>
+                <ChevronDown size={10} style={{ marginLeft: 3, opacity: 0.6 }} />
+              </div>
+            </div>
 
-          {/* Text Input with Paste Support */}
-          <input
-            ref={inputRef}
-            type="text"
-            className="ai-chat-input-field"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            placeholder="Ask VocodeAI anything... (paste text, images or files)"
-            disabled={loading}
-          />
-
-          {/* Right Tools (Image, Voice, Send) */}
-          <div className="ai-input-right-tools">
-            <button
-              type="button"
-              className="ai-icon-tool-btn"
-              title="Attach image or screenshot (or paste via Ctrl+V)"
-              onClick={() => imageInputRef.current?.click()}
-            >
-              <ImageIcon size={15} />
-            </button>
-
-            <VoiceInput
-              onCommand={(cmd) => {
-                if (cmd) sendMessage(cmd, workspaceId, attachments);
+            {/* Main Textarea */}
+            <textarea
+              ref={inputRef}
+              rows={1}
+              className="antigravity-main-input"
+              placeholder="Ask anything, @ to mention, / for actions, > to run command"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onPaste={handlePaste}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (input.trim() || attachments.length > 0) handleSend();
+                }
               }}
+              disabled={loading}
             />
 
-            <button
-              type="button"
-              className="ai-send-action-btn"
-              onClick={() => handleSend()}
-              disabled={(!input.trim() && attachments.length === 0) || loading}
-              title="Send to VocodeAI"
-              aria-label="Send to VocodeAI"
-            >
-              <SendHorizontal size={15} />
-            </button>
+            {/* Bottom Actions Row */}
+            <div className="antigravity-input-toolbar">
+              <div className="antigravity-toolbar-left">
+                {/* + Attach Context Button */}
+                <button
+                  type="button"
+                  className="antigravity-tool-btn"
+                  onClick={() => setAttachMenuOpen((prev) => !prev)}
+                  title="Attach Context (Files, Folders, Images)"
+                >
+                  <Plus size={16} />
+                </button>
+
+                {/* VocodeAI Model Tag */}
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#34d399",
+                    padding: "3px 8px",
+                    background: "rgba(16, 185, 129, 0.12)",
+                    borderRadius: 4,
+                    letterSpacing: "0.02em",
+                    border: "1px solid rgba(16, 185, 129, 0.28)",
+                    userSelect: "none",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                  title="VocodeAI Pair Programmer"
+                >
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
+                  VocodeAI
+                </span>
+
+                <VoiceInput
+                  onCommand={(cmd) => {
+                    if (cmd) sendMessage(cmd, workspaceId, attachments);
+                  }}
+                />
+              </div>
+
+              {/* Send Button -> */}
+              <button
+                type="button"
+                className={`antigravity-send-button ${
+                  input.trim() || attachments.length > 0 ? "ready" : ""
+                }`}
+                disabled={(!input.trim() && attachments.length === 0) || loading}
+                onClick={() => handleSend()}
+                title="Send (Enter)"
+              >
+                {loading ? (
+                  <RotateCcw size={15} className="spin-icon" />
+                ) : (
+                  <SendHorizontal size={15} />
+                )}
+              </button>
+            </div>
           </div>
         </div>
-
-        {/* Suggested Prompt Shortcuts Row */}
-        <div className="ai-prompt-shortcuts-row">
-          <span>Try:</span>
-          <span
-            className="ai-shortcut-link"
-            onClick={() => handleSend("Debug this code")}
-          >
-            "Debug this code"
-          </span>
-          <span className="ai-shortcut-sep">|</span>
-          <span
-            className="ai-shortcut-link"
-            onClick={() => handleSend("Optimize for performance")}
-          >
-            "Optimize for performance"
-          </span>
-          <span className="ai-shortcut-sep">|</span>
-          <span
-            className="ai-shortcut-link"
-            onClick={() => handleSend("Generate test cases")}
-          >
-            "Generate test cases"
-          </span>
-        </div>
-      </div>
+      )}
 
       {/* ================= 6. CHAT FILE PREVIEW MODAL ================= */}
       {chatFileModal && (

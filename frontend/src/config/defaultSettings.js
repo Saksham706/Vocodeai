@@ -43,18 +43,17 @@ export const DEFAULT_SETTINGS = {
     showLineNumbersInMarkdown: false,
   },
 
-  // 3. Vocode AI & Voice Assistant Settings
+  // 3. VocodeAI Assistant Settings
   "vocode.ai": {
-    defaultModel: "gemini-1.5-flash",
+    defaultModel: "gemini-3.8-flash",
+    agentOrchestration: true,
+    harnessAutonomy: "supervised",
+    implementationPlans: true,
     temperature: 0.4,
     maxTokens: 2048,
     topP: 0.9,
     safeMode: "prompt", // 'prompt' (confirm changes) | 'autoApply'
-    geminiApiKey: "",
-    openaiApiKey: "",
-    groqApiKey: "",
-    anthropicApiKey: "",
-    voiceRecognitionEngine: "browser", // 'browser' | 'whisper'
+    voiceRecognitionEngine: "browser",
     voiceInputHotkey: "Space (Hold)",
     textToSpeech: false,
     ttsVoice: "en-US-Standard-C",
@@ -357,23 +356,21 @@ export const SETTINGS_METADATA = [
 
   {
     id: "vocode.ai",
-    label: "AI & Voice Assistant",
+    label: "VocodeAI Assistant",
     icon: "Sparkles",
-    description: "Model selection, API keys (BYOK), voice input, text-to-speech, and generation parameters",
+    description: "VocodeAI proprietary coding assistant and pair programmer.",
     items: [
       {
-        key: "vocode.ai.defaultModel",
-        label: "Default AI Model",
-        description: "The primary generative model for code assistance, explanations, and automated refactoring.",
-        type: "select",
-        options: [
-          { value: "gemini-1.5-flash", label: "Google Gemini 1.5 Flash (Ultra Fast & Free)" },
-          { value: "gemini-1.5-pro", label: "Google Gemini 1.5 Pro (High Reasoning)" },
-          { value: "gpt-4o", label: "OpenAI GPT-4o" },
-          { value: "gpt-4o-mini", label: "OpenAI GPT-4o Mini" },
-          { value: "claude-3-5-sonnet", label: "Anthropic Claude 3.5 Sonnet" },
-          { value: "llama-3.3-70b-versatile", label: "Groq Llama 3.3 70B (High Speed)" },
-        ],
+        key: "vocode.ai.agentOrchestration",
+        label: "Autonomous Subagent Orchestration",
+        description: "Delegate complex engineering tasks to specialized subagents in secure sandboxes.",
+        type: "boolean",
+      },
+      {
+        key: "vocode.ai.implementationPlans",
+        label: "Generate Implementation Plans",
+        description: "Require the AI to formulate an architectural plan before modifying workspace files.",
+        type: "boolean",
       },
       {
         key: "vocode.ai.safeMode",
@@ -404,31 +401,12 @@ export const SETTINGS_METADATA = [
         step: 256,
       },
       {
-        key: "vocode.ai.geminiApiKey",
-        label: "Custom Gemini API Key",
-        description: "Your own Google Gemini API key (Leave empty to use server default).",
-        type: "password",
-      },
-      {
-        key: "vocode.ai.openaiApiKey",
-        label: "Custom OpenAI API Key",
-        description: "Your own OpenAI key (e.g. sk-...).",
-        type: "password",
-      },
-      {
-        key: "vocode.ai.groqApiKey",
-        label: "Custom Groq API Key",
-        description: "Your Groq cloud API key (e.g. gsk_...).",
-        type: "password",
-      },
-      {
         key: "vocode.ai.voiceRecognitionEngine",
-        label: "Voice Recognition Engine",
-        description: "Speech-to-text engine used when clicking or holding the microphone.",
+        label: "Voice Input",
+        description: "Voice-to-text input source used when clicking or holding the microphone.",
         type: "select",
         options: [
           { value: "browser", label: "Browser Native Web Speech API" },
-          { value: "whisper", label: "Cloud Whisper Engine" },
         ],
       },
       {

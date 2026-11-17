@@ -19,7 +19,7 @@ const TAB_INFO = {
   settings: {
     badge: "Settings",
     title: "Workspace & Account Preferences",
-    text: "Manage your API keys, model hyperparameters, editor keybindings (Vim / VS Code), billing subscriptions, and custom cloud runner nodes.",
+    text: "Manage your Google Gemini connection, project, and links to plan and usage details alongside your editor preferences.",
   },
 };
 

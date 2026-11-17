@@ -212,33 +212,8 @@ Ask me anything about this page or platform:
     setInput("");
     setIsTyping(true);
 
-    let replyContent = "";
-
-    try {
-      const res = await fetch("/api/ai/voca", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: textToSend.trim(),
-          history: messages.slice(-3).map((m) => ({ role: m.role, content: m.content })),
-          currentPageContext: pageContext,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.reply) {
-          replyContent = data.reply;
-        }
-      }
-    } catch {
-      // Backend offline: seamless fallback to knowledge base
-    }
-
-    if (!replyContent) {
-      const match = queryVocaKnowledge(textToSend, pageContext);
-      replyContent = match?.answer || queryVocaKnowledge("overview", pageContext).answer;
-    }
+    const match = queryVocaKnowledge(textToSend, pageContext);
+    const replyContent = match?.answer || queryVocaKnowledge("overview", pageContext).answer;
 
     setTimeout(() => {
       const botMsg = {

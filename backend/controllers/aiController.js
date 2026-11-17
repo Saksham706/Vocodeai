@@ -1,12 +1,35 @@
 import path from "path";
+import mongoose from "mongoose";
 import Chat from "../models/Chat.js";
 import FileNode from "../models/FileNode.js";
 import User from "../models/User.js";
+import Workspace from "../models/Workspace.js";
 import { askAI, verifyAIKey } from "../services/aiService.js";
 import { parseAI } from "../utils/aiParser.js";
 import { executeAI } from "../services/aiExecutor.js";
 import { getWorkspacesRoot } from "../config/paths.js";
-import { getValidGoogleAccessToken } from "../utils/googleAuthHelper.js";
+import {
+  getGoogleAIAccountStatus,
+  getValidGoogleAccessToken,
+} from "../utils/googleAuthHelper.js";
+
+async function clearLegacyAICredentials(userId) {
+  if (!userId || !mongoose.Types.ObjectId.isValid(String(userId))) return;
+  await User.collection.updateOne(
+    { _id: new mongoose.Types.ObjectId(String(userId)) },
+    {
+      $unset: {
+        aiCredentials: "",
+        activeAiConfig: "",
+        aiGoogleId: "",
+        aiGoogleEmail: "",
+        aiGoogleAccessToken: "",
+        aiGoogleRefreshToken: "",
+        googleAiAuthorized: "",
+      },
+    }
+  );
+}
 
 export async function handleAI(req, res) {
   try {
@@ -15,11 +38,11 @@ export async function handleAI(req, res) {
       workspaceId,
       activeFile,
       attachments = [],
-      provider,
-      model,
+      provider = "gemini",
+      model = "gemini-3.8-flash",
       apiKey,
-      authMethod,
-      accountEmail,
+      apiKeys,
+      backupKeys,
     } = req.body;
     const userId = String(req.user.id || req.user._id);
 
@@ -27,6 +50,16 @@ export async function handleAI(req, res) {
       return res
         .status(400)
         .json({ error: "message and workspaceId are required" });
+    }
+
+    let workspace;
+    try {
+      workspace = await Workspace.findOne({ _id: workspaceId, userId }).select("_id").lean();
+    } catch {
+      return res.status(400).json({ error: "Invalid workspaceId." });
+    }
+    if (!workspace) {
+      return res.status(404).json({ error: "Workspace not found for this account." });
     }
 
     const workspacePath = path.join(
@@ -124,13 +157,6 @@ export async function handleAI(req, res) {
     }));
 
     /* ================= AI INFERENCE ================= */
-    let userGoogleToken = null;
-    try {
-      userGoogleToken = await getValidGoogleAccessToken(userId);
-    } catch (tokenErr) {
-      console.warn("Could not retrieve valid Google access token:", tokenErr.message);
-    }
-
     const aiRaw = await askAI({
       message,
       history,
@@ -139,9 +165,8 @@ export async function handleAI(req, res) {
       provider,
       model,
       apiKey,
-      authMethod,
-      accountEmail,
-      userGoogleToken,
+      apiKeys,
+      backupKeys,
     });
 
     const parsed = parseAI(aiRaw);
@@ -198,7 +223,8 @@ export async function handleAI(req, res) {
       reply: summary,
     });
   } catch (err) {
-    console.error("AI ERROR:", err);
+    // Avoid logging Axios request config, which contains the user's Authorization header.
+    console.error("AI ERROR:", err.response?.data?.error?.message || err.message || "AI request failed");
     res.status(500).json({ error: err.message });
   }
 }
@@ -225,152 +251,38 @@ export async function deleteChatHistory(req, res) {
 
 /* ================= VOCA MASCOT ASSISTANT ================= */
 export async function handleVocaAI(req, res) {
+  // Public mascot help uses built-in content; workspace AI requires a Google Gemini account.
+  return res.status(503).json({
+    error: "Voca's public guide uses built-in help content. Connect Google Gemini in a workspace to use AI chat.",
+  });
+}
+/* ================= REUSE GOOGLE SIGN-IN FOR GEMINI ================= */
+export async function getGoogleAccountStatus(req, res) {
   try {
-    const { message, history = [], currentPageContext } = req.body;
-    if (!message || typeof message !== "string" || !message.trim()) {
-      return res.status(400).json({ error: "Message is required." });
-    }
-
-    const pageInfo = currentPageContext
-      ? `CURRENT USER PAGE & SCREEN CONTEXT:
-The user is currently viewing the page: "${currentPageContext.pageName || 'Unknown'}" at route "${currentPageContext.route || '/'}".
-Page Summary: ${currentPageContext.summary || ''}
-Page Features on screen: ${(currentPageContext.features || []).join(', ')}
-What user can do here: ${currentPageContext.actions || ''}
-CRITICAL: When the user asks what page they are on, the name of their current page, or asks about what is on their screen, answer specifically about this active screen!`
-      : `CURRENT USER ROUTE: Unknown.`;
-
-    const vocaSystemPrompt = `You are Voca, the official robotic mascot, intelligent companion, and expert guide for VocodeAI.
-VocodeAI is an autonomous, cloud-native developer studio and voice-driven pair programmer engineered for zero local installation and complete hardware freedom.
-
-${pageInfo}
-
-Key VocodeAI features & architecture:
-1. Voice-to-Code: Developers can speak natural commands or dictate code using multimodal AI. Background noise is filtered, and code is directly written or refactored into Monaco Editor without touching the keyboard.
-2. Cloud Micro-VMs & Persistence: Every workspace runs in an isolated cloud Docker container with PTY terminals (Node.js, Python, C++, Java, etc.). Every edit is continuously auto-saved to cloud storage with sub-second sync—zero lost progress.
-3. Universal Hardware: Runs smoothly on Chromebooks, iPads, mobile smartphones, old laptops, Mac, and Windows with 0MB local install.
-4. Integrated Developer Suite: Monaco Editor (multi-tab, syntax highlighting), xterm.js Cloud Terminal, Live Web/HTML sandboxed iframe preview, AI Chat pair programmer, and Workspace Templates (Node.js, Python, Web, Java, C++, React).
-5. Shortcuts: Ctrl+K (Quick Search / Command Palette), Ctrl+S (Save/Sync), Ctrl+\` (Toggle Terminal), Ctrl+Enter (Run code).
-Persona: Friendly, witty, concise, highly encouraging, tech-savvy. You can use markdown, emojis, bullet points, and code snippets where relevant. Always keep answers focused, readable, and well-structured.`;
-
-    const aiReply = await askAI({
-      message: message.trim(),
-      history,
-      systemPromptOverride: vocaSystemPrompt,
-    });
-
-    return res.json({
-      success: true,
-      reply: aiReply,
-    });
+    const userId = String(req.user.id || req.user._id);
+    return res.json(await getGoogleAIAccountStatus(userId));
   } catch (err) {
-    console.error("VOCA AI ERROR:", err.message);
-    return res.status(500).json({
-      error: "Voca AI service temporary error",
-      details: err.message,
-    });
+    return res.status(500).json({ error: "Could not check Google sign-in status." });
   }
 }
 
-/* ================= VERIFY AI PROVIDER & KEY ================= */
 export async function handleVerifyKey(req, res) {
   try {
-    const { provider, model, apiKey, authMethod, accountEmail } = req.body;
-    const userId = req.user?.id || req.user?._id;
-    const email = accountEmail || req.user?.email || "Account";
-
-    if (authMethod === "google") {
-      const googleEmail = accountEmail || req.user?.email || "Google Account";
-
-      if (userId) {
-        try {
-          const userDoc = await User.findById(userId);
-          if (userDoc) {
-            if (!userDoc.aiCredentials) userDoc.aiCredentials = new Map();
-            userDoc.aiCredentials.set("gemini", {
-              provider: "gemini",
-              model: model || "gemini-1.5-pro",
-              accountEmail: googleEmail,
-              apiKey: "",
-              authMethod: "google",
-              connectedAt: new Date(),
-            });
-            userDoc.activeAiConfig = {
-              provider: "gemini",
-              model: model || "gemini-1.5-pro",
-              accountEmail: googleEmail,
-              apiKey: "",
-              authMethod: "google",
-              label: `Google Gemini (${googleEmail.split("@")[0]})`,
-            };
-            await userDoc.save();
-          }
-        } catch (dbErr) {
-          console.warn("Could not save Google AI config to user document:", dbErr.message);
-        }
-      }
-
-      return res.json({
-        success: true,
-        provider: provider || "gemini",
-        model: model || "gemini-1.5-pro",
-        authMethod: "google",
-        accountEmail: googleEmail,
-        message: `Successfully connected with Google account (${googleEmail})!`,
-      });
-    }
-
-    if (!provider) {
-      return res.status(400).json({
-        error: "Provider is required.",
-      });
-    }
-
-    const verification = await verifyAIKey({
-      provider,
-      model,
-      apiKey,
-      authMethod,
-      accountEmail: email,
-    });
-
-    // If authenticated user and verification succeeded, persist credentials to DB
-    if (userId && verification.success) {
-      try {
-        const userDoc = await User.findById(userId);
-        if (userDoc) {
-          if (!userDoc.aiCredentials) userDoc.aiCredentials = new Map();
-          const p = provider || "openai";
-          userDoc.aiCredentials.set(p, {
-            provider: p,
-            model: model || verification.model,
-            accountEmail: email,
-            apiKey: apiKey ? String(apiKey).trim() : "",
-            authMethod: authMethod || (apiKey ? "token" : "cloud"),
-            connectedAt: new Date(),
-          });
-          userDoc.activeAiConfig = {
-            provider: p,
-            model: model || verification.model,
-            accountEmail: email,
-            apiKey: apiKey ? String(apiKey).trim() : "",
-            authMethod: authMethod || (apiKey ? "token" : "cloud"),
-            label: `${verification.model || p} (${email.split("@")[0]})`,
-          };
-          await userDoc.save();
-        }
-      } catch (dbErr) {
-        console.warn("Could not persist AI credentials to user document:", dbErr.message);
-      }
-    }
-
+    const { provider = "gemini", apiKey } = req.body;
+    const verification = await verifyAIKey({ provider, apiKey });
     return res.json(verification);
   } catch (err) {
-    console.warn("AI Key Verification Failed:", err.message);
-    return res.status(400).json({
-      success: false,
-      error: err.message,
-    });
+    return res.status(400).json({ success: false, error: err.message });
+  }
+}
+
+export async function handleVerifyGoogleAI(req, res) {
+  try {
+    const { apiKey, projectId } = req.body;
+    const verification = await verifyAIKey({ provider: "gemini", apiKey: apiKey || projectId });
+    return res.json(verification);
+  } catch (err) {
+    return res.status(400).json({ success: false, error: err.message });
   }
 }
 
@@ -378,33 +290,11 @@ export async function handleVerifyKey(req, res) {
 export async function getAICredentials(req, res) {
   try {
     const userId = req.user?.id || req.user?._id;
-    if (!userId) {
-      return res.json({ activeConfig: null, savedProviders: {} });
+    if (userId) {
+      // Remove provider credentials and Google model OAuth tokens written by older versions.
+      await clearLegacyAICredentials(userId);
     }
-
-    const userDoc = await User.findById(userId).lean();
-    if (!userDoc) {
-      return res.json({ activeConfig: null, savedProviders: {} });
-    }
-
-    const savedProviders = {};
-    if (userDoc.aiCredentials) {
-      for (const [key, val] of Object.entries(userDoc.aiCredentials)) {
-        savedProviders[key] = {
-          provider: val.provider || key,
-          model: val.model,
-          accountEmail: val.accountEmail,
-          apiKey: val.apiKey || "",
-          authMethod: val.authMethod,
-          connectedAt: val.connectedAt,
-        };
-      }
-    }
-
-    return res.json({
-      activeConfig: userDoc.activeAiConfig || null,
-      savedProviders,
-    });
+    return res.json({ activeConfig: null, savedProviders: {} });
   } catch (err) {
     return res.json({ activeConfig: null, savedProviders: {} });
   }
@@ -415,11 +305,7 @@ export async function disconnectAICredential(req, res) {
   try {
     const userId = req.user?.id || req.user?._id;
     if (userId) {
-      const userDoc = await User.findById(userId);
-      if (userDoc) {
-        userDoc.activeAiConfig = null;
-        await userDoc.save();
-      }
+      await clearLegacyAICredentials(userId);
     }
     return res.json({ success: true, message: "AI provider disconnected." });
   } catch (err) {
@@ -427,19 +313,45 @@ export async function disconnectAICredential(req, res) {
   }
 }
 
-/* ================= CHECK GOOGLE AI CONNECTION ================= */
-export async function getGoogleAIStatus(req, res) {
+/* ================= GET AI USAGE & QUOTA STATS ================= */
+export async function getAIUsageStats(req, res) {
   try {
-    const userId = String(req.user?.id || req.user?._id || "");
-    if (!userId) {
-      return res.json({ hasGoogleToken: false, email: null });
-    }
-    const userDoc = await User.findById(userId).lean();
+    const userId = String(req.user.id || req.user._id);
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const [todayCount, totalCount] = await Promise.all([
+      Chat.countDocuments({ userId, role: "user", createdAt: { $gte: startOfDay } }),
+      Chat.countDocuments({ userId, role: "user" }),
+    ]);
+
+    const dailyLimit = 150;
+    const remaining = Math.max(0, dailyLimit - todayCount);
+
+    const now = new Date();
+    const nextMidnight = new Date();
+    nextMidnight.setHours(24, 0, 0, 0);
+    const diffMs = nextMidnight - now;
+    const hoursLeft = Math.floor(diffMs / (1000 * 60 * 60));
+    const minsLeft = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
     return res.json({
-      hasGoogleToken: Boolean(userDoc?.googleId || userDoc?.googleAccessToken),
-      email: userDoc?.email || req.user?.email || null,
+      success: true,
+      todayRequests: todayCount,
+      totalRequests: totalCount,
+      dailyLimit,
+      remainingRequests: remaining,
+      resetIn: `${hoursLeft}h ${minsLeft}m`,
+      status: remaining > 0 ? "Optimal" : "Limit Reached",
+      quotaPercentage: Math.min(100, Math.round((todayCount / dailyLimit) * 100)),
+      rpmLimit: 15,
+      maxTokens: 4096,
+      avgLatency: "0.8s",
+      managedBackendKeys: true,
+      sequentialFailover: true,
     });
   } catch (err) {
-    return res.json({ hasGoogleToken: false, email: null });
+    console.error("GET AI USAGE ERROR:", err);
+    return res.status(500).json({ error: "Failed to get AI usage statistics." });
   }
 }

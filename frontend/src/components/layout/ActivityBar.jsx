@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Files,
   Search,
@@ -8,6 +8,7 @@ import {
   Settings,
   Bot,
 } from "lucide-react";
+import AntigravityLogo from "../common/AntigravityLogo";
 import "../../styles/activitybar.css";
 
 export default function ActivityBar({
@@ -22,6 +23,35 @@ export default function ActivityBar({
   isSettingsOpen = false,
   gitChangesCount = 0,
 }) {
+  const [isAntigravityInstalled, setIsAntigravityInstalled] = useState(() => {
+    try {
+      const saved = localStorage.getItem("vocode_installed_extensions");
+      if (saved) {
+        const list = JSON.parse(saved);
+        return list.includes("google.google-antigravity");
+      }
+    } catch {}
+    return false;
+  });
+
+  useEffect(() => {
+    const handleInstalled = (e) => {
+      if (e.detail?.extensionId === "google.google-antigravity" || e.detail?.extension?.id === "google.google-antigravity") {
+        setIsAntigravityInstalled(true);
+      }
+    };
+    const handleUninstalled = (e) => {
+      if (e.detail?.extensionId === "google.google-antigravity" || e.detail?.extension?.id === "google.google-antigravity") {
+        setIsAntigravityInstalled(false);
+      }
+    };
+    window.addEventListener("vocode-extension-installed", handleInstalled);
+    window.addEventListener("vocode-extension-uninstalled", handleUninstalled);
+    return () => {
+      window.removeEventListener("vocode-extension-installed", handleInstalled);
+      window.removeEventListener("vocode-extension-uninstalled", handleUninstalled);
+    };
+  }, []);
   const handleItemClick = (id) => {
     if (id === activeTab && isExplorerOpen) {
       // Toggle sidebar off if already active
@@ -96,14 +126,24 @@ export default function ActivityBar({
           <Grid2X2 size={20} strokeWidth={1.8} />
         </button>
 
-        {/* 6. AI Assistant Tab */}
+        {/* 6. Antigravity / AI Assistant Tab */}
         <button
-          className={`activity-bar-btn ${showAI ? "active" : ""}`}
-          onClick={toggleAI}
-          title="AI Assistant (Ctrl+Alt+A)"
-          aria-label="AI Assistant"
+          className={`activity-bar-btn ${
+            (isAntigravityInstalled && activeTab === "antigravity" && isExplorerOpen) || (!isAntigravityInstalled && showAI)
+              ? "active"
+              : ""
+          }`}
+          onClick={() => {
+            if (isAntigravityInstalled) {
+              handleItemClick("antigravity");
+            } else {
+              toggleAI?.();
+            }
+          }}
+          title="VocodeAI Assistant (Ctrl+Alt+A)"
+          aria-label="VocodeAI Assistant"
         >
-          <Bot size={20} strokeWidth={1.8} />
+          <AntigravityLogo size={22} glow={true} />
         </button>
       </div>
 

@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 import {
   askAI,
   deleteChatHistory,
-  fetchAICredentials,
+  clearLegacyAICredentials,
   disconnectAIProviderApi,
 } from "../services/aiApi";
 import { useAuth } from "./AuthContext";
@@ -27,146 +27,142 @@ export function AIProvider({ children }) {
   } = useWorkspace();
 
   const wsKey = currentProject || "default";
+  const userEmailKey = user?.email?.trim().toLowerCase() || "";
 
-  // Active AI Provider & Model Config (saved in localStorage)
+  // VocodeAI Core Engine Configuration
   const [aiConfig, setAiConfig] = useState(() => {
     try {
-      const stored = localStorage.getItem("vocode_ai_provider_config");
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
+      const storageKey = userEmailKey
+        ? `vocode_ai_provider_config_${userEmailKey}`
+        : "vocode_ai_provider_config_default";
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const primary = (parsed.apiKey || "").trim();
+        const backups = Array.isArray(parsed.backupKeys) ? parsed.backupKeys : [];
+        return {
+          provider: parsed.provider || "gemini",
+          model: parsed.model || "vocodeai",
+          label: parsed.label || "VocodeAI",
+          apiKey: primary,
+          backupKeys: backups,
+          apiKeys: [primary, ...backups].filter(Boolean),
+        };
+      }
+    } catch {}
+    return {
+      provider: "gemini",
+      model: "vocodeai",
+      label: "VocodeAI",
+      apiKey: "",
+      backupKeys: [],
+      apiKeys: [],
+    };
   });
 
-  // Saved credentials per provider for fast switching
-  const [savedProviderKeys, setSavedProviderKeys] = useState(() => {
-    try {
-      const stored = localStorage.getItem("vocode_ai_saved_keys");
-      return stored ? JSON.parse(stored) : {};
-    } catch {
-      return {};
-    }
-  });
-
-  // Dynamically keep aiConfig synchronized with the active user account
+  // Read saved provider config
   useEffect(() => {
-    if (!user?.email) return;
-
-    // Check if user has a scoped config saved
-    const userScoped = localStorage.getItem(`vocode_ai_provider_config_${user.email}`);
-    if (userScoped) {
-      try {
-        const parsed = JSON.parse(userScoped);
-        setAiConfig(parsed);
-        localStorage.setItem("vocode_ai_provider_config", userScoped);
+    try {
+      const storageKey = userEmailKey
+        ? `vocode_ai_provider_config_${userEmailKey}`
+        : "vocode_ai_provider_config_default";
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const primary = (parsed.apiKey || "").trim();
+        const backups = Array.isArray(parsed.backupKeys) ? parsed.backupKeys : [];
+        setAiConfig({
+          provider: parsed.provider || "gemini",
+          model: parsed.model || "vocodeai",
+          label: parsed.label || "VocodeAI",
+          apiKey: primary,
+          backupKeys: backups,
+          apiKeys: [primary, ...backups].filter(Boolean),
+        });
         return;
-      } catch {}
-    }
-
-    // If aiConfig belongs to a different email, adapt or reset
-    if (aiConfig && aiConfig.accountEmail && aiConfig.accountEmail !== user.email) {
-      const updated = {
-        ...aiConfig,
-        accountEmail: user.email,
-        label: `${(aiConfig.label || aiConfig.model).split("(")[0].trim()} (${user.email.split("@")[0]})`,
-      };
-      setAiConfig(updated);
-      try {
-        localStorage.setItem("vocode_ai_provider_config", JSON.stringify(updated));
-        localStorage.setItem(`vocode_ai_provider_config_${user.email}`, JSON.stringify(updated));
-      } catch {}
-    }
-  }, [user?.email]);
-
-  // Listen for external ai-config changes (e.g. from OAuth redirect)
-  useEffect(() => {
-    const handleConfigChange = (e) => {
-      if (e.detail?.aiConfig) {
-        setAiConfig(e.detail.aiConfig);
       }
+    } catch {}
+    const defaultConfig = {
+      provider: "gemini",
+      model: "vocodeai",
+      label: "VocodeAI",
+      apiKey: "",
+      backupKeys: [],
+      apiKeys: [],
     };
-    window.addEventListener("vocode-ai-config-changed", handleConfigChange);
-    return () => window.removeEventListener("vocode-ai-config-changed", handleConfigChange);
-  }, []);
+    setAiConfig(defaultConfig);
+  }, [userEmailKey]);
 
-  // Load credentials from backend on mount if not in localStorage
-  useEffect(() => {
-    let mounted = true;
-    const syncBackendCredentials = async () => {
-      if (!accessToken) return;
-      try {
-        const data = await fetchAICredentials(accessToken);
-        if (!mounted || !data) return;
+  // Save full settings & sequential API failover key pool
+  const saveAiSettings = (newSettings) => {
+    const primary = (newSettings.apiKey !== undefined ? newSettings.apiKey : (aiConfig?.apiKey || "")).trim();
+    const backups = Array.isArray(newSettings.backupKeys)
+      ? newSettings.backupKeys.map((k) => String(k).trim()).filter(Boolean)
+      : (aiConfig?.backupKeys || []);
+    const combinedKeys = [primary, ...backups].filter(Boolean);
 
-        if (data.savedProviders && Object.keys(data.savedProviders).length > 0) {
-          setSavedProviderKeys((prev) => {
-            const merged = { ...data.savedProviders, ...prev };
-            try {
-              localStorage.setItem("vocode_ai_saved_keys", JSON.stringify(merged));
-            } catch {}
-            return merged;
-          });
-        }
-
-        // If local config is empty, restore active from backend
-        if (!aiConfig && data.activeConfig?.provider) {
-          setAiConfig(data.activeConfig);
-          try {
-            localStorage.setItem(
-              "vocode_ai_provider_config",
-              JSON.stringify(data.activeConfig)
-            );
-          } catch {}
-        }
-      } catch (err) {
-        console.warn("Could not sync AI credentials from backend:", err);
-      }
+    const updated = {
+      ...aiConfig,
+      ...newSettings,
+      apiKey: primary,
+      backupKeys: backups,
+      apiKeys: combinedKeys,
     };
-    syncBackendCredentials();
-    return () => {
-      mounted = false;
-    };
-  }, [accessToken]);
-
-  // Connect or switch active AI model & account
-  const connectProvider = (config) => {
-    setAiConfig(config);
+    setAiConfig(updated);
     try {
-      localStorage.setItem("vocode_ai_provider_config", JSON.stringify(config));
-      if (config.accountEmail) {
-        localStorage.setItem(
-          `vocode_ai_provider_config_${config.accountEmail}`,
-          JSON.stringify(config)
-        );
-      }
-      const updatedKeys = {
-        ...savedProviderKeys,
-        [config.provider]: {
-          apiKey: config.apiKey || "",
-          model: config.model,
-          authMethod: config.authMethod,
-          accountEmail: config.accountEmail,
-          updatedAt: new Date().toISOString(),
-        },
-      };
-      setSavedProviderKeys(updatedKeys);
-      localStorage.setItem("vocode_ai_saved_keys", JSON.stringify(updatedKeys));
-      if (config.accountEmail) {
-        localStorage.setItem(
-          `vocode_ai_saved_keys_${config.accountEmail}`,
-          JSON.stringify(updatedKeys)
-        );
-      }
+      const storageKey = userEmailKey
+        ? `vocode_ai_provider_config_${userEmailKey}`
+        : "vocode_ai_provider_config_default";
+      localStorage.setItem(storageKey, JSON.stringify(updated));
+    } catch (err) {
+      console.warn("Could not persist AI config:", err);
+    }
+    return updated;
+  };
+
+  // Connect / Save Provider with direct API Key
+  const connectProvider = (config) => {
+    if (!config || !config.provider) return false;
+    const normProvider = config.provider === "openai" ? "openai" : "gemini";
+    const defaultModel = normProvider === "openai" ? "gpt-4o" : "gemini-3.8-flash";
+    const normalizedConfig = {
+      provider: normProvider,
+      model: config.model || defaultModel,
+      label:
+        config.label ||
+        (normProvider === "openai"
+          ? (config.model === "gpt-4o-mini" ? "ChatGPT (GPT-4o Mini)" : "ChatGPT (GPT-4o)")
+          : (config.model === "gemini-1.5-pro" ? "Gemini 1.5 Pro" : "Gemini 3.8 Flash Medium")),
+      apiKey: (config.apiKey || "").trim(),
+      authMethod: "api_key",
+      connectedAt: new Date().toISOString(),
+    };
+    setAiConfig(normalizedConfig);
+    try {
+      const storageKey = userEmailKey
+        ? `vocode_ai_provider_config_${userEmailKey}`
+        : "vocode_ai_provider_config_default";
+      localStorage.setItem(storageKey, JSON.stringify(normalizedConfig));
     } catch (err) {
       console.warn("Could not persist AI config to localStorage:", err);
     }
+    return true;
   };
 
-  // Disconnect active model & account (reverts to model selector)
+  // Disconnect active model & key (reverts to default)
   const disconnectProvider = () => {
-    setAiConfig(null);
+    const defaultConfig = {
+      provider: "gemini",
+      model: "gemini-3.8-flash",
+      label: "Gemini 3.8 Flash Medium",
+      apiKey: "",
+    };
+    setAiConfig(defaultConfig);
     try {
-      localStorage.removeItem("vocode_ai_provider_config");
+      const storageKey = userEmailKey
+        ? `vocode_ai_provider_config_${userEmailKey}`
+        : "vocode_ai_provider_config_default";
+      localStorage.removeItem(storageKey);
     } catch (err) {
       console.warn("Could not remove AI config:", err);
     }
@@ -175,23 +171,26 @@ export function AIProvider({ children }) {
     }
   };
 
-  // Switch specific model for active provider
-  const updateAiModel = (newModel) => {
-    if (!aiConfig) return;
-    const updated = { ...aiConfig, model: newModel };
+  // Switch model dynamically
+  const updateAiModel = (newModelId) => {
+    const isOAI = newModelId && newModelId.startsWith("gpt");
+    const normProvider = isOAI ? "openai" : "gemini";
+    const defaultLabel = isOAI
+      ? (newModelId === "gpt-4o-mini" ? "ChatGPT (GPT-4o Mini)" : "ChatGPT (GPT-4o)")
+      : (newModelId === "gemini-1.5-pro" ? "Gemini 1.5 Pro" : "Gemini 3.8 Flash Medium");
+
+    const updated = {
+      ...(aiConfig || {}),
+      provider: normProvider,
+      model: newModelId || (isOAI ? "gpt-4o" : "gemini-3.8-flash"),
+      label: defaultLabel,
+    };
     setAiConfig(updated);
     try {
-      localStorage.setItem("vocode_ai_provider_config", JSON.stringify(updated));
-      const updatedKeys = {
-        ...savedProviderKeys,
-        [updated.provider]: {
-          ...savedProviderKeys[updated.provider],
-          model: newModel,
-          apiKey: updated.apiKey,
-        },
-      };
-      setSavedProviderKeys(updatedKeys);
-      localStorage.setItem("vocode_ai_saved_keys", JSON.stringify(updatedKeys));
+      const storageKey = userEmailKey
+        ? `vocode_ai_provider_config_${userEmailKey}`
+        : "vocode_ai_provider_config_default";
+      localStorage.setItem(storageKey, JSON.stringify(updated));
     } catch {}
   };
 
@@ -489,6 +488,8 @@ export function AIProvider({ children }) {
       const assistantMessage = {
         role: "assistant",
         content: replyMessage,
+        modelName: "VocodeAI",
+        actions: ai?.actions || [],
         timestamp: new Date().toISOString(),
       };
 
@@ -551,10 +552,10 @@ export function AIProvider({ children }) {
     <AIContext.Provider
       value={{
         aiConfig,
-        savedProviderKeys,
         connectProvider,
         disconnectProvider,
         updateAiModel,
+        saveAiSettings,
         sendMessage,
         messages,
         loading,

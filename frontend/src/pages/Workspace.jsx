@@ -21,6 +21,10 @@ import SettingsView from "../components/settings/SettingsView";
 import SourceControl from "../components/git/SourceControl";
 import GitDiffEditor from "../components/git/GitDiffEditor";
 import ExtensionsPanel from "../components/extensions/ExtensionsPanel";
+import ExtensionDetailsView from "../components/extensions/ExtensionDetailsView";
+import CommandPalette from "../components/common/CommandPalette";
+import StatusBar from "../components/layout/StatusBar";
+import { MARKETPLACE_EXTENSIONS } from "../config/marketplaceExtensions";
 import {
   applyThemeExtension,
   getActiveThemeExtension,
@@ -32,11 +36,17 @@ import {
   discardGitChanges,
 } from "../services/gitApi";
 
-import { AIProvider } from "../context/AIContext";
-import { X } from "lucide-react";
+import { AIProvider, useAI } from "../context/AIContext";
+import { X, Puzzle } from "lucide-react";
 import DashboardBackground from "../components/DashboardBackground";
 
 import "../styles/workspace.css";
+
+const DEFAULT_INSTALLED_EXTENSION_IDS = [
+  "ext-vocode-ai-copilot",
+  "ext-theme-one-dark-pro",
+  "ext-prettier-formatter",
+];
 
 /* ================= INNER IDE LAYOUT ================= */
 
@@ -52,6 +62,7 @@ function WorkspaceLayout() {
     previewUrl,
     activeFile,
     currentProject,
+    currentWorkspace,
     tree,
     openFile,
     runCode,
@@ -73,10 +84,125 @@ function WorkspaceLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { id: workspaceId } = useParams();
-  const { accessToken } = useAuth();
+  const { user, accessToken } = useAuth();
+  const { aiConfig } = useAI();
 
   // Settings Panel State
   const [showSettings, setShowSettings] = useState(false);
+
+  // Command Palette & Extension Details State
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [viewingExtension, setViewingExtension] = useState(null);
+  const [installedExtensionIds, setInstalledExtensionIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem("vocode_installed_extensions");
+      if (saved) return new Set(JSON.parse(saved));
+    } catch {}
+    return new Set(DEFAULT_INSTALLED_EXTENSION_IDS);
+  });
+
+  // Antigravity installed state
+  const [isAntigravityInstalled, setIsAntigravityInstalled] = useState(() => {
+    try {
+      const saved = localStorage.getItem("vocode_installed_extensions");
+      if (saved) return JSON.parse(saved).includes("google.google-antigravity");
+    } catch {}
+    return false;
+  });
+
+  useEffect(() => {
+    const handleInstalled = (e) => {
+      const extensionId = e.detail?.extensionId || e.detail?.extension?.id;
+      if (extensionId) {
+        setInstalledExtensionIds((prev) => new Set([...prev, extensionId]));
+      }
+      if (extensionId === "google.google-antigravity") {
+        setIsAntigravityInstalled(true);
+      }
+    };
+    const handleUninstalled = (e) => {
+      const extensionId = e.detail?.extensionId || e.detail?.extension?.id;
+      if (extensionId) {
+        setInstalledExtensionIds((prev) => {
+          const next = new Set(prev);
+          next.delete(extensionId);
+          return next;
+        });
+      }
+      if (extensionId === "google.google-antigravity") {
+        setIsAntigravityInstalled(false);
+      }
+    };
+    const handleOpenExtDetails = (e) => {
+      if (e.detail?.extension) {
+        setViewingExtension(e.detail.extension);
+      }
+    };
+    const handleOpenCmdPalette = () => {
+      setShowCommandPalette(true);
+    };
+
+    window.addEventListener("vocode-extension-installed", handleInstalled);
+    window.addEventListener("vocode-extension-uninstalled", handleUninstalled);
+    window.addEventListener("vocode-open-extension-details", handleOpenExtDetails);
+    window.addEventListener("vocode-open-command-palette", handleOpenCmdPalette);
+    return () => {
+      window.removeEventListener("vocode-extension-installed", handleInstalled);
+      window.removeEventListener("vocode-extension-uninstalled", handleUninstalled);
+      window.removeEventListener("vocode-open-extension-details", handleOpenExtDetails);
+      window.removeEventListener("vocode-open-command-palette", handleOpenCmdPalette);
+    };
+  }, []);
+
+  const setExtensionInstalled = (extensionId, installed) => {
+    setInstalledExtensionIds((prev) => {
+      const next = new Set(prev);
+      if (installed) next.add(extensionId);
+      else next.delete(extensionId);
+      try {
+        localStorage.setItem("vocode_installed_extensions", JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+    if (extensionId === "google.google-antigravity") {
+      setIsAntigravityInstalled(installed);
+    }
+    window.dispatchEvent(
+      new CustomEvent(installed ? "vocode-extension-installed" : "vocode-extension-uninstalled", {
+        detail: { extensionId },
+      })
+    );
+  };
+
+  const handleInstallExtension = (extension) => {
+    setExtensionInstalled(extension.id, true);
+  };
+
+  const handleUninstallExtension = (extension) => {
+    setExtensionInstalled(extension.id, false);
+  };
+
+  const handleInstallAntigravity = () => {
+    setExtensionInstalled("google.google-antigravity", true);
+  };
+
+  const handleUninstallAntigravity = () => {
+    setExtensionInstalled("google.google-antigravity", false);
+  };
+
+  const handleFocusAntigravity = () => {
+    setActivityTab("antigravity");
+    setIsExplorerOpen(true);
+    setShowAI(false);
+    window.dispatchEvent(new CustomEvent("vocode-antigravity-focus"));
+  };
+
+  const handleNewAntigravityConversation = () => {
+    setActivityTab("antigravity");
+    setIsExplorerOpen(true);
+    setShowAI(false);
+    window.dispatchEvent(new CustomEvent("vocode-antigravity-new-chat"));
+  };
 
   // Activity Bar Tab & Explorer State (must be initialized before keyboard shortcuts hook)
   const [activityTab, setActivityTab] = useState(() => {
@@ -163,6 +289,13 @@ function WorkspaceLayout() {
           setActivityTab("extensions");
           setIsExplorerOpen(true);
         }
+        return;
+      }
+
+      // Ctrl+Shift+P / Cmd+Shift+P / F1: Command Palette
+      if ((isCmdOrCtrl && e.shiftKey && key === "p") || e.key === "F1") {
+        e.preventDefault();
+        setShowCommandPalette((prev) => !prev);
         return;
       }
 
@@ -541,6 +674,7 @@ function WorkspaceLayout() {
           setIsExplorerOpen(true);
         }}
         onOpenSettings={() => setShowSettings(true)}
+        onOpenCommandPalette={() => setShowCommandPalette(true)}
       />
 
       {/* 2. MAIN WORKSPACE CONTAINER */}
@@ -576,12 +710,21 @@ function WorkspaceLayout() {
           gitChangesCount={gitChangesCount}
         />
 
-        {/* ===== LEFT PERSISTENT FILE EXPLORER ===== */}
+        {/* ===== LEFT PERSISTENT FILE EXPLORER & VIEWS ===== */}
         {isExplorerOpen && (
-          <div className="ide-sidebar-wrapper" style={{ width: sidebarWidth }}>
+          <div
+            className="ide-sidebar-wrapper"
+            style={{
+              width:
+                activityTab === "antigravity"
+                  ? Math.max(sidebarWidth, 380)
+                  : sidebarWidth,
+            }}
+          >
             {activityTab === "git" ? (
               <SourceControl
                 workspaceId={workspaceId || currentProject}
+                aiConfig={aiConfig}
                 onOpenDiff={(diffData) => setActiveDiff(diffData)}
                 onCloseSidebar={() => setIsExplorerOpen(false)}
               />
@@ -599,13 +742,19 @@ function WorkspaceLayout() {
               />
             ) : activityTab === "extensions" ? (
               <ExtensionsPanel onClose={() => setIsExplorerOpen(false)} />
+            ) : activityTab === "antigravity" ? (
+              <AIChat
+                workspaceId={workspaceId || currentProject}
+                onClose={() => setIsExplorerOpen(false)}
+                isSidebar={true}
+              />
             ) : (
               <Sidebar onClose={() => setIsExplorerOpen(false)} />
             )}
             <div
               className="ide-sidebar-resizer"
               onMouseDown={startSidebarResize}
-              title="Drag to resize explorer"
+              title="Drag to resize sidebar"
             />
           </div>
         )}
@@ -617,6 +766,56 @@ function WorkspaceLayout() {
               workspaceId={workspaceId || currentProject}
               onBack={() => setShowSettings(false)}
             />
+          ) : viewingExtension ? (
+            <div
+              className="ide-extension-details-wrapper"
+              style={{
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                background: "#0d151c",
+              }}
+            >
+              <div className="ide-tabs-bar">
+                <div className="ide-tabs-list">
+                  <div
+                    className="ide-tab"
+                    onClick={() => setViewingExtension(null)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <span className="tab-name">Welcome</span>
+                  </div>
+                  <div className="ide-tab active">
+                    <Puzzle size={13} style={{ marginRight: 5, color: "#38bdf8" }} />
+                    <span className="tab-name">
+                      Extension: {viewingExtension.name}
+                    </span>
+                    <button
+                      className="tab-close-btn"
+                      onClick={() => setViewingExtension(null)}
+                      title="Close Tab"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div style={{ flex: 1, overflow: "hidden" }}>
+                <ExtensionDetailsView
+                  extension={viewingExtension}
+                  isInstalled={
+                    installedExtensionIds.has(viewingExtension.id)
+                  }
+                  onInstall={handleInstallExtension}
+                  onUninstall={handleUninstallExtension}
+                  onOpenAI={() => {
+                    setViewingExtension(null);
+                    handleFocusAntigravity();
+                  }}
+                  onClose={() => setViewingExtension(null)}
+                />
+              </div>
+            </div>
           ) : activeDiff ? (
             <GitDiffEditor
               diffData={activeDiff}
@@ -703,7 +902,7 @@ function WorkspaceLayout() {
         </div>
 
         {/* ===== RIGHT COLUMN: FULL-HEIGHT AI ASSISTANT ===== */}
-        {showAI && (
+        {showAI && activityTab !== "antigravity" && (
           <div
             className={`ide-ai-sidebar-wrapper ${isAiMaximized ? "maximized" : ""}`}
             style={{ width: isAiMaximized ? "65%" : `${aiWidth}px` }}
@@ -722,6 +921,72 @@ function WorkspaceLayout() {
           </div>
         )}
       </div>
+
+      {/* 3. VS CODE BOTTOM STATUS BAR */}
+      <StatusBar
+        userName={user?.name || user?.username || "Saksham"}
+        gitBranch="main"
+        gitChangesCount={gitChangesCount}
+        problemCount={problems ? problems.length : 0}
+        activeLanguage={
+          activeFile
+            ? activeFile.split(".").pop().toUpperCase()
+            : "JavaScript"
+        }
+        onToggleTerminal={toggleTerminal}
+        onTogglePreview={() => refreshPreview(true)}
+        onFocusAntigravity={handleFocusAntigravity}
+        isAntigravityInstalled={isAntigravityInstalled}
+      />
+
+      {/* 4. VS CODE COMMAND PALETTE */}
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        isAntigravityInstalled={isAntigravityInstalled}
+        onFocusAntigravity={handleFocusAntigravity}
+        onNewAntigravityConversation={handleNewAntigravityConversation}
+        onSelectAIModel={() => {
+          setShowAI(true);
+        }}
+        onToggleExplorer={toggleExplorer}
+        onToggleTerminal={toggleTerminal}
+        onOpenExtensions={() => {
+          setActivityTab("extensions");
+          setIsExplorerOpen(true);
+        }}
+        onOpenGit={() => {
+          setActivityTab("git");
+          setIsExplorerOpen(true);
+        }}
+        onOpenSearch={() => {
+          setActivityTab("search");
+          setIsExplorerOpen(true);
+        }}
+        onOpenDebug={() => {
+          setActivityTab("debug");
+          setIsExplorerOpen(true);
+        }}
+        onOpenSettings={() => setShowSettings(true)}
+        onNewFile={() => {
+          if (!isExplorerOpen) setIsExplorerOpen(true);
+          setCreateRequest({
+            type: "file",
+            parent: selectedTarget?.path || "",
+          });
+        }}
+        onNewFolder={() => {
+          if (!isExplorerOpen) setIsExplorerOpen(true);
+          setCreateRequest({
+            type: "folder",
+            parent: selectedTarget?.path || "",
+          });
+        }}
+        onSaveFile={() => {
+          if (activeFile && saveFile) saveFile(activeFile);
+        }}
+        onInstallAntigravity={handleInstallAntigravity}
+      />
     </div>
   );
 }

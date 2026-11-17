@@ -1,35 +1,28 @@
 import express from "express";
-import jwt from "jsonwebtoken";
 import { auth } from "../middleware/auth.js";
 import {
   handleAI,
   deleteChatHistory,
   handleVocaAI,
+  getGoogleAccountStatus,
+  handleVerifyGoogleAI,
   handleVerifyKey,
-  getGoogleAIStatus,
   getAICredentials,
   disconnectAICredential,
+  getAIUsageStats,
 } from "../controllers/aiController.js";
 
 const router = express.Router();
 
-function optionalAuth(req, res, next) {
-  const header = req.headers.authorization;
-  if (header && header.startsWith("Bearer ")) {
-    try {
-      req.user = jwt.verify(header.split(" ")[1], process.env.JWT_SECRET);
-    } catch {}
-  }
-  next();
-}
-
 // Public assistant for the floating robot mascot "Voca"
 router.post("/voca", handleVocaAI);
 
-router.get("/google-status", optionalAuth, getGoogleAIStatus);
+router.get("/usage", auth, getAIUsageStats);
 router.get("/credentials", auth, getAICredentials);
+router.get("/google-account", auth, getGoogleAccountStatus);
+router.post("/verify-google", auth, handleVerifyGoogleAI);
+router.post("/verify-key", auth, handleVerifyKey);
 router.post("/disconnect", auth, disconnectAICredential);
-router.post("/verify-key", optionalAuth, handleVerifyKey);
 router.post("/", auth, handleAI);
 router.delete("/history/:workspaceId", auth, deleteChatHistory);
 router.delete("/history", auth, deleteChatHistory);

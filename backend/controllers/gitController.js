@@ -7,6 +7,7 @@ import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
 import { syncWorkspaceToDB, isIgnoredFile } from "../services/syncService.js";
 import { askAI } from "../services/aiService.js";
 import User from "../models/User.js";
+import { getValidGoogleAccessToken } from "../utils/googleAuthHelper.js";
 
 const DEFAULT_GITIGNORE = `# Compiled class and binary files
 *.class
@@ -907,9 +908,23 @@ export async function cloneRepo(req, res) {
  */
 export async function generateCommitMessage(req, res) {
   try {
-    const { workspaceId } = req.body;
+    const { workspaceId, aiConfig } = req.body;
     if (!workspaceId) {
       return res.status(400).json({ error: "workspaceId required" });
+    }
+    const usesGoogleAccount = Boolean(
+      aiConfig?.authMethod === "google" &&
+      aiConfig?.provider === "gemini" &&
+      aiConfig?.projectId
+    );
+    if (
+      !usesGoogleAccount ||
+      aiConfig.provider !== "gemini" ||
+      aiConfig.model !== "gemini-3.8-flash"
+    ) {
+      return res.status(400).json({
+        error: "Connect Google Gemini before generating an AI commit message.",
+      });
     }
 
     const wsPath = await getWorkspacePath(req.user.id, workspaceId);
@@ -953,6 +968,13 @@ Requirements:
         message: prompt,
         history: [],
         workspaceContext: "",
+        provider: aiConfig.provider,
+        model: aiConfig.model,
+        authMethod: "google",
+        projectId: aiConfig.projectId,
+        googleAccessToken: usesGoogleAccount
+          ? await getValidGoogleAccessToken(req.user.id)
+          : null,
         systemPromptOverride: "You are an expert git assistant. You generate clean, accurate conventional commit messages in one line without extra text, explanation, or markdown formatting.",
       });
 

@@ -96,7 +96,7 @@ Configurable across **Global User Preferences** and **Workspace Overrides**:
 | **📝 Text Editor** | Font family (`Fira Code`, `JetBrains Mono`, `Consolas`), font size slider (10–32px), line height, font ligatures, tab size (2/4/8), word wrap, minimap toggle, line numbers, cursor style (block, line, underline), cursor blink. |
 | **👁️ Preview & Multi-File** | Auto-save delay slider (off, 500ms, 1s, 2s), format on save, live preview auto-refresh, port forwarding defaults. |
 | **🎨 Workbench & Appearance** | Neon glow effects, dark & light themes, accent colors (emerald green, cyber orange, electric blue, purple), UI density. |
-| **🤖 AI & Voice Assistant** | Model selector (`openrouter/free`, `gpt-4o`, `gpt-4o-mini`), voice speed slider, creativity temperature, auto-suggest inline completions. |
+| **🤖 AI & Voice Assistant** | Use Gemini 3.8 Flash Medium with the Google account already connected to VocodeAI. Google OAuth credentials remain server-side and refresh automatically; your Google Cloud project ID is saved in this browser. Gemini quota, plan, and any billing are managed by Google for that project. |
 | **⚡ Runner & Sandbox** | Memory limit per container (512MB to 4GB), container idle timeouts, auto-reaping preferences. |
 | **🗄️ Files & Storage** | File exclusion filters (`node_modules`, `.git`, `__pycache__`), cloud backup retention, storage quota tracking. |
 | **🔐 Account & Security** | Two-factor authentication toggles, session token management, connected OAuth identities. |
@@ -259,18 +259,17 @@ MONGO_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/Vocodeai
 JWT_SECRET=your_jwt_secret_key_here
 JWT_REFRESH_SECRET=your_jwt_refresh_secret_key_here
 
-# Google OAuth 2.0 (Optional)
+# Google OAuth 2.0 (Required for Gemini AI)
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 GOOGLE_CALLBACK_URL=http://localhost:8000/api/auth/google/callback
 
+# Google sign-in also requests cloud-platform and generative-language.retriever scopes for Gemini.
+# Users select a project where the Generative Language API is enabled; its quota and any billing apply.
+
 # Email Configuration for OTP / Reset Passwords
 EMAIL_USER=your_email@gmail.com
 EMAIL_PASS=your_email_app_password
-
-# AI Model & OpenRouter / OpenAI
-OPENAI_API_KEY=sk-or-v1-your_openrouter_or_openai_key
-AI_MODEL=openrouter/free
 
 # Redis & Container Configuration
 REDIS_HOST=127.0.0.1
@@ -302,7 +301,7 @@ VITE_BACKEND_URL=http://localhost:8000
 
 ### **Saksham Agarwal**
 **Full Stack Developer & AI Platform Architect**  
-*React • Node.js • Express • Monaco Editor • Docker • MongoDB • OpenAI*
+*React • Node.js • Express • Monaco Editor • Docker • MongoDB • Google Gemini*
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=for-the-badge&logo=linkedin)](https://linkedin.com)
 [![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=for-the-badge&logo=github)](https://github.com)

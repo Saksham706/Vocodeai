@@ -892,7 +892,7 @@ export default function Documentation() {
               <div className="docs-subheading-anchor" id="api-ai-endpoint">
                 <h2 className="docs-h2">POST /api/ai Execution</h2>
                 <p className="docs-paragraph">
-                  Send requests with your JWT bearer token to execute code generation or refactoring tasks programmatically:
+                  Sign in to VocodeAI with the Google account you want to use and connect a Google Cloud project. Requests use that Google authorization and Gemini project quota; no separate model API key is accepted. Google OAuth credentials stay on the server and refresh automatically.
                 </p>
               </div>
 
@@ -930,10 +930,10 @@ export default function Documentation() {
                     onClick={() => {
                       const snippet =
                         activeApiLang === "javascript"
-                          ? `const res = await fetch("/api/ai", {\n  method: "POST",\n  headers: {\n    "Content-Type": "application/json",\n    Authorization: \`Bearer \${token}\`\n  },\n  body: JSON.stringify({\n    message: "Create a binary search function",\n    workspaceId: "6ae2e83a...",\n    activeFile: "Search.java"\n  })\n});\nconst data = await res.json();`
+                          ? `const res = await fetch("https://api.vocode.ai/api/ai", {\n  method: "POST",\n  headers: {\n    "Content-Type": "application/json",\n    Authorization: \`Bearer \${token}\`\n  },\n  body: JSON.stringify({\n    message: "Create a binary search function",\n    workspaceId: "6ae2e83a...",\n    activeFile: "Search.java",\n    provider: "gemini",\n    model: "gemini-3.8-flash",\n    authMethod: "google",\n    projectId: "my-gemini-project"\n  })\n});\nconst data = await res.json();`
                           : activeApiLang === "python"
-                          ? `import httpx\n\nres = httpx.post(\n    "https://api.vocode.ai/api/ai",\n    headers={"Authorization": f"Bearer {token}"},\n    json={\n        "message": "Create a binary search function",\n        "workspaceId": "6ae2e83a...",\n        "activeFile": "Search.java"\n    }\n)\ndata = res.json()`
-                          : `curl -X POST https://api.vocode.ai/api/ai \\\n  -H "Authorization: Bearer $TOKEN" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "message": "Create a binary search function",\n    "workspaceId": "6ae2e83a...",\n    "activeFile": "Search.java"\n  }'`;
+                          ? `import httpx\n\nres = httpx.post(\n    "https://api.vocode.ai/api/ai",\n    headers={"Authorization": f"Bearer {token}"},\n    json={\n        "message": "Create a binary search function",\n        "workspaceId": "6ae2e83a...",\n        "activeFile": "Search.java",\n        "provider": "gemini",\n        "model": "gemini-3.8-flash",\n        "authMethod": "google",\n        "projectId": "my-gemini-project"\n    }\n)\ndata = res.json()`
+                          : `curl -X POST https://api.vocode.ai/api/ai \\\n  -H "Authorization: Bearer $TOKEN" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "message": "Create a binary search function",\n    "workspaceId": "6ae2e83a...",\n    "activeFile": "Search.java",\n    "provider": "gemini",\n    "model": "gemini-3.8-flash",\n    "authMethod": "google",\n    "projectId": "my-gemini-project"\n  }'`;
                       handleCopyCode("api-code", snippet);
                     }}
                   >
@@ -953,8 +953,8 @@ export default function Documentation() {
 
                 <pre className="docs-pre-code">
                   {activeApiLang === "javascript" && (
-                    <code>{`// Execute AI action request via JavaScript
-const res = await fetch("/api/ai", {
+                    <code>{`// Connect Google Gemini in VocodeAI first, then use your VocodeAI access token.
+const res = await fetch("https://api.vocode.ai/api/ai", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -964,7 +964,11 @@ const res = await fetch("/api/ai", {
     message: "Create a binary search function",
     workspaceId: "6ae2e83a3e419acbb9a26a49",
     activeFile: "Search.java",
-    attachments: []
+    attachments: [],
+    provider: "gemini",
+    model: "gemini-3.8-flash",
+    authMethod: "google",
+    projectId: "my-gemini-project"
   })
 });
 
@@ -973,7 +977,7 @@ console.log("Actions executed:", data.ai?.actions);`}</code>
                   )}
 
                   {activeApiLang === "python" && (
-                    <code>{`# Execute AI action request via Python
+                    <code>{`# Connect Google Gemini in VocodeAI first and use your VocodeAI access token.
 import httpx
 
 res = httpx.post(
@@ -983,7 +987,11 @@ res = httpx.post(
         "message": "Create a binary search function",
         "workspaceId": "6ae2e83a3e419acbb9a26a49",
         "activeFile": "Search.java",
-        "attachments": []
+        "attachments": [],
+        "provider": "gemini",
+        "model": "gemini-3.8-flash",
+        "authMethod": "google",
+        "projectId": "my-gemini-project"
     }
 )
 
@@ -992,7 +1000,7 @@ print("Actions executed:", data.get("ai", {}).get("actions"))`}</code>
                   )}
 
                   {activeApiLang === "curl" && (
-                    <code>{`# Execute AI action request via cURL
+                    <code>{`# Connect Google Gemini in VocodeAI first and use your VocodeAI access token.
 curl -X POST https://api.vocode.ai/api/ai \\
   -H "Authorization: Bearer $TOKEN" \\
   -H "Content-Type: application/json" \\
@@ -1000,7 +1008,11 @@ curl -X POST https://api.vocode.ai/api/ai \\
     "message": "Create a binary search function",
     "workspaceId": "6ae2e83a3e419acbb9a26a49",
     "activeFile": "Search.java",
-    "attachments": []
+    "attachments": [],
+    "provider": "gemini",
+    "model": "gemini-3.8-flash",
+    "authMethod": "google",
+    "projectId": "my-gemini-project"
   }'`}</code>
                   )}
                 </pre>
