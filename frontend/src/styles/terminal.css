@@ -867,5 +867,73 @@
   }
 }
 
+/* ========================================================
+   LIGHT MODE OVERRIDES FOR INTEGRATED TERMINAL
+   ======================================================== */
+
+[data-theme="light"] .ide-terminal-section {
+  background-color: #FFFFFF !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-theme="light"] .terminal-header-container {
+  background-color: #F8FAFC !important;
+}
+
+[data-theme="light"] .terminal-toolbar-row {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .term-mode-tab {
+  color: #64748B !important;
+}
+
+[data-theme="light"] .term-mode-tab:hover {
+  color: #0F172A !important;
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] .term-mode-tab.active {
+  color: #0F172A !important;
+  background-color: #E2E8F0 !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+[data-theme="light"] .term-shell-select-btn {
+  color: #334155 !important;
+  background-color: rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-theme="light"] .term-shell-select-btn:hover {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .term-tool-icon-btn {
+  color: #64748B !important;
+}
+
+[data-theme="light"] .term-tool-icon-btn:hover {
+  color: #0F172A !important;
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+[data-theme="light"] .terminal-sessions-bar {
+  background-color: #F1F5F9 !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .term-session-tab {
+  background-color: #E2E8F0 !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: #334155 !important;
+}
+
+[data-theme="light"] .term-session-tab.active {
+  background-color: #FFFFFF !important;
+  border-color: #0ea5e9 !important;
+  color: #0F172A !important;
+}
+
 
 

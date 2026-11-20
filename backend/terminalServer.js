@@ -4,12 +4,13 @@ import path from "path";
 import jwt from "jsonwebtoken";
 import chokidar from "chokidar";
 
-import { getOrCreateContainer } from "./sandbox/containerManager.js";
+import { getOrCreateContainer, configureContainerEnvironment } from "./sandbox/containerManager.js";
 import { touchContainer } from "./sandbox/containerRegistry.js";
 import { createDockerPty, createLocalPty } from "./terminal/dockerPty.js";
 import { syncWorkspaceToDB } from "./services/syncService.js";
 import { hydrateWorkspace } from "./services/hydrateWorkspace.js";
 import { getWorkspacesRoot } from "./config/paths.js";
+import { ensureGitCredentials } from "./controllers/gitController.js";
 import User from "./models/User.js";
 
 import {
@@ -121,11 +122,15 @@ export function setupTerminalServer(server) {
         });
 
         touchContainer(key);
+        // Ensure container and workspace git configurations are actively synced
+        configureContainerEnvironment(container, key);
+        ensureGitCredentials(workspacePath, userId).catch(() => {});
 
         // 3. Spawn real PTY session connected to container with client's exact dimensions
         ptyProcess = createDockerPty(container.id, shell, username, cols, rows);
       } catch (dockerErr) {
         console.warn("Docker container spawn unavailable, using local PTY fallback:", dockerErr.message);
+        ensureGitCredentials(workspacePath, userId).catch(() => {});
         ptyProcess = createLocalPty(workspacePath, shell, cols, rows);
         fallbackNotice = `\r\n\x1b[33m⚡ [VocodeAI] Docker offline (${dockerErr.message.slice(0, 40)}...). Connected to native terminal in /workspace.\x1b[0m\r\n`;
       }

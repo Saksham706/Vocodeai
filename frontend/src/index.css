@@ -33,6 +33,16 @@ body {
   position: relative;
 }
 
+/* Global Light Theme Root Overrides */
+html[data-theme="light"],
+body[data-theme="light"],
+[data-theme="light"] body,
+[data-theme="light"] #root {
+  background: #F8FAFB !important;
+  background-color: #F8FAFB !important;
+  color: #101C24 !important;
+}
+
 /* Prevent media and embeds from overflowing parent containers */
 img,
 svg,
@@ -89,13 +99,59 @@ button,
   will-change: transform;
 }
 
-/* Clean accessible focus indicators */
+/* Clean accessible focus indicators - no green halos or borders */
 button:focus-visible,
-[role="button"]:focus-visible,
+[role="button"]:focus-visible {
+  outline: 1.5px solid rgba(255, 255, 255, 0.25);
+  outline-offset: 1px;
+}
+
+input:focus,
 input:focus-visible,
-textarea:not(.antigravity-main-input):focus-visible {
-  outline: 2px solid rgba(67, 230, 92, 0.6);
-  outline-offset: 2px;
+textarea:focus,
+textarea:focus-visible {
+  outline: none !important;
+}
+
+/* Explicitly eliminate green outline and borders across all search inputs */
+input[type="search"],
+.explorer-filter-input,
+.search-text-input,
+.search-filter-input,
+.ide-quickopen-input,
+.cmd-palette-input,
+.settings-search-input,
+.docs-search-input,
+.templates-search-input,
+.search-input-field,
+.ai-history-search-input {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+input[type="search"]:focus,
+input[type="search"]:focus-visible,
+.explorer-filter-input:focus,
+.explorer-filter-input:focus-visible,
+.search-text-input:focus,
+.search-text-input:focus-visible,
+.search-filter-input:focus,
+.search-filter-input:focus-visible,
+.ide-quickopen-input:focus,
+.ide-quickopen-input:focus-visible,
+.cmd-palette-input:focus,
+.cmd-palette-input:focus-visible,
+.settings-search-input:focus,
+.settings-search-input:focus-visible,
+.docs-search-input:focus,
+.docs-search-input:focus-visible,
+.templates-search-input:focus,
+.templates-search-input:focus-visible,
+.search-input-field:focus,
+.search-input-field:focus-visible,
+.ai-history-search-input:focus,
+.ai-history-search-input:focus-visible {
+  outline: none !important;
 }
 
 /* Smooth custom scrollbars */

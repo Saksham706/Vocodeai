@@ -103,12 +103,10 @@ export async function createWorkspace(req, res) {
       }
     }
 
-    // Sync initial workspace files to Cloudflare R2
-    try {
-      await r2Service.syncWorkspaceDirToR2(req.user.id, ws._id.toString());
-    } catch (r2Err) {
+    // Sync initial workspace files to Cloudflare R2 in background
+    r2Service.syncWorkspaceDirToR2(req.user.id, ws._id.toString()).catch((r2Err) => {
       console.warn("R2 initial workspace sync warning:", r2Err.message);
-    }
+    });
 
     res.json(ws);
   } catch (err) {
@@ -145,42 +143,38 @@ export async function deleteWorkspace(req, res) {
       return res.status(404).json({ error: "Workspace not found" });
     }
 
-    // 1. Fetch all FileNode documents belonging to this workspace
-    const nodes = await FileNode.find({
-      $or: [
-        { workspaceId: workspace._id },
-        { workspaceId: workspace._id.toString() },
-      ],
-    }).lean();
+    // 1. Fetch FileNode paths belonging to this workspace (lightweight projection)
+    const nodes = await FileNode.find(
+      {
+        $or: [
+          { workspaceId: workspace._id },
+          { workspaceId: workspace._id.toString() },
+        ],
+      },
+      "path type"
+    ).lean();
 
-    // 2. Move filesystem files to .trash directory for safety and fast restore
-    moveToTrash(req.user.id, workspace._id.toString());
+    // 2. Prepare lightweight items metadata (files preserved in .trash & R2)
+    const safeItems = nodes.map((n) => ({
+      path: n.path,
+      type: n.type || "file",
+    }));
 
-    // 3. Prepare items safely so we NEVER exceed MongoDB BSON limit (16MB)
-    let accumulatedSize = 0;
-    const MAX_BSON_ITEMS_SIZE = 8 * 1024 * 1024; // 8MB limit for items payload
-
-    const safeItems = nodes.map((n) => {
-      const content = n.content || "";
-      const contentLen = Buffer.byteLength(content, "utf8");
-      if (accumulatedSize + contentLen < MAX_BSON_ITEMS_SIZE) {
-        accumulatedSize += contentLen;
-        return {
-          path: n.path,
-          type: n.type || "file",
-          content: content,
-        };
+    // 3. Move filesystem files to .trash directory in background so API response is instant
+    const targetUserId = req.user.id || req.user._id;
+    const targetWsId = workspace._id.toString();
+    setTimeout(() => {
+      try {
+        moveToTrash(targetUserId, targetWsId);
+      } catch (err) {
+        console.warn("Background moveToTrash error:", err.message);
       }
-      return {
-        path: n.path,
-        type: n.type || "file",
-        content: "",
-      };
-    });
+    }, 0);
 
     // 4. Archive to RecycleBin so user can restore it from dashboard
+    const rawId = req.user.id || req.user._id;
     const binItem = await RecycleBin.create({
-      userId: req.user.id,
+      userId: rawId,
       workspaceId: workspace._id,
       workspaceName: workspace.name,
       name: workspace.name,
@@ -189,22 +183,6 @@ export async function deleteWorkspace(req, res) {
       items: safeItems,
       deletedAt: new Date(),
     });
-
-    // Move in Cloudflare R2 to trash prefix
-    try {
-      const r2Res = await r2Service.moveWorkspaceToTrashR2(
-        req.user.id,
-        workspace._id.toString(),
-        binItem._id.toString()
-      );
-      if (r2Res?.r2Key) {
-        binItem.r2Key = r2Res.r2Key;
-        binItem.size = r2Res.size;
-        await binItem.save();
-      }
-    } catch (r2Err) {
-      console.warn("R2 workspace move to trash warning:", r2Err.message);
-    }
 
     // 5. Remove active workspace record
     await Workspace.deleteOne({
@@ -218,6 +196,21 @@ export async function deleteWorkspace(req, res) {
         { workspaceId: workspace._id },
         { workspaceId: workspace._id.toString() },
       ],
+    });
+
+    // Move in Cloudflare R2 to trash prefix asynchronously in background
+    r2Service.moveWorkspaceToTrashR2(
+      req.user.id,
+      workspace._id.toString(),
+      binItem._id.toString()
+    ).then(async (r2Res) => {
+      if (r2Res?.r2Key) {
+        binItem.r2Key = r2Res.r2Key;
+        binItem.size = r2Res.size;
+        await binItem.save();
+      }
+    }).catch((r2Err) => {
+      console.warn("R2 workspace move to trash warning:", r2Err.message);
     });
 
     res.json({
@@ -306,11 +299,10 @@ export async function duplicateWorkspace(req, res) {
       await hydrateWorkspace(req.user.id, copy._id.toString());
     }
 
-    try {
-      await r2Service.syncWorkspaceDirToR2(req.user.id, copy._id.toString());
-    } catch (r2Err) {
+    // Background Cloudflare R2 sync
+    r2Service.syncWorkspaceDirToR2(req.user.id, copy._id.toString()).catch((r2Err) => {
       console.warn("R2 duplicate sync warning:", r2Err.message);
-    }
+    });
 
     res.json(copy);
   } catch (err) {
@@ -349,7 +341,7 @@ export async function importWorkspace(req, res) {
     });
 
     const wsIdStr = ws._id.toString();
-    ensureWorkspace(req.user.id, wsIdStr);
+    const workspacePath = ensureWorkspace(req.user.id, wsIdStr);
 
     if (Array.isArray(files) && files.length > 0) {
       const folderPaths = new Set();
@@ -379,42 +371,76 @@ export async function importWorkspace(req, res) {
         }
       }
 
-      // Ensure folders do not collide with files
-      const filePathsSet = new Set(nodeDocs.map((n) => n.path));
+      // Deduplicate file nodes by path
+      const fileMap = new Map();
+      for (const doc of nodeDocs) {
+        fileMap.set(doc.path, doc);
+      }
+      const uniqueFiles = Array.from(fileMap.values());
+      const filePathsSet = new Set(uniqueFiles.map((n) => n.path));
       const finalFolders = Array.from(folderPaths).filter((fp) => !filePathsSet.has(fp));
 
-      // Upsert folders
+      // 1. Single batch operation to upsert all FileNodes in MongoDB (1 round-trip)
+      const bulkOps = [];
       for (const fPath of finalFolders) {
-        await FileNode.findOneAndUpdate(
-          { workspaceId: wsIdStr, path: fPath },
-          { workspaceId: wsIdStr, path: fPath, type: "folder" },
-          { upsert: true }
-        );
-      }
-
-      // Upsert files
-      for (const node of nodeDocs) {
-        await FileNode.findOneAndUpdate(
-          { workspaceId: wsIdStr, path: node.path },
-          {
-            workspaceId: wsIdStr,
-            path: node.path,
-            type: "file",
-            content: node.content,
+        bulkOps.push({
+          updateOne: {
+            filter: { workspaceId: wsIdStr, path: fPath },
+            update: { $set: { workspaceId: wsIdStr, path: fPath, type: "folder" } },
+            upsert: true,
           },
-          { upsert: true }
+        });
+      }
+      for (const file of uniqueFiles) {
+        bulkOps.push({
+          updateOne: {
+            filter: { workspaceId: wsIdStr, path: file.path },
+            update: {
+              $set: {
+                workspaceId: wsIdStr,
+                path: file.path,
+                type: "file",
+                content: file.content,
+              },
+            },
+            upsert: true,
+          },
+        });
+      }
+
+      if (bulkOps.length > 0) {
+        await FileNode.bulkWrite(bulkOps, { ordered: false });
+      }
+
+      // 2. High-speed concurrent local disk hydration directly from payload
+      await Promise.all(
+        finalFolders.map((fPath) =>
+          fs.promises.mkdir(path.join(workspacePath, fPath), { recursive: true })
+        )
+      );
+
+      const WRITE_BATCH = 25;
+      for (let i = 0; i < uniqueFiles.length; i += WRITE_BATCH) {
+        const batch = uniqueFiles.slice(i, i + WRITE_BATCH);
+        await Promise.all(
+          batch.map(async (file) => {
+            const fullPath = path.join(workspacePath, file.path);
+            await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
+            const content = file.content;
+            if (typeof content === "string" && content.startsWith("data:") && content.includes(";base64,")) {
+              const base64Data = content.replace(/^data:.*?;base64,/, "");
+              await fs.promises.writeFile(fullPath, Buffer.from(base64Data, "base64"));
+            } else {
+              await fs.promises.writeFile(fullPath, content || "", "utf-8");
+            }
+          })
         );
       }
 
-      // Hydrate all files onto the disk directory
-      await hydrateWorkspace(req.user.id, wsIdStr);
-
-      // Sync imported workspace files to Cloudflare R2
-      try {
-        await r2Service.syncWorkspaceDirToR2(req.user.id, wsIdStr);
-      } catch (r2Err) {
-        console.warn("R2 import sync warning:", r2Err.message);
-      }
+      // 3. Asynchronously sync to Cloudflare R2 in background without blocking the response
+      r2Service.syncWorkspaceDirToR2(req.user.id, wsIdStr).catch((r2Err) => {
+        console.warn("Background R2 import sync warning:", r2Err.message);
+      });
     }
 
     res.json(ws);

@@ -309,13 +309,19 @@ export async function moveNodeToTrashR2(userId, workspaceId, relativePath, recyc
   // Directory prefix match
   const folderPrefix = `${nodeKey}/`;
   const items = await listObjects(folderPrefix);
-  for (const item of items) {
-    const suffix = item.key.replace(getWorkspaceR2Prefix(userId, workspaceId), "");
-    const destKey = `${trashPrefix}${suffix}`;
-    await copyObject(item.key, destKey);
-    await deleteObject(item.key);
-    movedCount++;
-    totalSize += item.size || 0;
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const batch = items.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(async (item) => {
+        const suffix = item.key.replace(getWorkspaceR2Prefix(userId, workspaceId), "");
+        const destKey = `${trashPrefix}${suffix}`;
+        await copyObject(item.key, destKey);
+        await deleteObject(item.key);
+        movedCount++;
+        totalSize += item.size || 0;
+      })
+    );
   }
 
   return { count: movedCount, size: totalSize, r2Key: trashPrefix };
@@ -333,12 +339,18 @@ export async function moveWorkspaceToTrashR2(userId, workspaceId, recycleBinId) 
   const items = await listObjects(wsPrefix);
   let totalSize = 0;
 
-  for (const item of items) {
-    const suffix = item.key.slice(wsPrefix.length);
-    const destKey = `${trashPrefix}${suffix}`;
-    await copyObject(item.key, destKey);
-    await deleteObject(item.key);
-    totalSize += item.size || 0;
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const batch = items.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(async (item) => {
+        const suffix = item.key.slice(wsPrefix.length);
+        const destKey = `${trashPrefix}${suffix}`;
+        await copyObject(item.key, destKey);
+        await deleteObject(item.key);
+        totalSize += item.size || 0;
+      })
+    );
   }
 
   return { count: items.length, size: totalSize, r2Key: trashPrefix };
@@ -398,10 +410,15 @@ export async function syncWorkspaceDirToR2(userId, workspaceId) {
     return { uploaded: 0 };
   }
 
-  let uploadCount = 0;
+  const filesToUpload = [];
 
-  async function walkAndUpload(currentDir, relativeBase = "") {
-    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+  function collectFiles(currentDir, relativeBase = "") {
+    let entries = [];
+    try {
+      entries = fs.readdirSync(currentDir, { withFileTypes: true });
+    } catch {
+      return;
+    }
 
     for (const entry of entries) {
       const relPath = relativeBase
@@ -412,21 +429,33 @@ export async function syncWorkspaceDirToR2(userId, workspaceId) {
 
       const fullPath = path.join(currentDir, entry.name);
       if (entry.isDirectory()) {
-        await walkAndUpload(fullPath, relPath);
+        collectFiles(fullPath, relPath);
       } else if (entry.isFile()) {
+        filesToUpload.push({ fullPath, relPath });
+      }
+    }
+  }
+
+  collectFiles(localDir);
+
+  let uploadCount = 0;
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < filesToUpload.length; i += BATCH_SIZE) {
+    const batch = filesToUpload.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(async ({ fullPath, relPath }) => {
         try {
-          const content = fs.readFileSync(fullPath);
+          const content = await fs.promises.readFile(fullPath);
           const r2Key = getFileR2Key(uId, wId, relPath);
           await uploadObject(r2Key, content);
           uploadCount++;
         } catch (readErr) {
           console.warn(`[SyncToR2 Warning] ${relPath}:`, readErr.message);
         }
-      }
-    }
+      })
+    );
   }
 
-  await walkAndUpload(localDir);
   return { uploaded: uploadCount };
 }
 

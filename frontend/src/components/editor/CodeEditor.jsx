@@ -8,6 +8,7 @@ import {
   registerMonacoThemes,
   getActiveThemeExtension,
 } from "../../utils/themeRegistry";
+import { formatCodeWithPrettier } from "../../utils/prettierFormatter";
 import { Code2, Plus } from "lucide-react";
 import ImageViewer from "./ImageViewer";
 import MarkdownViewer from "./MarkdownViewer";
@@ -89,8 +90,35 @@ export default function CodeEditor({ file }) {
           case "gotoLine":
             editor.trigger("navbar", "editor.action.gotoLine");
             break;
+          case "jumpToLine":
+            if (e.detail?.line) {
+              const line = parseInt(e.detail.line, 10);
+              if (!isNaN(line)) {
+                editor.setPosition({ lineNumber: line, column: 1 });
+                editor.revealLineInCenter(line);
+              }
+            }
+            break;
           case "format":
-            editor.trigger("navbar", "editor.action.formatDocument");
+            (async () => {
+              try {
+                const currentVal = editor.getValue();
+                const formatted = await formatCodeWithPrettier(
+                  currentVal,
+                  currentFileRef.current
+                );
+                if (formatted && formatted !== currentVal) {
+                  const fullRange = editor.getModel().getFullModelRange();
+                  editor.executeEdits("prettier", [
+                    { range: fullRange, text: formatted },
+                  ]);
+                } else {
+                  editor.trigger("navbar", "editor.action.formatDocument");
+                }
+              } catch {
+                editor.trigger("navbar", "editor.action.formatDocument");
+              }
+            })();
             break;
           case "comment":
             editor.trigger("navbar", "editor.action.commentLine");
@@ -271,6 +299,24 @@ export default function CodeEditor({ file }) {
         theme={editorTheme}
         beforeMount={(monaco) => {
           registerMonacoThemes(monaco);
+
+          // Configure JSX and TypeScript compiler options for React / JSX syntax highlighting
+          try {
+            if (monaco?.languages?.typescript) {
+              const compilerOptions = {
+                target: monaco.languages.typescript.ScriptTarget.Latest,
+                allowNonTextExtensions: true,
+                allowJs: true,
+                jsx: monaco.languages.typescript.JsxEmit.React,
+                jsxFactory: "React.createElement",
+                jsxFragmentFactory: "React.Fragment",
+              };
+              monaco.languages.typescript.javascriptDefaults.setCompilerOptions(compilerOptions);
+              monaco.languages.typescript.typescriptDefaults.setCompilerOptions(compilerOptions);
+            }
+          } catch (e) {
+            console.warn("Could not set Monaco compiler options:", e);
+          }
         }}
         path={currentFile}
         defaultLanguage={meta.monaco || "plaintext"}
@@ -308,8 +354,65 @@ export default function CodeEditor({ file }) {
           editorRef.current = editor;
           window.__vocode_active_editor = editor;
 
-          // Add "Live Preview" action to right-click context menu
           if (monaco) {
+            // Register Prettier Document Formatting Provider for all supported languages
+            const supportedLanguages = [
+              "javascript",
+              "typescript",
+              "json",
+              "html",
+              "css",
+              "scss",
+              "less",
+              "markdown",
+              "yaml",
+            ];
+
+            supportedLanguages.forEach((lang) => {
+              try {
+                monaco.languages.registerDocumentFormattingEditProvider(lang, {
+                  async provideDocumentFormattingEdits(model) {
+                    const text = model.getValue();
+                    const formatted = await formatCodeWithPrettier(
+                      text,
+                      currentFileRef.current || `file.${lang}`
+                    );
+                    return [
+                      {
+                        range: model.getFullModelRange(),
+                        text: formatted,
+                      },
+                    ];
+                  },
+                });
+              } catch {}
+            });
+
+            // Add Prettier Format Action (Shift + Alt + F)
+            editor.addAction({
+              id: "vocode-prettier-format",
+              label: "Format Document (Prettier)",
+              keybindings: [
+                monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF,
+              ],
+              contextMenuGroupId: "1_modification",
+              contextMenuOrder: 1.1,
+              run: async () => {
+                const currentVal = editor.getValue();
+                const formatted = await formatCodeWithPrettier(
+                  currentVal,
+                  currentFileRef.current
+                );
+                if (formatted && formatted !== currentVal) {
+                  const fullRange = editor.getModel().getFullModelRange();
+                  editor.executeEdits("prettier", [
+                    { range: fullRange, text: formatted },
+                  ]);
+                }
+              },
+            });
+
+            // Add "Live Preview" action to right-click context menu
             editor.addAction({
               id: "vocode-live-preview",
               label: "Live Preview (Open in Browser)",

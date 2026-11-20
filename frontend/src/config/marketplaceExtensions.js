@@ -6,6 +6,19 @@
 export const MARKETPLACE_EXTENSIONS = [
   // ================= THEME EXTENSIONS =================
   {
+    id: "ext-theme-vocodeai-default",
+    themeId: "vocodeai-default",
+    name: "VocodeAI Obsidian (Default)",
+    publisher: "VocodeAI Team",
+    version: "1.0.0",
+    description: "The official VocodeAI signature theme with deep obsidian backdrop, emerald green and cyber orange accents.",
+    category: "theme",
+    downloads: "28.5M",
+    rating: 5.0,
+    palette: ["#020708", "#43E65C", "#FF8B32", "#B7FF29", "#080F12"],
+    verified: true,
+  },
+  {
     id: "ext-theme-one-dark-pro",
     themeId: "one-dark-pro",
     name: "One Dark Pro",

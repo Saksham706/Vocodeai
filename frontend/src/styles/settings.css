@@ -169,8 +169,8 @@
 
 .settings-search-input:focus {
   outline: none;
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: none;
   background: var(--surface-primary);
 }
 

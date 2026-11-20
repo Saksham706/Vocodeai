@@ -976,22 +976,6 @@ export default function Navbar({
         </nav>
       </div>
 
-      {/* 2. CENTER: APPLICATION COMMAND / SEARCH BAR */}
-      <div className="ide-nav-center">
-        <button
-          type="button"
-          className="ide-nav-command-bar"
-          onClick={() => onOpenCommandPalette?.()}
-          title="Search files or run commands (Ctrl+Shift+P / Ctrl+P)"
-        >
-          <Search size={13} style={{ marginRight: 6, color: "#94a3b8" }} />
-          <span className="ide-command-bar-title">
-            {currentWorkspace?.name || "Vocodeai IDE"}
-          </span>
-          <span className="ide-command-bar-hint">Ctrl+Shift+P</span>
-        </button>
-      </div>
-
       {/* 3. RIGHT: TOOLBAR CONTROLS & WINDOW BUTTONS */}
       <div className="ide-nav-right">
         {/* Prominent Run or Preview Button */}
@@ -1051,16 +1035,6 @@ export default function Navbar({
             <PanelRight size={16} strokeWidth={1.7} />
           </button>
         </div>
-
-        {/* Search Icon (Triggers Quick Open) */}
-        <button
-          className="ide-nav-icon-btn"
-          onClick={() => setShowQuickOpen(true)}
-          title="Quick Open File (Ctrl+P)"
-          aria-label="Quick Open File"
-        >
-          <Search size={16} strokeWidth={1.7} />
-        </button>
 
         {/* Theme Toggle (Sun/Moon) */}
         <button
@@ -1127,7 +1101,7 @@ export default function Navbar({
         <div className="ide-quickopen-overlay" onClick={() => setShowQuickOpen(false)}>
           <div className="ide-quickopen-card" onClick={(e) => e.stopPropagation()}>
             <div className="ide-quickopen-input-row">
-              <Search size={16} color="#2BD87F" />
+              <Search size={16} color="#94a3b8" />
               <input
                 ref={quickInputRef}
                 type="text"

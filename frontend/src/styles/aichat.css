@@ -4601,14 +4601,19 @@
    18. VOCODEAI ASSISTANT SETTINGS: 3-LINE QUOTA & LIMITS
    ======================================================== */
 
-.vocode-settings-container {
-  padding: 8px 4px 64px 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  width: 100%;
-  flex-shrink: 0;
-  box-sizing: border-box;
+.vocode-ai-settings-scroll-view,
+.ai-assistant-content .vocode-settings-container {
+  padding: 8px 6px 96px 6px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: min-content !important;
+  max-height: none !important;
+  flex: 1 0 auto !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
 }
 
 .vocode-settings-hero {

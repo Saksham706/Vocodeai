@@ -11,7 +11,6 @@ import {
   Plus,
   Save,
   Palette,
-  Bot,
   Sparkles,
   Command,
   FileText,
@@ -19,9 +18,31 @@ import {
   FolderPlus,
   FilePlus2,
   ArrowRight,
+  GitPullRequest,
+  DownloadCloud,
+  UploadCloud,
+  Maximize2,
+  CheckCheck,
 } from "lucide-react";
 import AntigravityLogo from "./AntigravityLogo";
+import { useWorkspace } from "../../context/WorkspaceContext";
+import { getFileIcon } from "../../utils/getFileIcon";
 import "../../styles/commandpalette.css";
+
+function flattenTreeFiles(node, parentPath = "") {
+  if (!node) return [];
+  const fullPath = node.path || (parentPath ? `${parentPath}/${node.name}` : node.name);
+  if (node.type === "file") {
+    return [{ name: node.name, path: fullPath }];
+  }
+  let list = [];
+  if (Array.isArray(node.children)) {
+    for (const child of node.children) {
+      list = list.concat(flattenTreeFiles(child, fullPath));
+    }
+  }
+  return list;
+}
 
 export default function CommandPalette({
   isOpen,
@@ -42,23 +63,41 @@ export default function CommandPalette({
   onSaveFile,
   onInstallAntigravity,
 }) {
+  const { tree, openFile, activeFile } = useWorkspace();
+
   const [query, setQuery] = useState("");
+  const [activeMode, setActiveMode] = useState("all"); // 'all' | 'commands' | 'files' | 'line'
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
+  // Extract all files from workspace tree
+  const workspaceFiles = useMemo(() => {
+    if (!tree) return [];
+    if (Array.isArray(tree.children)) {
+      let all = [];
+      for (const child of tree.children) {
+        all = all.concat(flattenTreeFiles(child, ""));
+      }
+      return all;
+    }
+    return flattenTreeFiles(tree, "");
+  }, [tree]);
+
   useEffect(() => {
     if (isOpen) {
       setQuery("");
+      setActiveMode("all");
       setSelectedIndex(0);
       setTimeout(() => inputRef.current?.focus(), 40);
     }
   }, [isOpen]);
 
+  // Base list of all commands
   const allCommands = useMemo(() => {
     const list = [];
 
-    // Antigravity commands if installed
+    // Antigravity AI commands
     if (isAntigravityInstalled) {
       list.push(
         {
@@ -77,7 +116,7 @@ export default function CommandPalette({
           id: "antigravity-new-chat",
           category: "Antigravity",
           title: "New Conversation",
-          desc: "Start a fresh Antigravity session (Hey Saksham, what should we build today?)",
+          desc: "Start a fresh Antigravity session",
           icon: <AntigravityLogo size={16} />,
           shortcut: "Ctrl+Shift+L",
           action: () => {
@@ -89,7 +128,7 @@ export default function CommandPalette({
           id: "antigravity-model",
           category: "Antigravity",
           title: "Set up Google Gemini",
-          desc: "Connect the Google account already signed in to VocodeAI and manage Gemini settings",
+          desc: "Connect Google account and manage Gemini AI settings",
           icon: <Sparkles size={15} color="#38BDF8" />,
           action: () => {
             onClose();
@@ -100,7 +139,7 @@ export default function CommandPalette({
           id: "antigravity-plan",
           category: "Antigravity",
           title: "Generate Implementation Plan",
-          desc: "Ask Antigravity to create a multi-step execution plan before coding",
+          desc: "Ask Antigravity to create a multi-step execution plan",
           icon: <FileText size={15} color="#10B981" />,
           action: () => {
             onClose();
@@ -127,7 +166,89 @@ export default function CommandPalette({
       });
     }
 
-    // Standard IDE Commands
+    // Code Formatting & Prettier
+    list.push({
+      id: "code-format",
+      category: "Code",
+      title: "Format Document (Prettier)",
+      desc: "Automatically format active code file with Prettier",
+      icon: <CheckCheck size={15} color="#38BDF8" />,
+      shortcut: "Shift+Alt+F",
+      action: () => {
+        onClose();
+        window.dispatchEvent(
+          new CustomEvent("vocode-editor-action", {
+            detail: { action: "format" },
+          })
+        );
+      },
+    });
+
+    // Git & Source Control Commands
+    list.push(
+      {
+        id: "git-clone",
+        category: "Git",
+        title: "Git: Clone Repository",
+        desc: "Clone a public or private GitHub repository into a new workspace",
+        icon: <DownloadCloud size={15} color="#F97316" />,
+        action: () => {
+          onClose();
+          window.dispatchEvent(new CustomEvent("vocode-open-git-clone"));
+          onOpenGit?.();
+        },
+      },
+      {
+        id: "git-open",
+        category: "Git",
+        title: "Git: Open Source Control Panel",
+        desc: "View staged/unstaged changes, branches, and commit history",
+        icon: <GitBranch size={15} color="#F97316" />,
+        shortcut: "Ctrl+Shift+G",
+        action: () => {
+          onClose();
+          onOpenGit?.();
+        },
+      },
+      {
+        id: "git-stage-all",
+        category: "Git",
+        title: "Git: Stage All Changes",
+        desc: "Stage all modified, deleted, and untracked files",
+        icon: <Plus size={15} color="#10B981" />,
+        action: () => {
+          onClose();
+          window.dispatchEvent(new CustomEvent("vocode-git-stage-all"));
+          onOpenGit?.();
+        },
+      },
+      {
+        id: "git-push",
+        category: "Git",
+        title: "Git: Push / Publish Branch to Remote",
+        desc: "Publish current branch commits to GitHub origin",
+        icon: <UploadCloud size={15} color="#38BDF8" />,
+        action: () => {
+          onClose();
+          window.dispatchEvent(new CustomEvent("vocode-git-push"));
+          onOpenGit?.();
+        },
+      },
+      {
+        id: "git-pull",
+        category: "Git",
+        title: "Git: Pull from Remote",
+        desc: "Fetch and merge commits from remote branch",
+        icon: <DownloadCloud size={15} color="#A78BFA" />,
+        action: () => {
+          onClose();
+          window.dispatchEvent(new CustomEvent("vocode-git-pull"));
+          onOpenGit?.();
+        },
+      }
+    );
+
+    // Standard IDE Navigation & File Commands
     list.push(
       {
         id: "view-explorer",
@@ -166,18 +287,6 @@ export default function CommandPalette({
         },
       },
       {
-        id: "view-git",
-        category: "View",
-        title: "Show Source Control (Git)",
-        desc: "View staged, unstaged files and commit changes",
-        icon: <GitBranch size={15} color="#F97316" />,
-        shortcut: "Ctrl+Shift+G",
-        action: () => {
-          onClose();
-          onOpenGit?.();
-        },
-      },
-      {
         id: "view-search",
         category: "View",
         title: "Show Global Code Search",
@@ -199,6 +308,22 @@ export default function CommandPalette({
         action: () => {
           onClose();
           onOpenDebug?.();
+        },
+      },
+      {
+        id: "view-fullscreen",
+        category: "View",
+        title: "Toggle Fullscreen",
+        desc: "Maximize IDE workspace viewport",
+        icon: <Maximize2 size={15} color="#94A3B8" />,
+        shortcut: "F11",
+        action: () => {
+          onClose();
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          } else {
+            document.exitFullscreen().catch(() => {});
+          }
         },
       },
       {
@@ -271,36 +396,112 @@ export default function CommandPalette({
     onInstallAntigravity,
   ]);
 
-  // Clean filter query: remove leading '>' if user typed it
-  const cleanQuery = query.replace(/^>\s*/, "").trim().toLowerCase();
+  // Determine effective mode and clean search query
+  const { effectiveMode, cleanQuery } = useMemo(() => {
+    const raw = query.trim();
+    if (raw.startsWith(">")) {
+      return { effectiveMode: "commands", cleanQuery: raw.substring(1).trim().toLowerCase() };
+    }
+    if (raw.startsWith(":")) {
+      return { effectiveMode: "line", cleanQuery: raw.substring(1).trim() };
+    }
+    if (raw.startsWith("@")) {
+      return { effectiveMode: "files", cleanQuery: raw.substring(1).trim().toLowerCase() };
+    }
+    return { effectiveMode: activeMode, cleanQuery: raw.toLowerCase() };
+  }, [query, activeMode]);
 
-  const filteredCommands = useMemo(() => {
-    if (!cleanQuery) return allCommands;
-    return allCommands.filter((cmd) => {
-      const full = `${cmd.category}: ${cmd.title} ${cmd.desc || ""}`.toLowerCase();
-      return full.includes(cleanQuery);
-    });
-  }, [allCommands, cleanQuery]);
+  // Unified items list based on mode & query
+  const filteredItems = useMemo(() => {
+    const items = [];
+
+    // 1. Go to Line Mode
+    if (effectiveMode === "line") {
+      const lineNum = parseInt(cleanQuery.replace(/\D/g, ""), 10);
+      if (!isNaN(lineNum) && lineNum > 0) {
+        items.push({
+          id: `goto-line-${lineNum}`,
+          category: "Go to Line",
+          title: `Line ${lineNum}`,
+          desc: `Jump to line ${lineNum} in active file: ${activeFile || "Editor"}`,
+          icon: <ArrowRight size={15} color="#38BDF8" />,
+          action: () => {
+            onClose();
+            window.dispatchEvent(
+              new CustomEvent("vocode-editor-action", {
+                detail: { action: "jumpToLine", line: lineNum },
+              })
+            );
+          },
+        });
+      } else {
+        items.push({
+          id: "goto-line-hint",
+          category: "Go to Line",
+          title: "Type a line number (e.g. :42)",
+          desc: "Press Enter to jump directly to that line in active editor",
+          icon: <ArrowRight size={15} color="#94A3B8" />,
+          action: () => {},
+        });
+      }
+      return items;
+    }
+
+    // 2. Commands Matching
+    if (effectiveMode === "all" || effectiveMode === "commands") {
+      const matchingCmds = allCommands.filter((cmd) => {
+        if (!cleanQuery) return true;
+        const full = `${cmd.category}: ${cmd.title} ${cmd.desc || ""}`.toLowerCase();
+        return full.includes(cleanQuery);
+      });
+      items.push(...matchingCmds);
+    }
+
+    // 3. Files Matching (Fuzzy workspace files)
+    if (effectiveMode === "all" || effectiveMode === "files") {
+      const matchingFiles = workspaceFiles
+        .filter((file) => {
+          if (!cleanQuery) return effectiveMode === "files";
+          return file.path.toLowerCase().includes(cleanQuery) || file.name.toLowerCase().includes(cleanQuery);
+        })
+        .slice(0, effectiveMode === "files" ? 40 : 10)
+        .map((file) => ({
+          id: `file-${file.path}`,
+          category: "File",
+          title: file.name,
+          desc: file.path,
+          icon: getFileIcon(file.name, "file"),
+          tag: "File",
+          action: () => {
+            onClose();
+            if (openFile) openFile(file.path);
+          },
+        }));
+      items.push(...matchingFiles);
+    }
+
+    return items;
+  }, [effectiveMode, cleanQuery, allCommands, workspaceFiles, activeFile, openFile, onClose]);
 
   useEffect(() => {
     setSelectedIndex(0);
-  }, [filteredCommands]);
+  }, [filteredItems]);
 
   const handleKeyDown = (e) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setSelectedIndex((prev) =>
-        prev < filteredCommands.length - 1 ? prev + 1 : 0
+        prev < filteredItems.length - 1 ? prev + 1 : 0
       );
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIndex((prev) =>
-        prev > 0 ? prev - 1 : filteredCommands.length - 1
+        prev > 0 ? prev - 1 : filteredItems.length - 1
       );
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (filteredCommands[selectedIndex]) {
-        filteredCommands[selectedIndex].action();
+      if (filteredItems[selectedIndex]) {
+        filteredItems[selectedIndex].action();
       }
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -317,14 +518,80 @@ export default function CommandPalette({
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
+        {/* Mode Selector Pills */}
+        <div className="cmd-palette-modes-bar">
+          <button
+            className={`cmd-mode-pill ${effectiveMode === "all" ? "active" : ""}`}
+            onClick={() => {
+              setActiveMode("all");
+              if (query.startsWith(">") || query.startsWith(":") || query.startsWith("@")) {
+                setQuery("");
+              }
+              inputRef.current?.focus();
+            }}
+          >
+            <Sparkles size={12} />
+            <span>All</span>
+          </button>
+          <button
+            className={`cmd-mode-pill ${effectiveMode === "commands" ? "active" : ""}`}
+            onClick={() => {
+              setActiveMode("commands");
+              setQuery(">");
+              inputRef.current?.focus();
+            }}
+          >
+            <Command size={12} />
+            <span>&gt; Commands</span>
+          </button>
+          <button
+            className={`cmd-mode-pill ${effectiveMode === "files" ? "active" : ""}`}
+            onClick={() => {
+              setActiveMode("files");
+              setQuery("@");
+              inputRef.current?.focus();
+            }}
+          >
+            <Files size={12} />
+            <span>@ Files</span>
+          </button>
+          <button
+            className={`cmd-mode-pill ${effectiveMode === "line" ? "active" : ""}`}
+            onClick={() => {
+              setActiveMode("line");
+              setQuery(":");
+              inputRef.current?.focus();
+            }}
+          >
+            <ArrowRight size={12} />
+            <span>: Go to Line</span>
+          </button>
+        </div>
+
         {/* Search Input Box */}
         <div className="cmd-palette-input-wrap">
-          <span className="cmd-palette-prompt">&gt;</span>
+          <span className="cmd-palette-prompt">
+            {effectiveMode === "commands"
+              ? ">"
+              : effectiveMode === "line"
+              ? ":"
+              : effectiveMode === "files"
+              ? "@"
+              : ">"}
+          </span>
           <input
             ref={inputRef}
             type="text"
             className="cmd-palette-input"
-            placeholder="Type a command or search (e.g. Antigravity: Focus on Antigravity View)..."
+            placeholder={
+              effectiveMode === "commands"
+                ? "Type a command (e.g. Format Document, Git Clone, Terminal)..."
+                : effectiveMode === "files"
+                ? "Type file name to open..."
+                : effectiveMode === "line"
+                ? "Type line number to jump to (e.g. :35)..."
+                : "Search files (@), commands (>), or go to line (:)..."
+            }
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -333,45 +600,60 @@ export default function CommandPalette({
           </kbd>
         </div>
 
-        {/* Commands List */}
+        {/* Commands / Files List */}
         <div className="cmd-palette-list" ref={listRef}>
-          {filteredCommands.length === 0 ? (
+          {filteredItems.length === 0 ? (
             <div className="cmd-palette-empty">
-              No matching commands found for "{cleanQuery}"
+              <span>No matching items found for "{cleanQuery}"</span>
+              <span style={{ fontSize: "11px", opacity: 0.7 }}>
+                Tip: Type &gt; for commands, @ for files, or : for line jump
+              </span>
             </div>
           ) : (
-            filteredCommands.map((cmd, idx) => {
+            filteredItems.map((item, idx) => {
               const isSelected = idx === selectedIndex;
               return (
                 <div
-                  key={cmd.id}
+                  key={item.id}
                   className={`cmd-palette-item ${isSelected ? "selected" : ""}`}
-                  onClick={() => cmd.action()}
+                  onClick={() => item.action()}
                   onMouseEnter={() => setSelectedIndex(idx)}
                 >
-                  <div className="cmd-item-icon">{cmd.icon}</div>
+                  <div className="cmd-item-icon">{item.icon}</div>
 
                   <div className="cmd-item-content">
                     <div className="cmd-item-title-row">
-                      <span className="cmd-item-category">{cmd.category}:</span>
-                      <span className="cmd-item-title">{cmd.title}</span>
+                      {item.category && (
+                        <span className="cmd-item-category">{item.category}:</span>
+                      )}
+                      <span className="cmd-item-title">{item.title}</span>
                     </div>
-                    {cmd.desc && (
-                      <span className="cmd-item-desc">{cmd.desc}</span>
+                    {item.desc && (
+                      <span className="cmd-item-desc">{item.desc}</span>
                     )}
                   </div>
 
-                  {cmd.shortcut && (
-                    <kbd className="cmd-item-shortcut">{cmd.shortcut}</kbd>
+                  {item.tag && <span className="cmd-file-tag">{item.tag}</span>}
+                  {item.shortcut && (
+                    <kbd className="cmd-item-shortcut">{item.shortcut}</kbd>
                   )}
                 </div>
               );
             })
           )}
         </div>
+
+        {/* Footer Navigation Hints */}
+        <div className="cmd-palette-footer">
+          <div className="cmd-footer-hints">
+            <span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span>
+            <span><kbd>↵</kbd> select</span>
+            <span><kbd>esc</kbd> close</span>
+          </div>
+          <span>VocodeAI Quick Open</span>
+        </div>
       </div>
     </div>,
     document.body
   );
 }
-

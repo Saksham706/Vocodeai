@@ -14,6 +14,7 @@ import {
   addOrSetRemote,
   push,
   pull,
+  sync,
   cloneRepo,
   generateCommitMessage,
 } from "../controllers/gitController.js";
@@ -34,6 +35,7 @@ router.get("/log", auth, getLog);
 router.post("/remote", auth, addOrSetRemote);
 router.post("/push", auth, push);
 router.post("/pull", auth, pull);
+router.post("/sync", auth, sync);
 router.post("/clone", auth, cloneRepo);
 
 export default router;

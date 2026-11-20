@@ -575,6 +575,11 @@ export default function AIChat({
     const query = typeof textToSend === "string" ? textToSend : input;
     if ((!query.trim() && attachments.length === 0) || loading) return;
 
+    if (usageStats?.remainingRequests <= 0 || (usageStats?.todayRequests !== undefined && usageStats.todayRequests >= 150)) {
+      showToast("Daily AI limit reached (150/150 requests used today). Quota resets at 12:00 AM midnight.", "error");
+      return;
+    }
+
     let finalQuery = query.trim();
 
     // Check if input is a direct terminal command (e.g. > npm run dev, $ git status, /run python app.py)
@@ -603,7 +608,9 @@ export default function AIChat({
         : `Please inspect the attached items:\n${summaryList}`;
     }
 
-    sendMessage(finalQuery, workspaceId, attachments);
+    sendMessage(finalQuery, workspaceId, attachments).finally(() => {
+      setTimeout(fetchAIUsage, 1000);
+    });
     setInput("");
     setAttachments([]);
     setActiveTab("chat");
@@ -1632,7 +1639,7 @@ export default function AIChat({
 
         {/* ============ TAB: SETTINGS & AI REQUEST LIMITS ============ */}
         {activeTab === "settings" && (
-          <div className="vocode-settings-container">
+          <div className="vocode-settings-container vocode-ai-settings-scroll-view">
             {/* Header Hero */}
             <div className="vocode-settings-hero">
               <div className="vocode-settings-icon-box">
@@ -1941,7 +1948,11 @@ export default function AIChat({
               ref={inputRef}
               rows={1}
               className="antigravity-main-input"
-              placeholder="Ask anything, @ to mention, / for actions, > to run command"
+              placeholder={
+                usageStats?.remainingRequests <= 0 || (usageStats?.todayRequests !== undefined && usageStats.todayRequests >= 150)
+                  ? "Daily AI limit reached (150/150). Quota resets at 12:00 AM midnight."
+                  : "Ask anything, @ to mention, / for actions, > to run command"
+              }
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onPaste={handlePaste}
@@ -1951,7 +1962,7 @@ export default function AIChat({
                   if (input.trim() || attachments.length > 0) handleSend();
                 }
               }}
-              disabled={loading}
+              disabled={loading || usageStats?.remainingRequests <= 0 || (usageStats?.todayRequests !== undefined && usageStats.todayRequests >= 150)}
             />
 
             {/* Bottom Actions Row */}
@@ -1963,6 +1974,7 @@ export default function AIChat({
                   className="antigravity-tool-btn"
                   onClick={() => setAttachMenuOpen((prev) => !prev)}
                   title="Attach Context (Files, Folders, Images)"
+                  disabled={usageStats?.remainingRequests <= 0 || (usageStats?.todayRequests !== undefined && usageStats.todayRequests >= 150)}
                 >
                   <Plus size={16} />
                 </button>
@@ -2002,9 +2014,18 @@ export default function AIChat({
                 className={`antigravity-send-button ${
                   input.trim() || attachments.length > 0 ? "ready" : ""
                 }`}
-                disabled={(!input.trim() && attachments.length === 0) || loading}
+                disabled={
+                  (!input.trim() && attachments.length === 0) ||
+                  loading ||
+                  usageStats?.remainingRequests <= 0 ||
+                  (usageStats?.todayRequests !== undefined && usageStats.todayRequests >= 150)
+                }
                 onClick={() => handleSend()}
-                title="Send (Enter)"
+                title={
+                  usageStats?.remainingRequests <= 0 || (usageStats?.todayRequests !== undefined && usageStats.todayRequests >= 150)
+                    ? "Daily limit reached (150/150)"
+                    : "Send (Enter)"
+                }
               >
                 {loading ? (
                   <RotateCcw size={15} className="spin-icon" />

@@ -15,6 +15,8 @@ import {
   FolderPlus,
   RefreshCw,
   FoldVertical,
+  Search,
+  X,
 } from "lucide-react";
 
 export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSignal, onCollapseAll }) {
@@ -98,6 +100,98 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterQuery, setFilterQuery] = useState("");
+  const [filterFolder, setFilterFolder] = useState(null);
+  const filterInputRef = useRef(null);
+
+  useEffect(() => {
+    const handleToggle = () => {
+      setShowFilter((prev) => {
+        const next = !prev;
+        if (next) {
+          openRoot();
+          setTimeout(() => filterInputRef.current?.focus(), 50);
+        } else {
+          setFilterQuery("");
+          setFilterFolder(null);
+        }
+        return next;
+      });
+    };
+    const handleSearchFolder = (e) => {
+      setShowFilter(true);
+      setFilterFolder(e.detail?.folderPath || null);
+      setFilterQuery("");
+      openRoot();
+      setTimeout(() => filterInputRef.current?.focus(), 50);
+    };
+
+    window.addEventListener("vocode-toggle-explorer-search", handleToggle);
+    window.addEventListener("vocode-search-in-folder", handleSearchFolder);
+    return () => {
+      window.removeEventListener("vocode-toggle-explorer-search", handleToggle);
+      window.removeEventListener("vocode-search-in-folder", handleSearchFolder);
+    };
+  }, []);
+
+  // Recursive filter for tree based on search query and folder scope
+  const { filteredTree, matchCount } = useMemo(() => {
+    const rawChildren = Array.isArray(tree?.children) ? tree.children : [];
+    if (!filterQuery.trim() && !filterFolder) {
+      return { filteredTree: rawChildren, matchCount: 0 };
+    }
+
+    const q = filterQuery.trim().toLowerCase();
+    let count = 0;
+
+    const filterNode = (node, parentPath = "") => {
+      if (!node) return null;
+      const fullPath = node.path || (parentPath ? `${parentPath}/${node.name}` : node.name);
+
+      if (filterFolder) {
+        const isSelfOrInside = fullPath === filterFolder || fullPath.startsWith(filterFolder + "/");
+        const isAncestor = filterFolder.startsWith(fullPath + "/");
+        if (!isSelfOrInside && !isAncestor) {
+          return null;
+        }
+      }
+
+      const isMatching = !q || (node.name || "").toLowerCase().includes(q);
+
+      if (node.type === "file") {
+        if (isMatching) {
+          count++;
+          return { ...node, path: fullPath };
+        }
+        return null;
+      }
+
+      // Folder
+      let filteredChildren = [];
+      if (Array.isArray(node.children)) {
+        filteredChildren = node.children
+          .map((child) => filterNode(child, fullPath))
+          .filter(Boolean);
+      }
+
+      if (isMatching || filteredChildren.length > 0) {
+        if (isMatching && q) count++;
+        return {
+          ...node,
+          path: fullPath,
+          children: filteredChildren,
+          defaultOpen: true,
+        };
+      }
+
+      return null;
+    };
+
+    const result = rawChildren.map((child) => filterNode(child, "")).filter(Boolean);
+    return { filteredTree: result, matchCount: count };
+  }, [tree, filterQuery, filterFolder]);
 
   // Focus root creation input
   useEffect(() => {
@@ -186,7 +280,29 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
             <RefreshCw size={12} />
           </button>
 
-          {/* 4. More Options */}
+          {/* 4. Search Files & Folders */}
+          <button
+            className={`row-menu-btn ${showFilter ? "active" : ""}`}
+            title="Search Files & Folders (Ctrl+F)"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowFilter((prev) => {
+                const next = !prev;
+                if (next) {
+                  openRoot();
+                  setTimeout(() => filterInputRef.current?.focus(), 50);
+                } else {
+                  setFilterQuery("");
+                  setFilterFolder(null);
+                }
+                return next;
+              });
+            }}
+          >
+            <Search size={12} />
+          </button>
+
+          {/* 5. More Options */}
           <button
             className="row-menu-btn"
             title="More Actions"
@@ -226,6 +342,18 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
                 className="context-menu-item"
                 onClick={() => {
                   setRootMenuOpen(false);
+                  setShowFilter(true);
+                  openRoot();
+                  setTimeout(() => filterInputRef.current?.focus(), 50);
+                }}
+              >
+                <Search size={13} />
+                <span>Search in Workspace</span>
+              </div>
+              <div
+                className="context-menu-item"
+                onClick={() => {
+                  setRootMenuOpen(false);
                   loadWorkspace();
                 }}
               >
@@ -248,6 +376,73 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
           )}
         </div>
       </div>
+
+      {/* Explorer Search & Filter Bar (Compact Single Line) */}
+      {showFilter && (
+        <div className="explorer-filter-bar">
+          <Search size={13} className="explorer-filter-icon" />
+
+          {filterFolder && (
+            <span className="filter-folder-tag" title={`Scoped to folder: ${filterFolder}`}>
+              <span>{filterFolder.split("/").pop()}</span>
+              <button
+                type="button"
+                className="tag-clear-btn"
+                title="Remove folder filter"
+                onClick={() => setFilterFolder(null)}
+              >
+                <X size={10} />
+              </button>
+            </span>
+          )}
+
+          <input
+            ref={filterInputRef}
+            type="text"
+            className="explorer-filter-input"
+            placeholder={filterFolder ? `Search in ${filterFolder.split("/").pop()}...` : "Search files & folders..."}
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setShowFilter(false);
+                setFilterQuery("");
+                setFilterFolder(null);
+              }
+            }}
+          />
+
+          {(filterQuery || filterFolder) && (
+            <span className="filter-match-count" title={`${matchCount} matching items`}>
+              {matchCount}
+            </span>
+          )}
+
+          {filterQuery && (
+            <button
+              type="button"
+              className="filter-clear-btn"
+              title="Clear query"
+              onClick={() => setFilterQuery("")}
+            >
+              <X size={11} />
+            </button>
+          )}
+
+          <button
+            type="button"
+            className="filter-close-btn"
+            title="Close search (Esc)"
+            onClick={() => {
+              setShowFilter(false);
+              setFilterQuery("");
+              setFilterFolder(null);
+            }}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
 
       {/* Root Inline Creation Input */}
       {rootCreating && (
@@ -303,7 +498,7 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
             </div>
           )}
 
-          {sortTreeNodes(tree?.children)
+          {sortTreeNodes(filteredTree)
             .filter((child) => showHiddenFiles || !child.name.startsWith("."))
             .map((child) => (
               <TreeNode
@@ -314,6 +509,21 @@ export default function FileExplorer({ workspaceTitle = "Vocodeai", collapseSign
                 collapseSignal={collapseSignal}
               />
             ))}
+
+          {filteredTree?.length === 0 && (filterQuery || filterFolder) && (
+            <div className="explorer-empty-filter">
+              <span>No files or folders found</span>
+              <button
+                className="explorer-reset-filter-btn"
+                onClick={() => {
+                  setFilterQuery("");
+                  setFilterFolder(null);
+                }}
+              >
+                Reset search
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

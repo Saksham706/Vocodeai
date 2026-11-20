@@ -65,3 +65,37 @@
   background: rgba(0, 0, 0, 0.28);
 }
 
+/* ========================================================
+   LIGHT & DARK MODE OVERRIDES FOR STATUS BAR
+   ======================================================== */
+
+[data-theme="dark"] .ide-status-bar {
+  background-color: #03150d;
+  border-top: 1px solid rgba(16, 185, 129, 0.15);
+  color: #91A89B;
+}
+
+[data-theme="light"] .ide-status-bar {
+  background-color: #F1F5F9 !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.09) !important;
+  color: #334155 !important;
+}
+
+[data-theme="light"] .status-item:hover {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .status-remote-badge {
+  background-color: #0ea5e9 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .status-antigravity-pill {
+  background: rgba(0, 0, 0, 0.06) !important;
+  color: #334155 !important;
+}
+
+[data-theme="light"] .status-antigravity-pill:hover {
+  background: rgba(0, 0, 0, 0.12) !important;
+}
+

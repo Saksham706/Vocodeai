@@ -16,6 +16,7 @@ import {
   Folder,
   FolderOpen,
   FileCode2,
+  Search,
 } from "lucide-react";
 
 export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
@@ -96,6 +97,22 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
       } catch {}
     }
   }, [collapseSignal, isFile, folderKey]);
+
+  // Expand folder when voice command triggers (e.g. "Hey Voco, open the hi folder")
+  useEffect(() => {
+    if (isFile) return;
+    const handleVoiceExpand = (e) => {
+      const target = (e.detail?.path || e.detail?.name || "").toLowerCase().trim();
+      if (!target) return;
+      const myName = (node.name || "").toLowerCase().trim();
+      const myPath = (currentPath || "").toLowerCase().trim();
+      if (myName === target || myPath === target || myPath.endsWith("/" + target)) {
+        openFolder();
+      }
+    };
+    window.addEventListener("vocode-expand-folder", handleVoiceExpand);
+    return () => window.removeEventListener("vocode-expand-folder", handleVoiceExpand);
+  }, [isFile, node.name, currentPath]);
 
   // Focus rename once when entering editing mode (never re-select while typing)
   useEffect(() => {
@@ -297,6 +314,20 @@ export default function TreeNode({ node, path, depth = 0, collapseSignal }) {
                 >
                   <FolderPlus size={13} />
                   <span>New Folder...</span>
+                </div>
+                <div
+                  className="context-menu-item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    window.dispatchEvent(
+                      new CustomEvent("vocode-search-in-folder", {
+                        detail: { folderPath: currentPath },
+                      })
+                    );
+                  }}
+                >
+                  <Search size={13} />
+                  <span>Search in this Folder</span>
                 </div>
                 <div
                   className="context-menu-item"

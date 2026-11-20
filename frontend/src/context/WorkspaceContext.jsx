@@ -686,8 +686,30 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
   };
 
   const deleteNode = async (path) => {
-    await fileApi.deleteNode(accessToken, workspaceId, path);
+    // 1. Optimistic immediate tree update
+    setTree((prevTree) => {
+      if (!prevTree) return prevTree;
+      const removePath = (node) => {
+        if (!node) return null;
+        if (node.path === path || node.path?.startsWith(path + "/")) {
+          return null;
+        }
+        if (Array.isArray(node.children)) {
+          return {
+            ...node,
+            children: node.children.map(removePath).filter(Boolean),
+          };
+        }
+        return node;
+      };
 
+      if (Array.isArray(prevTree)) {
+        return prevTree.map(removePath).filter(Boolean);
+      }
+      return removePath(prevTree);
+    });
+
+    // 2. Instantly close open tabs and clear editor cache for deleted nodes
     setOpenTabs((prev) => prev.filter((t) => !t.startsWith(path)));
 
     setFileContents((prev) => {
@@ -710,7 +732,15 @@ export function WorkspaceProvider({ userId, workspaceId, children }) {
       prev && prev.startsWith(path) ? null : prev
     );
 
-    await loadWorkspace();
+    // 3. Perform backend deletion asynchronously
+    try {
+      await fileApi.deleteNode(accessToken, workspaceId, path);
+    } catch (err) {
+      console.error("Delete failed on server:", err);
+    } finally {
+      // Re-sync workspace tree in background to ensure total parity
+      loadWorkspace().catch(() => {});
+    }
   };
 
   /* ================= RUN FILE ================= */

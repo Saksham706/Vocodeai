@@ -68,6 +68,33 @@ export async function handleAI(req, res) {
       String(workspaceId)
     );
 
+    /* ================= CHECK 150 DAILY QUOTA LIMIT ================= */
+    const todayKey = new Date().toISOString().slice(0, 10);
+    let userDoc = null;
+    try {
+      userDoc = await User.findById(userId);
+      if (userDoc) {
+        if (!userDoc.aiDailyUsage || userDoc.aiDailyUsage.date !== todayKey) {
+          userDoc.aiDailyUsage = {
+            date: todayKey,
+            count: 0,
+            lifetimeCount: userDoc.aiDailyUsage?.lifetimeCount || 0,
+          };
+        }
+
+        if (userDoc.aiDailyUsage.count >= 150) {
+          return res.status(429).json({
+            error: "Daily AI request limit reached (150/150 requests used today). Quota resets at 12:00 AM midnight.",
+            limitReached: true,
+            dailyLimit: 150,
+            remainingRequests: 0,
+          });
+        }
+      }
+    } catch (quotaErr) {
+      console.warn("Could not check user quota:", quotaErr.message);
+    }
+
     /* ================= EXTRACT ATTACHMENTS ================= */
     const images = [];
     let attachedContentContext = "";
@@ -216,6 +243,17 @@ export async function handleAI(req, res) {
       content: summary,
     });
 
+    // Increment user's persistent daily quota counter
+    if (userDoc) {
+      try {
+        userDoc.aiDailyUsage.count = (userDoc.aiDailyUsage.count || 0) + 1;
+        userDoc.aiDailyUsage.lifetimeCount = (userDoc.aiDailyUsage.lifetimeCount || 0) + 1;
+        await userDoc.save();
+      } catch (saveErr) {
+        console.warn("Could not increment user AI daily usage:", saveErr.message);
+      }
+    }
+
     res.json({
       success: true,
       ai: parsed,
@@ -317,13 +355,24 @@ export async function disconnectAICredential(req, res) {
 export async function getAIUsageStats(req, res) {
   try {
     const userId = String(req.user.id || req.user._id);
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    const todayKey = new Date().toISOString().slice(0, 10);
 
-    const [todayCount, totalCount] = await Promise.all([
-      Chat.countDocuments({ userId, role: "user", createdAt: { $gte: startOfDay } }),
-      Chat.countDocuments({ userId, role: "user" }),
-    ]);
+    const userDoc = await User.findById(userId).lean();
+    let todayCount = 0;
+    let totalCount = 0;
+
+    if (userDoc?.aiDailyUsage) {
+      if (userDoc.aiDailyUsage.date === todayKey) {
+        todayCount = userDoc.aiDailyUsage.count || 0;
+      }
+      totalCount = userDoc.aiDailyUsage.lifetimeCount || todayCount;
+    } else {
+      // Fallback for initial sync
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      todayCount = await Chat.countDocuments({ userId, role: "user", createdAt: { $gte: startOfDay } });
+      totalCount = await Chat.countDocuments({ userId, role: "user" });
+    }
 
     const dailyLimit = 150;
     const remaining = Math.max(0, dailyLimit - todayCount);

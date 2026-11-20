@@ -922,12 +922,12 @@
 .sc-modal-card {
   width: 100% !important;
   max-width: 480px !important;
-  background: #08281B !important;
-  border: 1px solid rgba(43, 216, 127, 0.4) !important;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 32px rgba(43, 216, 127, 0.15) !important;
+  background: var(--surface-primary, var(--ide-card-bg, #08281B)) !important;
+  border: 1px solid var(--border-primary, var(--ide-border, rgba(43, 216, 127, 0.4))) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 32px var(--accent-soft, rgba(43, 216, 127, 0.15)) !important;
   border-radius: 14px !important;
   padding: 24px 26px !important;
-  color: #FFFFFF !important;
+  color: var(--text-primary, #FFFFFF) !important;
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box !important;
@@ -959,8 +959,9 @@
   width: 36px !important;
   height: 36px !important;
   border-radius: 10px !important;
-  background: rgba(43, 216, 127, 0.14) !important;
-  border: 1px solid rgba(43, 216, 127, 0.28) !important;
+  background: var(--accent-soft, rgba(43, 216, 127, 0.14)) !important;
+  border: 1px solid var(--border-secondary, var(--accent-primary, rgba(43, 216, 127, 0.28))) !important;
+  color: var(--accent-primary, #43E65C) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -970,6 +971,7 @@
 [data-theme="light"] .sc-modal-icon-wrap {
   background: rgba(255, 139, 50, 0.12) !important;
   border-color: rgba(255, 139, 50, 0.28) !important;
+  color: #FF8B32 !important;
 }
 
 .sc-modal-title-text {

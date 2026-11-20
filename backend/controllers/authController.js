@@ -9,6 +9,7 @@ import { getWorkspacesRoot } from "../config/paths.js";
 import { generateAccessToken, generateRefreshToken } from "../utils/token.js";
 import { generateOTP, hashOTP } from "../utils/otp.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { updateGitCredentialsForUser } from "../sandbox/containerManager.js";
 
 export async function signup(req, res) {
   try {
@@ -338,6 +339,9 @@ export async function githubCallback(req, res) {
         githubAccessToken: ghAccessToken,
         githubAvatar: ghUser.avatar_url,
       });
+
+      // Seamlessly sync credentials to all active containers and workspace git repos
+      await updateGitCredentialsForUser(parsedState.userId);
     }
 
     // 4. Redirect seamlessly back to project workspace
@@ -381,6 +385,7 @@ export async function disconnectGithub(req, res) {
       githubAccessToken: null,
       githubAvatar: null,
     });
+    await updateGitCredentialsForUser(req.user.id);
     res.json({ success: true, message: "GitHub account disconnected" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -416,6 +421,9 @@ export async function connectGithubToken(req, res) {
       githubAccessToken: cleanToken,
       githubAvatar: ghUser.avatar_url,
     });
+
+    // Automatically configure git credentials across containers and workspaces
+    await updateGitCredentialsForUser(req.user.id);
 
     res.json({
       success: true,

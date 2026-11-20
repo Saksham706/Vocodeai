@@ -190,7 +190,7 @@ export default function ExtensionsPanel({ onClose }) {
       // If it's a theme extension, automatically prompt or activate
       if (ext.themeId) {
         applyThemeExtension(ext.themeId, window.monaco);
-        showBanner(`Installed and activated "${ext.name}" theme!`);
+        showBanner(`Installed and activated "${ext.name}" theme across IDE & website!`);
       } else {
         showBanner(`Installed "${ext.name}"!`);
       }
@@ -223,7 +223,7 @@ export default function ExtensionsPanel({ onClose }) {
   const handleSetTheme = (ext) => {
     if (!ext.themeId) return;
     applyThemeExtension(ext.themeId, window.monaco);
-    showBanner(`Applied "${ext.name}" color theme!`);
+    showBanner(`Applied "${ext.name}" theme across IDE & website!`);
   };
 
   // Filtered extensions
@@ -459,7 +459,7 @@ export default function ExtensionsPanel({ onClose }) {
                             isCurrentActiveTheme ? "active" : ""
                           }`}
                           onClick={() => handleSetTheme(ext)}
-                          title="Apply this color theme to editor"
+                          title="Apply this color theme to IDE & website"
                         >
                           <Palette size={11} />
                           <span>{isCurrentActiveTheme ? "Active" : "Set Theme"}</span>

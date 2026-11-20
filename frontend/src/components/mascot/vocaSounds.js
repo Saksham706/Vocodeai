@@ -1,7 +1,7 @@
 /**
  * VOCA AUDIO ENGINE
  * Zero-dependency Web Audio API synthesizer + Web Speech Synthesis (TTS).
- * Provides responsive, futuristic robot chimes and crystal-clear voice read-aloud.
+ * Provides responsive, futuristic Apple Siri chimes and crystal-clear female voice read-aloud.
  */
 
 let sharedAudioCtx = null;
@@ -21,7 +21,7 @@ function getAudioContext() {
 }
 
 /**
- * Synthesizes delightful, futuristic robotic chimes using Web Audio API
+ * Synthesizes delightful, futuristic Apple Siri chimes using Web Audio API
  */
 export function playVocaSound(type = "chirp") {
   try {
@@ -36,7 +36,7 @@ export function playVocaSound(type = "chirp") {
     gain.connect(ctx.destination);
 
     if (type === "chirp") {
-      // Soft pleasant two-tone robotic chirp on message receive
+      // Soft pleasant two-tone Apple Siri chirp on action
       osc.type = "sine";
       osc.frequency.setValueAtTime(587.33, now); // D5
       osc.frequency.exponentialRampToValueAtTime(880, now + 0.1); // A5
@@ -45,15 +45,15 @@ export function playVocaSound(type = "chirp") {
       osc.start(now);
       osc.stop(now + 0.16);
     } else if (type === "open") {
-      // Gentle ascending sci-fi chime when chat opens
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(440, now); // A4
-      osc.frequency.setValueAtTime(554.37, now + 0.06); // C#5
-      osc.frequency.setValueAtTime(659.25, now + 0.12); // E5
+      // Siri wake double chime (D5 -> A5 harmonious chime)
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(523.25, now); // C5
+      osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
+      osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
       gain.gain.setValueAtTime(0.08, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
       osc.start(now);
-      osc.stop(now + 0.22);
+      osc.stop(now + 0.26);
     } else if (type === "send") {
       // Subtle tactile click on send
       osc.type = "sine";
@@ -88,16 +88,26 @@ export function playVocaSound(type = "chirp") {
 }
 
 /**
- * Text-to-Speech (TTS) engine using Web Speech Synthesis
+ * Text-to-Speech (TTS) engine using Web Speech Synthesis.
+ * STRICTLY uses FEMALE voices (Samantha, Jenny, Zira, Karen, Victoria, Sonia, etc.)
  */
 export function speakVocaText(text, onEnd) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  if (!text) return;
 
   try {
     window.speechSynthesis.cancel();
 
+    // Safely extract string if an object (e.g. { answer, title, message }) was passed
+    const rawText =
+      typeof text === "string"
+        ? text
+        : text?.answer || text?.message || text?.title || String(text || "");
+
+    if (!rawText || typeof rawText !== "string") return;
+
     // Clean markdown syntax for natural voice cadence
-    const cleanSpeech = text
+    const cleanSpeech = rawText
       .replace(/[*_#`~[\]()>]/g, "")
       .replace(/\|.*?\|/g, "")
       .replace(/\n+/g, " ")
@@ -107,29 +117,50 @@ export function speakVocaText(text, onEnd) {
     if (!cleanSpeech) return;
 
     const utterance = new SpeechSynthesisUtterance(cleanSpeech);
-    utterance.rate = 1.05;
-    utterance.pitch = 1.08;
+    utterance.rate = 1.02;
+    utterance.pitch = 1.14; // Crisp, warm feminine pitch
 
-    const pickVoice = () => {
+    const pickFemaleVoice = () => {
       const voices = window.speechSynthesis.getVoices();
-      if (voices && voices.length > 0) {
-        const friendly = voices.find(
-          (v) =>
-            v.lang.startsWith("en") &&
-            (v.name.includes("Natural") ||
-              v.name.includes("Google") ||
-              v.name.includes("Samantha") ||
-              v.name.includes("Jenny") ||
-              v.name.includes("Guy") ||
-              v.name.includes("Daniel"))
-        ) || voices.find((v) => v.lang.startsWith("en"));
-        if (friendly) utterance.voice = friendly;
+      if (!voices || voices.length === 0) return;
+
+      // English voices preferred
+      const enVoices = voices.filter((v) => v.lang.startsWith("en"));
+      const pool = enVoices.length > 0 ? enVoices : voices;
+
+      // Male names strictly excluded
+      const malePattern =
+        /david|mark|guy|daniel|george|richard|james|stefan|male|brian|paul|alex|fred|thomas|oliver/i;
+
+      // Known female voice signatures (Windows, macOS, iOS, Android, ChromeOS)
+      const femalePattern =
+        /female|samantha|jenny|zira|karen|victoria|sonia|natasha|aria|michelle|eva|hazel|heera|veena|susan|catherine|linda|google.*female|natural.*female/i;
+
+      // 1. Explicitly named female voice that is not male
+      let femaleVoice = pool.find(
+        (v) => femalePattern.test(v.name) && !malePattern.test(v.name)
+      );
+
+      // 2. English voice that is not flagged as male
+      if (!femaleVoice) {
+        femaleVoice = pool.find(
+          (v) => !malePattern.test(v.name) && !malePattern.test(v.voiceURI)
+        );
+      }
+
+      // 3. Fallback: any voice not matching male pattern
+      if (!femaleVoice) {
+        femaleVoice = voices.find((v) => !malePattern.test(v.name)) || voices[0];
+      }
+
+      if (femaleVoice) {
+        utterance.voice = femaleVoice;
       }
     };
 
-    pickVoice();
+    pickFemaleVoice();
     if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = pickVoice;
+      window.speechSynthesis.onvoiceschanged = pickFemaleVoice;
     }
 
     if (onEnd) {
@@ -148,4 +179,3 @@ export function stopVocaSpeech() {
     window.speechSynthesis.cancel();
   }
 }
-

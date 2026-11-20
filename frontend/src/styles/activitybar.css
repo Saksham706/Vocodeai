@@ -35,14 +35,32 @@
 }
 
 [data-theme="light"] .ide-activity-bar {
-  --activity-bg: rgba(248, 250, 251, 0.85);
-  --activity-border: rgba(230, 215, 205, 0.7);
-  --activity-icon: #94857B;
-  --activity-icon-hover: #3E3027;
-  --activity-active-bg: #FFEFE6;
-  --activity-active-border: rgba(255, 139, 50, 0.5);
-  --activity-active-icon: #FF7A1A;
-  --activity-active-glow: 0 0 10px rgba(255, 139, 50, 0.16);
+  background-color: #F8FAFC !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
+  --activity-bg: #F8FAFC;
+  --activity-border: rgba(0, 0, 0, 0.08);
+  --activity-icon: #64748B;
+  --activity-icon-hover: #0F172A;
+  --activity-active-bg: #E2E8F0;
+  --activity-active-border: rgba(0, 0, 0, 0.15);
+  --activity-active-icon: #0F172A;
+  --activity-active-glow: none;
+}
+
+[data-theme="light"] .activity-bar-btn {
+  color: #64748B !important;
+}
+
+[data-theme="light"] .activity-bar-btn:hover {
+  color: #0F172A !important;
+  background-color: #EDF2F7 !important;
+}
+
+[data-theme="light"] .activity-bar-btn.active {
+  background-color: #E2E8F0 !important;
+  border: 1px solid rgba(0, 0, 0, 0.16) !important;
+  color: #0F172A !important;
+  box-shadow: none !important;
 }
 
 .activity-bar-top,

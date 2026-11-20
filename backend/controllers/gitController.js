@@ -1,6 +1,7 @@
 import { execFile } from "child_process";
 import fs from "fs";
 import path from "path";
+import os from "os";
 import util from "util";
 import { getWorkspacesRoot } from "../config/paths.js";
 import { hydrateWorkspace } from "../services/hydrateWorkspace.js";
@@ -173,6 +174,210 @@ async function getUserGitSignature(userId) {
   }
 }
 
+/**
+ * Helper to ensure user's Git credentials, author signature, and authentication
+ * URL rewrites are configured on the local repository.
+ */
+export async function ensureGitCredentials(wsPath, userId, explicitToken = null) {
+  try {
+    const gitDir = path.join(wsPath, ".git");
+    if (!fs.existsSync(gitDir)) return;
+
+    let token = explicitToken?.trim() || null;
+    let username = null;
+    let name = "VocodeAI Developer";
+    let email = "developer@vocodeai.com";
+
+    if (userId) {
+      try {
+        const user = await User.findById(userId).lean();
+        if (user) {
+          if (!token && user.githubAccessToken) {
+            token = user.githubAccessToken.trim();
+          }
+          username = user.githubUsername ? user.githubUsername.trim() : null;
+          name = user.firstName
+            ? `${user.firstName} ${user.lastName || ""}`.trim()
+            : user.name || "VocodeAI Developer";
+          email = user.email || "developer@vocodeai.com";
+        }
+      } catch { }
+    }
+
+    // Configure author signature
+    await runGit(wsPath, ["config", "user.name", name]);
+    await runGit(wsPath, ["config", "user.email", email]);
+
+    // If GitHub token is present, configure URL rewrite so all Git operations
+    // targeting github.com automatically authenticate without password prompts
+    if (token) {
+      const authUser = username ? encodeURIComponent(username) : "x-access-token";
+      const authPrefix = `https://${authUser}:${token}@github.com/`;
+      await runGit(wsPath, [
+        "config",
+        `url.${authPrefix}.insteadOf`,
+        "https://github.com/",
+      ]);
+      await runGit(wsPath, ["config", "credential.helper", "store"]);
+    }
+  } catch (err) {
+    console.warn("ensureGitCredentials notice:", err.message);
+  }
+}
+
+/**
+ * Computes complete Git repository status data including ahead/behind counts.
+ */
+export async function getGitStatusData(wsPath, userId) {
+  const gitDir = path.join(wsPath, ".git");
+  if (!fs.existsSync(gitDir)) {
+    return {
+      isRepo: false,
+      branch: null,
+      clean: true,
+      staged: [],
+      unstaged: [],
+      untracked: [],
+      ahead: 0,
+      behind: 0,
+      remotes: [],
+    };
+  }
+
+  await ensureGitignore(wsPath);
+  if (userId) {
+    await ensureGitCredentials(wsPath, userId);
+  }
+
+  // 1. Get current branch
+  const branchRes = await runGit(wsPath, ["branch", "--show-current"]);
+  let currentBranch = branchRes.stdout;
+  if (!currentBranch) {
+    const headRes = await runGit(wsPath, ["rev-parse", "--abbrev-ref", "HEAD"]);
+    currentBranch = headRes.stdout || "main";
+  }
+
+  // 2. Get porcelain status
+  const statusRes = await runGit(wsPath, [
+    "status",
+    "--porcelain=v1",
+    "-uall",
+  ]);
+
+  const staged = [];
+  const unstaged = [];
+  const untracked = [];
+
+  if (statusRes.stdout) {
+    const lines = statusRes.stdout.split("\n");
+    for (const rawLine of lines) {
+      const line = rawLine.replace(/\r$/, "");
+      if (!line || line.length < 3) continue;
+      const x = line[0];
+      const y = line[1];
+      let rawPath = line.substring(2).trim().replace(/^"(.*)"$/, "$1");
+      if (rawPath.includes(" -> ")) {
+        rawPath = rawPath.split(" -> ").pop().trim().replace(/^"(.*)"$/, "$1");
+      }
+
+      const isIgnored = isIgnoredFile(rawPath) && rawPath !== ".gitignore";
+      if (isIgnored) {
+        if (x === "?" || (x === " " && y !== " ")) {
+          continue;
+        }
+      }
+
+      if (x !== " " && x !== "?" && x !== "!") {
+        staged.push({ path: rawPath, status: x });
+      }
+      if (y !== " " && y !== "?" && y !== "!") {
+        unstaged.push({ path: rawPath, status: y });
+      }
+      if (x === "?" && y === "?") {
+        untracked.push({ path: rawPath, status: "U" });
+      }
+    }
+  }
+
+  // 3. Get remotes
+  const remoteRes = await runGit(wsPath, ["remote", "-v"]);
+  const remotesMap = new Map();
+  if (remoteRes.stdout) {
+    for (const rLine of remoteRes.stdout.split("\n")) {
+      const parts = rLine.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        remotesMap.set(parts[0], parts[1]);
+      }
+    }
+  }
+  const remotes = Array.from(remotesMap.entries()).map(([name, url]) => ({
+    name,
+    url,
+  }));
+
+  // 4. Ahead / Behind calculation
+  let ahead = 0;
+  let behind = 0;
+  const revCountRes = await runGit(wsPath, [
+    "rev-list",
+    "--left-right",
+    "--count",
+    "HEAD...@{u}",
+  ]);
+
+  if (revCountRes.exitCode === 0 && revCountRes.stdout) {
+    const counts = revCountRes.stdout.split(/\s+/);
+    if (counts.length >= 2) {
+      ahead = parseInt(counts[0], 10) || 0;
+      behind = parseInt(counts[1], 10) || 0;
+    }
+  } else {
+    // Fallback 1: Compare against origin/<currentBranch>
+    const originBranchRes = await runGit(wsPath, [
+      "rev-list",
+      "--left-right",
+      "--count",
+      `HEAD...origin/${currentBranch}`,
+    ]);
+    if (originBranchRes.exitCode === 0 && originBranchRes.stdout) {
+      const counts = originBranchRes.stdout.split(/\s+/);
+      if (counts.length >= 2) {
+        ahead = parseInt(counts[0], 10) || 0;
+        behind = parseInt(counts[1], 10) || 0;
+      }
+      await runGit(wsPath, ["branch", `--set-upstream-to=origin/${currentBranch}`, currentBranch]);
+    } else if (remotes.length > 0) {
+      // Fallback 2: Check commits ahead of origin/main
+      const mainCountRes = await runGit(wsPath, [
+        "rev-list",
+        "--count",
+        "origin/main..HEAD",
+      ]);
+      if (mainCountRes.exitCode === 0 && mainCountRes.stdout) {
+        ahead = parseInt(mainCountRes.stdout.trim(), 10) || 0;
+      } else {
+        // Fallback 3: Count total commits in HEAD if not pushed at all
+        const totalCommitsRes = await runGit(wsPath, ["rev-list", "--count", "HEAD"]);
+        if (totalCommitsRes.exitCode === 0 && totalCommitsRes.stdout) {
+          ahead = parseInt(totalCommitsRes.stdout.trim(), 10) || 0;
+        }
+      }
+    }
+  }
+
+  return {
+    isRepo: true,
+    branch: currentBranch,
+    clean: staged.length === 0 && unstaged.length === 0 && untracked.length === 0,
+    staged,
+    unstaged,
+    untracked,
+    ahead,
+    behind,
+    remotes,
+  };
+}
+
 /* ================= 1. GET STATUS ================= */
 export async function getStatus(req, res) {
   try {
@@ -182,172 +387,14 @@ export async function getStatus(req, res) {
     }
 
     const wsPath = await getWorkspacePath(req.user.id, workspaceId);
-    const gitDir = path.join(wsPath, ".git");
-
-    if (!fs.existsSync(gitDir)) {
-      return res.json({
-        isRepo: false,
-        branch: null,
-        staged: [],
-        unstaged: [],
-        untracked: [],
-        ahead: 0,
-        behind: 0,
-        remotes: [],
-      });
-    }
-
-    await ensureGitignore(wsPath);
-
-    // 1. Get current branch
-    const branchRes = await runGit(wsPath, ["branch", "--show-current"]);
-    let currentBranch = branchRes.stdout;
-    if (!currentBranch) {
-      // Might be detached or fresh repo with no commits
-      const headRes = await runGit(wsPath, ["rev-parse", "--abbrev-ref", "HEAD"]);
-      currentBranch = headRes.stdout || "main";
-    }
-
-    // 2. Get porcelain status
-    const statusRes = await runGit(wsPath, [
-      "status",
-      "--porcelain=v1",
-      "-uall",
-    ]);
-
-    const staged = [];
-    const unstaged = [];
-    const untracked = [];
-
-    if (statusRes.stdout) {
-      const lines = statusRes.stdout.split("\n");
-      for (const rawLine of lines) {
-        const line = rawLine.replace(/\r$/, "");
-        if (!line || line.length < 3) continue;
-        const x = line[0]; // Staged status
-        const y = line[1]; // Unstaged status
-        let rawPath = line.substring(2).trim().replace(/^"(.*)"$/, "$1");
-        if (rawPath.includes(" -> ")) {
-          rawPath = rawPath.split(" -> ").pop().trim().replace(/^"(.*)"$/, "$1");
-        }
-
-        // Filter out ignored files (e.g. .class, .out, .exe, etc.) that do not belong in Explorer
-        const isIgnored = isIgnoredFile(rawPath) && rawPath !== ".gitignore";
-        if (isIgnored) {
-          // If it is unstaged or untracked, completely ignore it
-          if (x === "?" || (x === " " && y !== " ")) {
-            continue;
-          }
-        }
-
-        // Staged changes
-        if (x !== " " && x !== "?" && x !== "!") {
-          staged.push({
-            path: rawPath,
-            status: x, // 'M', 'A', 'D', 'R', etc.
-          });
-        }
-
-        // Unstaged modified / deleted
-        if (y !== " " && y !== "?" && y !== "!") {
-          unstaged.push({
-            path: rawPath,
-            status: y, // 'M', 'D', etc.
-          });
-        }
-
-        // Untracked new files
-        if (x === "?" && y === "?") {
-          untracked.push({
-            path: rawPath,
-            status: "U",
-          });
-        }
-      }
-    }
-
-    // 3. Get remotes
-    const remoteRes = await runGit(wsPath, ["remote", "-v"]);
-    const remotesMap = new Map();
-    if (remoteRes.stdout) {
-      for (const rLine of remoteRes.stdout.split("\n")) {
-        const parts = rLine.trim().split(/\s+/);
-        if (parts.length >= 2) {
-          remotesMap.set(parts[0], parts[1]);
-        }
-      }
-    }
-    const remotes = Array.from(remotesMap.entries()).map(([name, url]) => ({
-      name,
-      url,
-    }));
-
-    // 4. Ahead / Behind calculation
-    let ahead = 0;
-    let behind = 0;
-    let revCountRes = await runGit(wsPath, [
-      "rev-list",
-      "--left-right",
-      "--count",
-      "HEAD...@{u}",
-    ]);
-    if (revCountRes.exitCode === 0 && revCountRes.stdout) {
-      const counts = revCountRes.stdout.split(/\s+/);
-      if (counts.length >= 2) {
-        ahead = parseInt(counts[0], 10) || 0;
-        behind = parseInt(counts[1], 10) || 0;
-      }
-    } else {
-      // Fallback 1: Compare against origin/<currentBranch>
-      const originBranchRes = await runGit(wsPath, [
-        "rev-list",
-        "--left-right",
-        "--count",
-        `HEAD...origin/${currentBranch}`,
-      ]);
-      if (originBranchRes.exitCode === 0 && originBranchRes.stdout) {
-        const counts = originBranchRes.stdout.split(/\s+/);
-        if (counts.length >= 2) {
-          ahead = parseInt(counts[0], 10) || 0;
-          behind = parseInt(counts[1], 10) || 0;
-        }
-        // Auto set upstream tracking if branch exists on remote
-        await runGit(wsPath, ["branch", `--set-upstream-to=origin/${currentBranch}`, currentBranch]);
-      } else {
-        // Fallback 2: Check commits ahead of origin/main
-        const mainCountRes = await runGit(wsPath, [
-          "rev-list",
-          "--count",
-          "origin/main..HEAD",
-        ]);
-        if (mainCountRes.exitCode === 0 && mainCountRes.stdout) {
-          ahead = parseInt(mainCountRes.stdout.trim(), 10) || 0;
-        } else {
-          // Fallback 3: Count total commits in HEAD if not pushed at all
-          const totalCommitsRes = await runGit(wsPath, ["rev-list", "--count", "HEAD"]);
-          if (totalCommitsRes.exitCode === 0 && totalCommitsRes.stdout) {
-            ahead = parseInt(totalCommitsRes.stdout.trim(), 10) || 0;
-          }
-        }
-      }
-    }
-
-    res.json({
-      isRepo: true,
-      branch: currentBranch,
-      clean: staged.length === 0 && unstaged.length === 0 && untracked.length === 0,
-      staged,
-      unstaged,
-      untracked,
-      ahead,
-      behind,
-      remotes,
-    });
+    const data = await getGitStatusData(wsPath, req.user.id);
+    res.json(data);
   } catch (err) {
     console.error("GIT STATUS ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 }
+
 
 /* ================= 2. INITIALIZE REPO ================= */
 export async function initRepo(req, res) {
@@ -687,7 +734,7 @@ export async function getLog(req, res) {
   }
 }
 
-/* ================= 10. REMOTE / GITHUB PUSH & PULL ================= */
+/* ================= 10. REMOTE / GITHUB PUSH, PULL & SYNC ================= */
 export async function addOrSetRemote(req, res) {
   try {
     const { workspaceId, remoteName = "origin", url } = req.body;
@@ -697,51 +744,33 @@ export async function addOrSetRemote(req, res) {
 
     const wsPath = await getWorkspacePath(req.user.id, workspaceId);
 
+    // Clean any accidental tokens or auth from URL stored in Git
+    let cleanUrl = url.trim();
+    try {
+      const parsed = new URL(cleanUrl);
+      cleanUrl = `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
+    } catch { }
+
     // Check if remote already exists
     const checkRes = await runGit(wsPath, ["remote", "get-url", remoteName]);
     if (checkRes.exitCode === 0) {
       // Remote exists, update it
-      await runGit(wsPath, ["remote", "set-url", remoteName, url.trim()]);
+      await runGit(wsPath, ["remote", "set-url", remoteName, cleanUrl]);
     } else {
       // Add new remote
-      const addRes = await runGit(wsPath, ["remote", "add", remoteName, url.trim()]);
+      const addRes = await runGit(wsPath, ["remote", "add", remoteName, cleanUrl]);
       if (addRes.exitCode !== 0) {
         return res.status(500).json({ error: addRes.stderr || "Failed to add remote" });
       }
     }
 
-    res.json({ success: true, message: `Remote '${remoteName}' configured to ${url.trim()}` });
+    // Immediately configure user credentials for this repository
+    await ensureGitCredentials(wsPath, req.user.id);
+
+    res.json({ success: true, message: `Remote '${remoteName}' configured to ${cleanUrl}` });
   } catch (err) {
     console.error("GIT REMOTE SET ERROR:", err);
     res.status(500).json({ error: err.message });
-  }
-}
-
-async function resolveAuthToken(userId, explicitToken) {
-  if (explicitToken && explicitToken.trim()) return explicitToken.trim();
-  try {
-    const user = await User.findById(userId).lean();
-    if (user?.githubAccessToken) {
-      return user.githubAccessToken.trim();
-    }
-  } catch {}
-  return null;
-}
-
-function buildAuthUrl(remoteUrl, token) {
-  if (!token || !token.trim()) return remoteUrl;
-  const cleanToken = token.trim();
-  try {
-    const parsed = new URL(remoteUrl);
-    parsed.username = "oauth2";
-    parsed.password = cleanToken;
-    return parsed.toString();
-  } catch {
-    // If not a standard URL, try regex replace for https://github.com/...
-    return remoteUrl.replace(
-      /^https:\/\/(.*@)?github\.com\//,
-      `https://oauth2:${cleanToken}@github.com/`
-    );
   }
 }
 
@@ -765,41 +794,37 @@ export async function push(req, res) {
       return res.status(400).json({ error: `Remote '${remote}' does not exist. Please configure remote URL first.` });
     }
 
-    const originalUrl = remUrlRes.stdout.trim();
-    const authToken = await resolveAuthToken(req.user.id, token);
-    const pushTarget = authToken ? buildAuthUrl(originalUrl, authToken) : remote;
+    // Ensure credentials and URL rewriting are in place
+    await ensureGitCredentials(wsPath, req.user.id, token);
 
     const pushArgs = ["push"];
-    if (setUpstream && !authToken) pushArgs.push("-u");
-    pushArgs.push(pushTarget, targetBranch);
+    if (setUpstream) pushArgs.push("-u");
+    pushArgs.push(remote, targetBranch);
 
     const pushRes = await runGit(wsPath, pushArgs);
     if (pushRes.exitCode !== 0) {
+      const errOut = pushRes.stderr || pushRes.stdout || "";
+      if (
+        errOut.includes("Authentication failed") ||
+        errOut.includes("Invalid username or token") ||
+        errOut.includes("Password authentication is not supported")
+      ) {
+        return res.status(401).json({
+          error: "GitHub authentication failed. Please verify your GitHub Personal Access Token (PAT) has 'repo' scope.",
+        });
+      }
+      if (errOut.includes("[rejected]") || errOut.includes("non-fast-forward")) {
+        return res.status(409).json({
+          error: "Push rejected: Remote branch has newer commits. Please pull before pushing.",
+        });
+      }
       return res.status(500).json({
-        error: pushRes.stderr || pushRes.stdout || "Push failed. Check GitHub permissions and branch state.",
+        error: errOut || "Push failed. Check GitHub permissions and branch state.",
       });
     }
 
-    // Update local remote-tracking reference (e.g. refs/remotes/origin/main)
-    // so Git immediately knows local commits match remote
-    try {
-      await runGit(wsPath, [
-        "fetch",
-        pushTarget,
-        `+refs/heads/${targetBranch}:refs/remotes/${remote}/${targetBranch}`,
-      ]);
-    } catch {
-      // Non-fatal if fetch tracking update fails
-    }
-
-    // Always ensure local branch tracks remote branch
-    if (setUpstream) {
-      try {
-        await runGit(wsPath, ["branch", `--set-upstream-to=${remote}/${targetBranch}`, targetBranch]);
-      } catch {}
-    }
-
-    res.json({ success: true, output: pushRes.stdout || pushRes.stderr || "Pushed successfully" });
+    const status = await getGitStatusData(wsPath, req.user.id);
+    res.json({ success: true, output: pushRes.stdout || pushRes.stderr || "Pushed successfully", status });
   } catch (err) {
     console.error("GIT PUSH ERROR:", err);
     res.status(500).json({ error: err.message });
@@ -824,38 +849,146 @@ export async function pull(req, res) {
       return res.status(400).json({ error: `Remote '${remote}' not configured` });
     }
 
-    const authToken = await resolveAuthToken(req.user.id, token);
-    const pullTarget = authToken ? buildAuthUrl(remUrlRes.stdout.trim(), authToken) : remote;
-    const pullRes = await runGit(wsPath, ["pull", pullTarget, targetBranch]);
+    await ensureGitCredentials(wsPath, req.user.id, token);
 
+    const pullRes = await runGit(wsPath, ["pull", "--rebase=false", remote, targetBranch]);
     if (pullRes.exitCode !== 0) {
+      const errOut = pullRes.stderr || pullRes.stdout || "";
+      if (errOut.includes("couldn't find remote ref") || errOut.includes("Couldn't find remote ref")) {
+        return res.json({ success: true, emptyRemote: true, output: "Remote branch is empty or not yet published." });
+      }
+      if (
+        errOut.includes("Authentication failed") ||
+        errOut.includes("Invalid username or token") ||
+        errOut.includes("Password authentication is not supported")
+      ) {
+        return res.status(401).json({
+          error: "GitHub authentication failed. Please connect your GitHub Personal Access Token (PAT) with 'repo' scope.",
+        });
+      }
       return res.status(500).json({
-        error: pullRes.stderr || pullRes.stdout || "Pull failed. Conflicts or credentials required.",
+        error: errOut || "Pull failed. Conflicts or credentials required.",
       });
     }
 
     // Sync newly pulled files from disk into MongoDB
     await syncWorkspaceToDB(req.user.id, workspaceId);
 
-    // Update tracking ref
-    if (authToken) {
-      try {
-        await runGit(wsPath, [
-          "fetch",
-          pullTarget,
-          `+refs/heads/${targetBranch}:refs/remotes/${remote}/${targetBranch}`,
-        ]);
-      } catch {}
-    }
-
-    res.json({ success: true, output: pullRes.stdout || "Pulled latest changes" });
+    const status = await getGitStatusData(wsPath, req.user.id);
+    res.json({ success: true, output: pullRes.stdout || "Pulled latest changes", status });
   } catch (err) {
     console.error("GIT PULL ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 }
 
+/**
+ * 1-Click Smooth Git Sync: pulls latest commits from GitHub and pushes local commits with upstream tracking.
+ */
+export async function sync(req, res) {
+  try {
+    const { workspaceId, remote = "origin", branch, token } = req.body;
+    if (!workspaceId) return res.status(400).json({ error: "workspaceId required" });
+
+    const wsPath = await getWorkspacePath(req.user.id, workspaceId);
+
+    let targetBranch = branch;
+    if (!targetBranch) {
+      const bRes = await runGit(wsPath, ["branch", "--show-current"]);
+      targetBranch = bRes.stdout || "main";
+    }
+
+    const remUrlRes = await runGit(wsPath, ["remote", "get-url", remote]);
+    if (remUrlRes.exitCode !== 0) {
+      return res.status(400).json({ error: `Remote '${remote}' does not exist. Please configure remote URL first.` });
+    }
+
+    // 1. Ensure user's GitHub credentials are fully configured on repo
+    await ensureGitCredentials(wsPath, req.user.id, token);
+
+    // 2. Try pull first (non-destructive, gracefully handles brand-new empty remote repos)
+    let pulled = false;
+    const pullRes = await runGit(wsPath, ["pull", "--rebase=false", remote, targetBranch]);
+    if (pullRes.exitCode === 0) {
+      pulled = true;
+    } else {
+      const pullErr = pullRes.stderr || pullRes.stdout || "";
+      const isNewBranch = pullErr.includes("couldn't find remote ref") || pullErr.includes("Couldn't find remote ref");
+      if (!isNewBranch && pullErr.includes("CONFLICT")) {
+        return res.status(409).json({ error: "Merge conflict detected during sync. Please resolve conflicts before syncing." });
+      }
+    }
+
+    // 3. Push with upstream tracking (-u)
+    const pushRes = await runGit(wsPath, ["push", "-u", remote, targetBranch]);
+    if (pushRes.exitCode !== 0) {
+      const pushErr = pushRes.stderr || pushRes.stdout || "";
+      if (
+        pushErr.includes("Authentication failed") ||
+        pushErr.includes("Invalid username or token") ||
+        pushErr.includes("Password authentication is not supported")
+      ) {
+        return res.status(401).json({
+          error: "GitHub authentication failed. Please connect your GitHub Personal Access Token (PAT) with 'repo' scope.",
+        });
+      }
+      if (pushErr.includes("[rejected]") || pushErr.includes("non-fast-forward")) {
+        return res.status(409).json({
+          error: "Push rejected: Remote repository has new commits. Please pull before syncing.",
+        });
+      }
+      return res.status(500).json({
+        error: pushErr || "Push failed during sync.",
+      });
+    }
+
+    // 4. Sync newly pulled/pushed state into MongoDB
+    await syncWorkspaceToDB(req.user.id, workspaceId);
+
+    // 5. Get fresh status data
+    const status = await getGitStatusData(wsPath, req.user.id);
+
+    res.json({
+      success: true,
+      message: `Synced branch '${targetBranch}' with GitHub successfully!`,
+      pulled,
+      status,
+    });
+  } catch (err) {
+    console.error("GIT SYNC ERROR:", err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
 /* ================= 11. CLONE REPOSITORY ================= */
+async function resolveAuthToken(userId, explicitToken) {
+  if (explicitToken && explicitToken.trim()) return explicitToken.trim();
+  try {
+    const user = await User.findById(userId).lean();
+    if (user?.githubAccessToken) {
+      return user.githubAccessToken.trim();
+    }
+  } catch { }
+  return null;
+}
+
+function buildAuthUrl(remoteUrl, token, username = null) {
+  if (!token || !token.trim()) return remoteUrl;
+  const cleanToken = token.trim();
+  const authUser = username ? encodeURIComponent(username) : "x-access-token";
+  try {
+    const parsed = new URL(remoteUrl);
+    parsed.username = authUser;
+    parsed.password = cleanToken;
+    return parsed.toString();
+  } catch {
+    return remoteUrl.replace(
+      /^https:\/\/(.*@)?github\.com\//,
+      `https://${authUser}:${cleanToken}@github.com/`
+    );
+  }
+}
+
 export async function cloneRepo(req, res) {
   try {
     const { workspaceId, repoUrl, token, branch } = req.body;
@@ -864,11 +997,17 @@ export async function cloneRepo(req, res) {
     }
 
     const wsPath = await getWorkspacePath(req.user.id, workspaceId);
-    const authToken = await resolveAuthToken(req.user.id, token);
-    const targetUrl = authToken ? buildAuthUrl(repoUrl.trim(), authToken) : repoUrl.trim();
+    let userRecord = null;
+    try {
+      userRecord = await User.findById(req.user.id).lean();
+    } catch { }
 
-    // Clone into a temp folder then move contents into workspace
-    const tempCloneDir = path.join(wsPath, ".temp_clone_" + Date.now());
+    const authToken = token?.trim() || userRecord?.githubAccessToken?.trim() || null;
+    const authUsername = userRecord?.githubUsername?.trim() || null;
+    const targetUrl = authToken ? buildAuthUrl(repoUrl.trim(), authToken, authUsername) : repoUrl.trim();
+
+    // Clone into a dedicated temp folder in OS temp dir to prevent in-tree file locks
+    const tempCloneDir = path.join(os.tmpdir(), "vocode_clone_" + Date.now());
     const cloneArgs = ["clone"];
     if (branch) cloneArgs.push("-b", branch.trim());
     cloneArgs.push(targetUrl, tempCloneDir);
@@ -876,22 +1015,35 @@ export async function cloneRepo(req, res) {
     const cloneRes = await runGit(wsPath, cloneArgs);
     if (cloneRes.exitCode !== 0) {
       if (fs.existsSync(tempCloneDir)) {
-        fs.rmSync(tempCloneDir, { recursive: true, force: true });
+        try { fs.rmSync(tempCloneDir, { recursive: true, force: true }); } catch { }
       }
       return res.status(500).json({ error: cloneRes.stderr || "Clone failed. Verify URL and authentication." });
     }
 
-    // Move all files including .git to wsPath
-    const clonedItems = fs.readdirSync(tempCloneDir);
-    for (const item of clonedItems) {
-      const src = path.join(tempCloneDir, item);
-      const dst = path.join(wsPath, item);
-      if (fs.existsSync(dst)) {
-        fs.rmSync(dst, { recursive: true, force: true });
+    // Safely copy all cloned files including .git to wsPath on Windows
+    try {
+      fs.cpSync(tempCloneDir, wsPath, { recursive: true, force: true });
+    } catch (cpErr) {
+      console.warn("cpSync failed, falling back to per-item copy:", cpErr.message);
+      const clonedItems = fs.readdirSync(tempCloneDir);
+      for (const item of clonedItems) {
+        const src = path.join(tempCloneDir, item);
+        const dst = path.join(wsPath, item);
+        try {
+          fs.cpSync(src, dst, { recursive: true, force: true });
+        } catch (itemErr) {
+          console.warn(`Copy error for ${item}:`, itemErr.message);
+        }
       }
-      fs.renameSync(src, dst);
     }
-    fs.rmSync(tempCloneDir, { recursive: true, force: true });
+
+    try {
+      fs.rmSync(tempCloneDir, { recursive: true, force: true });
+    } catch { }
+
+    // Ensure credentials and standard gitignore are active
+    await ensureGitCredentials(wsPath, req.user.id, authToken);
+    await ensureGitignore(wsPath);
 
     // Sync cloned files to MongoDB
     await syncWorkspaceToDB(req.user.id, workspaceId);
@@ -911,20 +1063,6 @@ export async function generateCommitMessage(req, res) {
     const { workspaceId, aiConfig } = req.body;
     if (!workspaceId) {
       return res.status(400).json({ error: "workspaceId required" });
-    }
-    const usesGoogleAccount = Boolean(
-      aiConfig?.authMethod === "google" &&
-      aiConfig?.provider === "gemini" &&
-      aiConfig?.projectId
-    );
-    if (
-      !usesGoogleAccount ||
-      aiConfig.provider !== "gemini" ||
-      aiConfig.model !== "gemini-3.8-flash"
-    ) {
-      return res.status(400).json({
-        error: "Connect Google Gemini before generating an AI commit message.",
-      });
     }
 
     const wsPath = await getWorkspacePath(req.user.id, workspaceId);
@@ -951,8 +1089,14 @@ export async function generateCommitMessage(req, res) {
     const diffText = (diffRes.stdout || "").slice(0, 3500);
     const filesSummary = files.map((f) => `${f.status || "M"} ${f.path}`).join(", ");
 
-    // 2. Try generating via LLM
+    // 2. Try generating via LLM if configured
     try {
+      const usesGoogleAccount = Boolean(
+        aiConfig?.authMethod === "google" &&
+        aiConfig?.provider === "gemini" &&
+        aiConfig?.projectId
+      );
+
       const prompt = `Generate a single concise git commit message following Conventional Commits (feat:, fix:, refactor:, docs:, chore:, test:).
 Changed files: ${filesSummary}
 ${diffText ? `Git diff:\n${diffText}` : ""}
@@ -968,10 +1112,13 @@ Requirements:
         message: prompt,
         history: [],
         workspaceContext: "",
-        provider: aiConfig.provider,
-        model: aiConfig.model,
-        authMethod: "google",
-        projectId: aiConfig.projectId,
+        provider: aiConfig?.provider || "gemini",
+        model: aiConfig?.model || "gemini-3.5-flash-lite",
+        apiKey: aiConfig?.apiKey,
+        apiKeys: aiConfig?.apiKeys,
+        backupKeys: aiConfig?.backupKeys,
+        authMethod: usesGoogleAccount ? "google" : "api_key",
+        projectId: aiConfig?.projectId,
         googleAccessToken: usesGoogleAccount
           ? await getValidGoogleAccessToken(req.user.id)
           : null,

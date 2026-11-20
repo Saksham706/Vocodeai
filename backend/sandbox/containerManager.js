@@ -8,8 +8,10 @@ import {
   getContainerEntry,
   touchContainer,
   removeContainer,
+  getAllContainers,
 } from "./containerRegistry.js";
 import User from "../models/User.js";
+import { getWorkspacesRoot } from "../config/paths.js";
 
 const docker = new Docker();
 
@@ -32,18 +34,34 @@ export async function configureContainerEnvironment(container, workspaceKey) {
         const userId = workspaceKey.split("-")[0];
         const user = await User.findById(userId).lean();
         if (user) {
-          gitUser = user.githubUsername || user.firstName || "VocodeAI Developer";
-          gitEmail = user.email || "developer@vocodeai.com";
+          gitUser = (user.githubUsername || user.firstName || "VocodeAI Developer").replace(/["$`\\]/g, "");
+          gitEmail = (user.email || "developer@vocodeai.com").replace(/["$`\\]/g, "");
 
           if (user.githubAccessToken) {
             const cleanToken = user.githubAccessToken.trim();
-            const ghUser = user.githubUsername || "oauth2";
+            const ghUser = user.githubUsername ? user.githubUsername.trim().replace(/["$`\\]/g, "") : "x-access-token";
             gitCreds = `
-git config --global credential.helper store 2>/dev/null || true
-cat << 'EOFCRED' > /root/.git-credentials
+# Configure credential helpers globally and system-wide pointing to /etc/git-credentials
+git config --system credential.helper "store --file /etc/git-credentials" 2>/dev/null || true
+git config --global credential.helper "store --file /etc/git-credentials" 2>/dev/null || true
+
+cat << 'EOFCRED' > /etc/git-credentials
 https://${ghUser}:${cleanToken}@github.com
+https://x-access-token:${cleanToken}@github.com
+https://oauth2:${cleanToken}@github.com
+https://${cleanToken}@github.com
 EOFCRED
+chmod 644 /etc/git-credentials 2>/dev/null || true
+
+# Mirror to /root and /workspace to cover all $HOME variants
+cp /etc/git-credentials /root/.git-credentials 2>/dev/null || true
 chmod 600 /root/.git-credentials 2>/dev/null || true
+cp /etc/git-credentials /workspace/.git-credentials 2>/dev/null || true
+chmod 600 /workspace/.git-credentials 2>/dev/null || true
+
+# Rewrite github.com URLs to inject the authenticated user and token automatically
+git config --system url."https://${ghUser}:${cleanToken}@github.com/".insteadOf "https://github.com/" 2>/dev/null || true
+git config --global url."https://${ghUser}:${cleanToken}@github.com/".insteadOf "https://github.com/" 2>/dev/null || true
 `;
           }
         }
@@ -62,6 +80,9 @@ cd /workspace 2>/dev/null || true
 alias cls='clear'
 alias ll='ls -la --color=auto'
 alias ls='ls --color=auto'
+if [ -f /etc/git-credentials ]; then
+  git config --global credential.helper "store --file /etc/git-credentials" 2>/dev/null || true
+fi
 prompt_func() {
   local p="\${PWD}"
   PS1="\\[\\e[32m\\]\${TERM_USER:-user}@vocodeai\\[\\e[0m\\]:\\[\\e[34;1m\\]\${p}\\[\\e[0m\\]\\$ "
@@ -122,9 +143,11 @@ cp /etc/gitignore_global /etc/git-templates/info/exclude 2>/dev/null || true
 git config --system init.templateDir /etc/git-templates 2>/dev/null || true
 git config --global init.templateDir /etc/git-templates 2>/dev/null || true
 if [ -n "${gitUser}" ]; then
+  git config --system user.name "${gitUser}" 2>/dev/null || true
   git config --global user.name "${gitUser}" 2>/dev/null || true
 fi
 if [ -n "${gitEmail}" ]; then
+  git config --system user.email "${gitEmail}" 2>/dev/null || true
   git config --global user.email "${gitEmail}" 2>/dev/null || true
 fi
 ${gitCreds}
@@ -141,6 +164,46 @@ ${gitCreds}
     });
   } catch (err) {
     // Non-fatal if setup is slightly delayed
+  }
+}
+
+/**
+ * Propagates updated Git credentials across all running Docker containers and active workspace directories for a user.
+ */
+export async function updateGitCredentialsForUser(userId) {
+  if (!userId) return;
+  try {
+    // 1. Update all running containers for this user
+    const containerMap = getAllContainers();
+    const userPrefix = `${String(userId)}-`;
+    for (const [key, entry] of containerMap.entries()) {
+      if (key.startsWith(userPrefix) && entry?.container) {
+        try {
+          await configureContainerEnvironment(entry.container, key);
+        } catch (cErr) {
+          console.warn(`Container credential refresh error for ${key}:`, cErr.message);
+        }
+      }
+    }
+
+    // 2. Update local disk repos
+    const userRoot = path.join(getWorkspacesRoot(), String(userId));
+    if (fs.existsSync(userRoot)) {
+      const items = fs.readdirSync(userRoot);
+      const { ensureGitCredentials } = await import("../controllers/gitController.js");
+      for (const item of items) {
+        const wsPath = path.join(userRoot, item);
+        if (fs.existsSync(path.join(wsPath, ".git"))) {
+          try {
+            await ensureGitCredentials(wsPath, userId);
+          } catch (gErr) {
+            console.warn(`Local git credential refresh error for ${wsPath}:`, gErr.message);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("updateGitCredentialsForUser notice:", err.message);
   }
 }
 

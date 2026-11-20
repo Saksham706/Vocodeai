@@ -240,6 +240,29 @@
   z-index: 1;
 }
 
+/* Light Mode Overrides for Main Workspace Panes */
+[data-theme="light"] .ide-app {
+  background-color: #F8FAFB !important;
+  color: #101C24 !important;
+}
+
+[data-theme="light"] .ide-main {
+  background-color: #F8FAFB !important;
+}
+
+[data-theme="light"] .ide-sidebar-wrapper {
+  background-color: #F8FAFC !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .ide-center {
+  background-color: #FFFFFF !important;
+}
+
+[data-theme="light"] .ide-welcome-section {
+  background-color: #F8FAFB !important;
+}
+
 /* Work Area (Editor + AI sidebar) */
 .ide-work-area {
   flex: 1;

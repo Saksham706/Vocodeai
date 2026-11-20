@@ -28,6 +28,7 @@ import { MARKETPLACE_EXTENSIONS } from "../config/marketplaceExtensions";
 import {
   applyThemeExtension,
   getActiveThemeExtension,
+  THEME_DEFINITIONS,
 } from "../utils/themeRegistry";
 import {
   getGitStatus,
@@ -35,6 +36,7 @@ import {
   unstageGitFiles,
   discardGitChanges,
 } from "../services/gitApi";
+import { saveFile } from "../services/fileApi";
 
 import { AIProvider, useAI } from "../context/AIContext";
 import { X, Puzzle } from "lucide-react";
@@ -61,6 +63,7 @@ function WorkspaceLayout() {
     openNewTerminal,
     previewUrl,
     activeFile,
+    fileContents,
     currentProject,
     currentWorkspace,
     tree,
@@ -324,6 +327,25 @@ function WorkspaceLayout() {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
+    document.body.setAttribute("data-theme", theme);
+    if (theme === "light") {
+      const activeExtTheme = getActiveThemeExtension();
+      if (activeExtTheme && THEME_DEFINITIONS[activeExtTheme]?.cssVariables) {
+        Object.keys(THEME_DEFINITIONS[activeExtTheme].cssVariables).forEach((key) => {
+          document.documentElement.style.removeProperty(key);
+        });
+      }
+      if (window.monaco?.editor) {
+        window.monaco.editor.setTheme("light");
+      }
+    } else {
+      const activeExtTheme = getActiveThemeExtension();
+      if (activeExtTheme) {
+        applyThemeExtension(activeExtTheme);
+      } else if (window.monaco?.editor) {
+        window.monaco.editor.setTheme("vs-dark");
+      }
+    }
   }, [theme]);
 
   // Initialize and apply saved theme extension
@@ -633,6 +655,106 @@ function WorkspaceLayout() {
     }
   };
 
+  // Handle Voice Assistant (Voco) system actions
+  useEffect(() => {
+    const handleVoiceAction = (e) => {
+      const { action, payload } = e.detail || {};
+      if (action === "open-terminal" || action === "toggle-terminal") {
+        setShowTerminal(true);
+        setActiveTermTab("terminal");
+      } else if (action === "close-terminal") {
+        setShowTerminal(false);
+      } else if (action === "run-code") {
+        handleMainRun();
+      } else if (action === "create-file") {
+        if (!isExplorerOpen) setIsExplorerOpen(true);
+        setCreateRequest({
+          type: "file",
+          parent: selectedTarget?.path || "",
+          initialName: payload?.name || "",
+        });
+      } else if (action === "create-folder") {
+        if (!isExplorerOpen) setIsExplorerOpen(true);
+        setCreateRequest({
+          type: "folder",
+          parent: selectedTarget?.path || "",
+          initialName: payload?.name || "",
+        });
+      } else if (action === "toggle-explorer") {
+        toggleExplorer();
+      } else if (action === "open-git") {
+        setActivityTab("git");
+        setIsExplorerOpen(true);
+      } else if (action === "toggle-settings") {
+        setShowSettings((prev) => !prev);
+      } else if (action === "toggle-ai") {
+        setShowAI((prev) => !prev);
+      } else if (action === "save-file") {
+        if (activeFile && workspaceId) {
+          saveFile(accessToken, workspaceId, activeFile, fileContents?.[activeFile] || "")
+            .catch((err) => console.warn("Save failed:", err));
+        }
+      } else if (action === "open-folder") {
+        const folderName = payload?.name || payload?.target || "";
+        setActivityTab("explorer");
+        setIsExplorerOpen(true);
+        if (folderName) {
+          setSelectedTarget({ path: folderName, type: "folder" });
+          const wsKey = currentProject || currentWorkspace?._id || "ws";
+          try {
+            localStorage.setItem(`vocode_folder_open_${wsKey}_${folderName}`, JSON.stringify(true));
+          } catch {}
+          window.dispatchEvent(
+            new CustomEvent("vocode-expand-folder", {
+              detail: { path: folderName, name: folderName },
+            })
+          );
+        }
+      } else if (action === "open-file") {
+        const fileName = (payload?.name || payload?.target || "").toLowerCase();
+        if (fileName && tree) {
+          const findFileNode = (nodes) => {
+            if (!nodes) return null;
+            for (const n of nodes) {
+              if (
+                n.type === "file" &&
+                (n.name.toLowerCase() === fileName ||
+                  n.path.toLowerCase().endsWith(fileName))
+              ) {
+                return n;
+              }
+              if (n.children) {
+                const found = findFileNode(n.children);
+                if (found) return found;
+              }
+            }
+            return null;
+          };
+          const matchNode = findFileNode(tree);
+          if (matchNode) {
+            openFile(matchNode.path);
+          }
+        }
+      }
+    };
+
+    window.addEventListener("vocode-voice-action", handleVoiceAction);
+    return () => window.removeEventListener("vocode-voice-action", handleVoiceAction);
+  }, [
+    selectedTarget,
+    isExplorerOpen,
+    activeFile,
+    workspaceId,
+    accessToken,
+    fileContents,
+    toggleExplorer,
+    handleMainRun,
+    currentProject,
+    currentWorkspace,
+    tree,
+    openFile,
+  ]);
+
   return (
     <div className={`ide-app ${theme}`}>
       {/* Unified Background System (Grid, Aurora Orbs & Glowing Curves) */}
@@ -924,6 +1046,7 @@ function WorkspaceLayout() {
 
       {/* 3. VS CODE BOTTOM STATUS BAR */}
       <StatusBar
+        theme={theme}
         userName={user?.name || user?.username || "Saksham"}
         gitBranch="main"
         gitChangesCount={gitChangesCount}
@@ -983,7 +1106,10 @@ function WorkspaceLayout() {
           });
         }}
         onSaveFile={() => {
-          if (activeFile && saveFile) saveFile(activeFile);
+          if (activeFile && workspaceId) {
+            saveFile(accessToken, workspaceId, activeFile, fileContents?.[activeFile] || "")
+              .catch((err) => console.warn("Save failed:", err));
+          }
         }}
         onInstallAntigravity={handleInstallAntigravity}
       />

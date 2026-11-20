@@ -5,6 +5,7 @@ import {
   FolderPlus,
   FoldVertical,
   RefreshCw,
+  Search,
 } from "lucide-react";
 import FileExplorer from "../explorer/FileExplorer";
 import { useWorkspace } from "../../context/WorkspaceContext";
@@ -66,6 +67,16 @@ export default function Sidebar({ onClose }) {
 
         {headerMenuOpen && (
           <div className="explorer-dropdown-menu">
+            <div
+              className="ws-dropdown-item"
+              onClick={() => {
+                setHeaderMenuOpen(false);
+                window.dispatchEvent(new CustomEvent("vocode-toggle-explorer-search"));
+              }}
+            >
+              <Search size={13} />
+              <span>Search in Explorer</span>
+            </div>
             <div
               className="ws-dropdown-item"
               onClick={() => {

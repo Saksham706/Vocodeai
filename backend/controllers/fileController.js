@@ -227,11 +227,14 @@ export async function deleteNode(req, res) {
     const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const wsQuery = buildWsQuery(wsId);
 
-    // Fetch existing nodes matching exact path or directory contents
-    const targetNodes = await FileNode.find({
-      ...wsQuery,
-      path: { $regex: `^${escaped}(/|$)` },
-    }).lean();
+    // Fetch existing nodes matching exact path or directory contents (lightweight projection)
+    const targetNodes = await FileNode.find(
+      {
+        ...wsQuery,
+        path: { $regex: `^${escaped}(/|$)` },
+      },
+      "path type name"
+    ).lean();
 
     let ws = null;
     try {
@@ -243,61 +246,55 @@ export async function deleteNode(req, res) {
     const primary = targetNodes.find((n) => n.path === clean) || targetNodes[0];
     const isFolder = targetNodes.length > 1 || (targetNodes.length === 1 && targetNodes[0].type === "folder");
 
-    // Safely cap content size for MongoDB RecycleBin payload
-    let accumulatedSize = 0;
-    const MAX_BSON_ITEMS_SIZE = 8 * 1024 * 1024; // 8MB
-
-    const safeItems = targetNodes.map((n) => {
-      const content = n.content || "";
-      const contentLen = Buffer.byteLength(content, "utf8");
-      if (accumulatedSize + contentLen < MAX_BSON_ITEMS_SIZE) {
-        accumulatedSize += contentLen;
-        return {
-          path: n.path,
-          type: n.type,
-          content: content,
-        };
+    // Capture single file content before deleting from disk and DB
+    let singleContent = "";
+    if (!isFolder) {
+      try {
+        singleContent = fsService.readFile(userId, wsId, clean) || "";
+      } catch {}
+      if (!singleContent) {
+        const found = await FileNode.findOne({ ...wsQuery, path: clean }).select("content").lean();
+        singleContent = found?.content || "";
       }
-      return {
-        path: n.path,
-        type: n.type,
-        content: "",
-      };
-    });
+    }
 
-    const primaryContent = primary?.content || "";
-    const primarySafeContent = Buffer.byteLength(primaryContent, "utf8") < MAX_BSON_ITEMS_SIZE ? primaryContent : "";
+    // Lightweight items metadata (content is preserved on disk in .trash & R2)
+    const safeItems = targetNodes.map((n) => ({
+      path: n.path,
+      type: n.type || "file",
+    }));
 
+    const rawId = req.user.id || req.user._id;
     const binItem = await RecycleBin.create({
-      userId,
+      userId: rawId,
       workspaceId: wsId,
       workspaceName: wsName,
       name,
       originalPath: clean,
       type: primary?.type || (isFolder ? "folder" : "file"),
-      content: primarySafeContent,
+      content: singleContent,
       items: safeItems,
       deletedAt: new Date(),
     });
 
-    // Move file/folder in Cloudflare R2 to trash prefix
-    try {
-      const r2Trash = await r2Service.moveNodeToTrashR2(userId, wsId, clean, binItem._id.toString());
-      if (r2Trash?.r2Key) {
-        binItem.r2Key = r2Trash.r2Key;
-        binItem.size = r2Trash.size;
-        await binItem.save();
-      }
-    } catch (r2Err) {
-      console.warn("R2 move to trash warning:", r2Err.message);
-    }
-
+    // 1. Instantly delete from DB & local filesystem
     await FileNode.deleteMany({
       ...wsQuery,
       path: { $regex: `^${escaped}(/|$)` },
     });
 
     fsService.deleteNode(userId, wsId, clean);
+
+    // 2. Move file/folder in Cloudflare R2 to trash prefix asynchronously in background
+    r2Service.moveNodeToTrashR2(userId, wsId, clean, binItem._id.toString()).then(async (r2Trash) => {
+      if (r2Trash?.r2Key) {
+        binItem.r2Key = r2Trash.r2Key;
+        binItem.size = r2Trash.size;
+        await binItem.save();
+      }
+    }).catch((r2Err) => {
+      console.warn("R2 move to trash warning:", r2Err.message);
+    });
 
     res.json({ success: true, movedToRecycleBin: true });
   } catch (err) {
@@ -309,12 +306,21 @@ export async function deleteNode(req, res) {
 /* ========== GET RECYCLE BIN ITEMS ========== */
 export async function getRecycleBin(req, res) {
   try {
-    const userId = String(req.user.id || req.user._id);
-    const items = await RecycleBin.find({ userId }).sort({ deletedAt: -1 }).lean();
+    const rawId = req.user.id || req.user._id;
+    const userQuery = mongoose.Types.ObjectId.isValid(rawId)
+      ? { $in: [rawId, String(rawId), new mongoose.Types.ObjectId(rawId)] }
+      : rawId;
+
+    // Use lean projection without heavy content strings for instant response
+    const items = await RecycleBin.find({ userId: userQuery })
+      .select("name type originalPath workspaceName workspaceId deletedAt size items.path items.type")
+      .sort({ deletedAt: -1 })
+      .lean();
+
     res.json(items);
   } catch (err) {
     console.error("GET RECYCLE BIN ERROR:", err);
-    res.status(500).json({ error: "Failed to fetch recycle bin" });
+    res.status(500).json({ error: "Failed to fetch recycle bin: " + err.message });
   }
 }
 
@@ -322,9 +328,13 @@ export async function getRecycleBin(req, res) {
 export async function restoreRecycleBinItem(req, res) {
   try {
     const { id } = req.params;
-    const userId = String(req.user.id || req.user._id);
+    const rawId = req.user.id || req.user._id;
+    const userQuery = mongoose.Types.ObjectId.isValid(rawId)
+      ? { $in: [rawId, String(rawId), new mongoose.Types.ObjectId(rawId)] }
+      : rawId;
+    const userId = String(rawId);
 
-    const item = await RecycleBin.findOne({ _id: id, userId });
+    const item = await RecycleBin.findOne({ _id: id, userId: userQuery });
     if (!item) {
       return res.status(404).json({ error: "Item not found in recycle bin" });
     }
@@ -483,25 +493,31 @@ export async function restoreRecycleBinItem(req, res) {
 export async function permanentlyDeleteRecycleBinItem(req, res) {
   try {
     const { id } = req.params;
-    const userId = String(req.user.id || req.user._id);
+    const rawId = req.user.id || req.user._id;
+    const userQuery = mongoose.Types.ObjectId.isValid(rawId)
+      ? { $in: [rawId, String(rawId), new mongoose.Types.ObjectId(rawId)] }
+      : rawId;
 
-    const deleted = await RecycleBin.findOneAndDelete({ _id: id, userId });
+    const deleted = await RecycleBin.findOneAndDelete({ _id: id, userId: userQuery });
     if (!deleted) {
       return res.status(404).json({ error: "Item not found in recycle bin" });
     }
 
-    // Purge from Cloudflare R2
-    try {
-      await r2Service.purgeTrashR2(userId, id);
-      if (deleted.type === "workspace") {
-        await r2Service.deleteWorkspaceFromR2(userId, String(deleted.workspaceId));
-      }
-    } catch (r2Err) {
-      console.warn("R2 purge trash warning:", r2Err.message);
-    }
+    const userId = String(rawId);
+
+    // Purge from Cloudflare R2 asynchronously
+    r2Service.purgeTrashR2(userId, id)
+      .then(async () => {
+        if (deleted.type === "workspace") {
+          await r2Service.deleteWorkspaceFromR2(userId, String(deleted.workspaceId));
+        }
+      })
+      .catch((r2Err) => {
+        console.warn("R2 purge trash warning:", r2Err.message);
+      });
 
     if (deleted.type === "workspace") {
-      await Workspace.deleteOne({ _id: deleted.workspaceId, userId });
+      await Workspace.deleteOne({ _id: deleted.workspaceId, userId: userQuery });
       await FileNode.deleteMany({
         $or: [
           { workspaceId: deleted.workspaceId },
@@ -514,43 +530,58 @@ export async function permanentlyDeleteRecycleBinItem(req, res) {
     res.json({ success: true, message: "Permanently deleted" });
   } catch (err) {
     console.error("PERMANENT DELETE ERROR:", err);
-    res.status(500).json({ error: "Failed to permanently delete item" });
+    res.status(500).json({ error: "Failed to permanently delete item: " + err.message });
   }
 }
 
 /* ========== EMPTY RECYCLE BIN ========== */
 export async function emptyRecycleBin(req, res) {
   try {
-    const userId = String(req.user.id || req.user._id);
-    const items = await RecycleBin.find({ userId }).lean();
+    const rawId = req.user.id || req.user._id;
+    const userQuery = mongoose.Types.ObjectId.isValid(rawId)
+      ? { $in: [rawId, String(rawId), new mongoose.Types.ObjectId(rawId)] }
+      : rawId;
+    const userId = String(rawId);
 
-    for (const it of items) {
-      // Purge from Cloudflare R2
-      try {
-        await r2Service.purgeTrashR2(userId, it._id.toString());
-        if (it.type === "workspace") {
-          await r2Service.deleteWorkspaceFromR2(userId, String(it.workspaceId));
-        }
-      } catch (r2Err) {
-        console.warn("R2 empty trash item error:", r2Err.message);
-      }
+    const items = await RecycleBin.find({ userId: userQuery }).lean();
 
-      if (it.type === "workspace") {
-        await Workspace.deleteOne({ _id: it.workspaceId, userId });
-        await FileNode.deleteMany({
-          $or: [
-            { workspaceId: it.workspaceId },
-            { workspaceId: String(it.workspaceId) },
-          ],
-        });
-        fsService.deleteWorkspace(userId, String(it.workspaceId));
-      }
-    }
-    await RecycleBin.deleteMany({ userId });
+    // Immediately remove from RecycleBin collection in MongoDB
+    await RecycleBin.deleteMany({ userId: userQuery });
+
+    // Respond immediately so client closes modal in ~20ms!
     res.json({ success: true, message: "Recycle bin emptied" });
+
+    // Clean up filesystem trash and R2 asynchronously in background
+    setImmediate(async () => {
+      for (const it of items) {
+        try {
+          await r2Service.purgeTrashR2(userId, it._id.toString());
+          if (it.type === "workspace") {
+            await r2Service.deleteWorkspaceFromR2(userId, String(it.workspaceId));
+          }
+        } catch (r2Err) {
+          console.warn("R2 empty trash item error:", r2Err.message);
+        }
+
+        if (it.type === "workspace") {
+          try {
+            await Workspace.deleteOne({ _id: it.workspaceId, userId: userQuery });
+            await FileNode.deleteMany({
+              $or: [
+                { workspaceId: it.workspaceId },
+                { workspaceId: String(it.workspaceId) },
+              ],
+            });
+            fsService.deleteWorkspace(userId, String(it.workspaceId));
+          } catch (e) {
+            console.warn("Workspace purge error:", e.message);
+          }
+        }
+      }
+    });
   } catch (err) {
     console.error("EMPTY RECYCLE BIN ERROR:", err);
-    res.status(500).json({ error: "Failed to empty recycle bin" });
+    res.status(500).json({ error: "Failed to empty recycle bin: " + err.message });
   }
 }
 

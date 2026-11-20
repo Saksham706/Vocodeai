@@ -71,6 +71,7 @@ export function buildTree(nodes) {
       if (!map[currentPath]) {
         map[currentPath] = {
           name: part,
+          path: currentPath,
           type: index === parts.length - 1 ? node.type : "folder",
           children: [],
         };

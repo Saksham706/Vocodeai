@@ -46,6 +46,7 @@ import {
   addGitRemote,
   pushGit,
   pullGit,
+  syncGit,
   cloneGitRepo,
   getGithubAccountStatus,
   disconnectGithubAccount,
@@ -237,6 +238,26 @@ export default function SourceControl({
     const interval = setInterval(fetchStatus, 8000);
     return () => clearInterval(interval);
   }, [accessToken, workspaceId]);
+
+  // Global custom event listeners for Source Control actions
+  useEffect(() => {
+    const handleOpenClone = () => setShowCloneModal(true);
+    const handleStageAllEvent = () => handleStageAll();
+    const handlePushEvent = () => handlePush();
+    const handlePullEvent = () => handlePull();
+
+    window.addEventListener("vocode-open-git-clone", handleOpenClone);
+    window.addEventListener("vocode-git-stage-all", handleStageAllEvent);
+    window.addEventListener("vocode-git-push", handlePushEvent);
+    window.addEventListener("vocode-git-pull", handlePullEvent);
+
+    return () => {
+      window.removeEventListener("vocode-open-git-clone", handleOpenClone);
+      window.removeEventListener("vocode-git-stage-all", handleStageAllEvent);
+      window.removeEventListener("vocode-git-push", handlePushEvent);
+      window.removeEventListener("vocode-git-pull", handlePullEvent);
+    };
+  }, [gitStatus, accessToken, workspaceId]);
 
   // Load commit history
   const loadHistory = async () => {
@@ -439,22 +460,15 @@ export default function SourceControl({
   // Generate Commit Message with AI
   const handleGenerateAiCommit = async () => {
     if (isGeneratingAi) return;
-    const hasGoogleGemini = Boolean(
-      aiConfig?.authMethod === "google" && aiConfig?.provider === "gemini" && aiConfig?.projectId
-    );
-    if (!hasGoogleGemini) {
-      showBanner("Connect Google Gemini in the AI panel first.", "error");
-      return;
-    }
     try {
       setIsGeneratingAi(true);
       const res = await generateAiCommitMessage(accessToken, workspaceId, aiConfig);
       if (res?.message) {
         setCommitMessage(res.message);
-        showBanner("Generated commit message with AI", "success");
+        showBanner("Generated commit message!", "success");
       }
     } catch (err) {
-      showBanner(err.message || "Failed to generate AI commit message", "error");
+      showBanner(err.message || "Failed to generate commit message", "error");
     } finally {
       setIsGeneratingAi(false);
     }
@@ -511,29 +525,33 @@ export default function SourceControl({
   // Sync (Pulls latest changes, then pushes commits to GitHub with upstream tracking)
   const handleSync = async () => {
     if (!gitStatus?.remotes || gitStatus.remotes.length === 0) {
+      showBanner("Please configure a remote GitHub repository first", "info");
       setShowRemoteModal(true);
+      return;
+    }
+    if (!ghAccount?.connected) {
+      showBanner("Please connect your GitHub account or Personal Access Token to sync", "info");
+      setShowTokenConnectModal(true);
       return;
     }
     try {
       setLoading(true);
       showBanner("Syncing changes with GitHub...", "info");
-      // 1. Pull latest first
-      try {
-        await pullGit(accessToken, workspaceId, "origin", gitStatus?.branch, null);
-      } catch (pullErr) {
-        console.warn("Pull during sync notice:", pullErr.message);
+      const res = await syncGit(accessToken, workspaceId, "origin", gitStatus?.branch);
+      if (res?.status) {
+        setGitStatus(res.status);
+      } else {
+        await fetchStatus();
       }
-      // 2. Push local commits to remote origin (sets upstream automatically)
-      await pushGit(accessToken, workspaceId, "origin", gitStatus?.branch, null, true);
-      showBanner("Synced successfully with GitHub!");
-      await fetchStatus();
+      showBanner("✓ Synced with GitHub successfully!", "success");
       await loadWorkspace();
       if (historyExpanded) loadHistory();
     } catch (err) {
-      showBanner(err.message, "error");
-      if (err.message.includes("does not exist") || err.message.includes("not configured")) {
+      const msg = err.message || "Sync failed";
+      showBanner(msg, "error");
+      if (msg.includes("does not exist") || msg.includes("not configured")) {
         setShowRemoteModal(true);
-      } else if (err.message.includes("Authentication") || !ghAccount?.connected) {
+      } else if (msg.includes("Authentication") || msg.includes("token") || !ghAccount?.connected) {
         setShowTokenConnectModal(true);
       }
     } finally {
@@ -543,17 +561,29 @@ export default function SourceControl({
 
   // Push (Seamless: uses connected GitHub account automatically)
   const handlePush = async () => {
+    if (!gitStatus?.remotes || gitStatus.remotes.length === 0) {
+      setShowRemoteModal(true);
+      return;
+    }
+    if (!ghAccount?.connected) {
+      showBanner("Please connect your GitHub account to push", "info");
+      setShowTokenConnectModal(true);
+      return;
+    }
     try {
       setLoading(true);
-      await pushGit(accessToken, workspaceId, "origin", gitStatus?.branch, null);
+      const res = await pushGit(accessToken, workspaceId, "origin", gitStatus?.branch, null);
+      if (res?.status) {
+        setGitStatus(res.status);
+      } else {
+        await fetchStatus();
+      }
       showBanner("Pushed branch to GitHub successfully!");
-      fetchStatus();
     } catch (err) {
       showBanner(err.message, "error");
       if (err.message.includes("does not exist") || err.message.includes("not configured")) {
         setShowRemoteModal(true);
       } else if (err.message.includes("Authentication") || err.message.includes("permissions") || !ghAccount?.connected) {
-        // Prompt to connect account
         setShowTokenConnectModal(true);
       }
     } finally {
@@ -565,9 +595,13 @@ export default function SourceControl({
   const handlePull = async () => {
     try {
       setLoading(true);
-      await pullGit(accessToken, workspaceId, "origin", gitStatus?.branch, null);
+      const res = await pullGit(accessToken, workspaceId, "origin", gitStatus?.branch, null);
+      if (res?.status) {
+        setGitStatus(res.status);
+      } else {
+        await fetchStatus();
+      }
       showBanner("Pulled latest changes from GitHub!");
-      await fetchStatus();
       await loadWorkspace();
     } catch (err) {
       showBanner(err.message, "error");
@@ -594,9 +628,14 @@ export default function SourceControl({
       } catch {}
 
       await addGitRemote(accessToken, workspaceId, "origin", cleanUrl);
-      showBanner("Remote 'origin' updated!");
       setShowRemoteModal(false);
-      fetchStatus();
+      try {
+        await pushGit(accessToken, workspaceId, "origin", gitStatus?.branch || "main", null);
+        showBanner(`Branch '${gitStatus?.branch || "main"}' published to GitHub successfully!`);
+      } catch (pushErr) {
+        showBanner("Remote 'origin' configured successfully!");
+      }
+      await fetchStatus();
     } catch (err) {
       showBanner(err.message, "error");
     } finally {
@@ -1514,7 +1553,7 @@ export default function SourceControl({
 
             <form onSubmit={handleConnectWithToken}>
               <p className="sc-modal-desc">
-                Paste your GitHub Personal Access Token once. VocodeAI will securely save it to your account and automatically configure git credentials for both the UI and the terminal.
+                GitHub has retired account password authentication for Git operations. Connect your GitHub Personal Access Token (PAT) with <strong>repo</strong> scope once, and VocodeAI will automatically configure Git credentials so both the <strong>Sync Changes</strong> button and terminal <code>git push</code> work hands-free without password prompts.
               </p>
 
               <div className="sc-form-group">

@@ -252,8 +252,8 @@
 }
 
 .docs-search-input:focus {
-  border-color: var(--docs-accent-emerald);
-  box-shadow: 0 0 0 3px rgba(0, 240, 152, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: none;
 }
 
 .docs-search-kbd {

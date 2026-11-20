@@ -1,8 +1,9 @@
-import React, { lazy, Suspense } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import RobotMascot from "./components/mascot/RobotMascot";
+import VocoAssistant from "./components/mascot/VocoAssistant";
 import PageMeta from "./components/common/PageMeta";
+import { applyThemeExtension, getActiveThemeExtension } from "./utils/themeRegistry";
 
 // Lazy-loaded routes for code splitting and instant page loads
 const Landing = lazy(() => import("./pages/Landing"));
@@ -94,14 +95,22 @@ function PublicRoute({ children }) {
 }
 
 export default function App() {
+  // Apply saved theme extension across the whole website on initial load
+  useEffect(() => {
+    const activeTheme = getActiveThemeExtension();
+    if (activeTheme) {
+      applyThemeExtension(activeTheme);
+    }
+  }, []);
+
   return (
     <AuthProvider>
       <BrowserRouter>
         {/* Dynamic SEO Meta & Title Manager */}
         <PageMeta />
 
-        {/* Global Draggable 3D AI Robot Mascot */}
-        <RobotMascot />
+        {/* Voco — Siri-like Voice AI Assistant */}
+        <VocoAssistant />
 
         <Suspense fallback={<PageFallback />}>
           <Routes>

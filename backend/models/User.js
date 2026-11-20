@@ -29,6 +29,13 @@ const userSchema = new mongoose.Schema(
     resetOTP: String,
     resetOTPExpiry: Date,
 
+    // Persistent Daily AI Quota (150 requests/day, resets at 12:00 AM midnight)
+    aiDailyUsage: {
+      date: { type: String, default: "" },
+      count: { type: Number, default: 0 },
+      lifetimeCount: { type: Number, default: 0 },
+    },
+
   },
   { timestamps: true }
 );

@@ -61,15 +61,15 @@
   display: flex;
   align-items: center;
   background: var(--explorer-surface, #04160F);
-  border: 1px solid var(--explorer-border, rgba(16, 185, 129, 0.2));
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 4px;
   padding: 2px 4px 2px 8px;
   transition: border-color 0.15s ease;
 }
 
 .search-field-inner:focus-within {
-  border-color: #43E65C;
-  box-shadow: 0 0 0 1px rgba(67, 230, 92, 0.3);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: none;
 }
 
 .search-text-input {
@@ -188,11 +188,16 @@
 
 .search-filter-input {
   background: var(--explorer-surface, #04160F);
-  border: 1px solid var(--explorer-border, rgba(16, 185, 129, 0.2));
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 3px;
   color: var(--explorer-text, #F3F8F4);
   font-size: 11px;
   padding: 3px 6px;
+  outline: none;
+}
+
+.search-filter-input:focus {
+  border-color: rgba(255, 255, 255, 0.35);
   outline: none;
 }
 

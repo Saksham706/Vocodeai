@@ -98,49 +98,6 @@ export default function ImportWorkspaceModal({
                 Preserves your full folder tree, empty directories, and code.
               </div>
             </div>
-
-            {/* Direct Path Input & Quick Folder Chips */}
-            <div className="import-direct-path-wrap">
-              <span className="import-path-label">Or enter folder path:</span>
-              <div className="import-path-input-row">
-                <input
-                  type="text"
-                  className="import-path-input"
-                  placeholder="e.g. D:\C++_DSA or D:\output"
-                  value={localPathInput}
-                  onChange={(e) => setLocalPathInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleScanDirectPath()}
-                  disabled={isScanningLocal}
-                />
-                <button
-                  type="button"
-                  className="import-path-scan-btn"
-                  onClick={() => handleScanDirectPath()}
-                  disabled={isScanningLocal || !localPathInput.trim()}
-                >
-                  {isScanningLocal ? "Scanning..." : "Scan Folder"}
-                </button>
-              </div>
-
-              {commonFolders.length > 0 && (
-                <div className="import-chips-list">
-                  <span className="import-chips-label">Quick select:</span>
-                  {commonFolders.map((cf, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className="import-folder-chip"
-                      onClick={() => handleScanDirectPath(cf.path)}
-                      disabled={isScanningLocal}
-                      title={cf.path}
-                    >
-                      <FolderClosed size={12} />
-                      <span>{cf.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         ) : (
           /* Step 2: Preview & Confirm Import */
