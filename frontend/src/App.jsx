@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect } from "react";
+import React, { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import VocoAssistant from "./components/mascot/VocoAssistant";
@@ -94,6 +94,48 @@ function PublicRoute({ children }) {
   return children;
 }
 
+/* =========================
+   WORKSPACE ROUTE FALLBACK
+   Resolves /workspace to /workspace/:recentId or /dashboard
+========================= */
+function WorkspaceRedirect() {
+  const { accessToken } = useAuth();
+  const [targetUrl, setTargetUrl] = useState(() => {
+    const recent = localStorage.getItem("vocode_recent_workspace");
+    return recent ? `/workspace/${recent}` : null;
+  });
+  const [loading, setLoading] = useState(!targetUrl);
+
+  useEffect(() => {
+    if (targetUrl) return;
+    if (!accessToken) {
+      setLoading(false);
+      return;
+    }
+    import("./services/workspaceApi")
+      .then(({ listWorkspaces }) => listWorkspaces(accessToken))
+      .then((list) => {
+        if (Array.isArray(list) && list.length > 0) {
+          const firstId = list[0]._id || list[0].id;
+          localStorage.setItem("vocode_recent_workspace", firstId);
+          setTargetUrl(`/workspace/${firstId}`);
+        } else {
+          setTargetUrl("/dashboard");
+        }
+      })
+      .catch(() => setTargetUrl("/dashboard"))
+      .finally(() => setLoading(false));
+  }, [accessToken, targetUrl]);
+
+  if (targetUrl) {
+    return <Navigate to={targetUrl} replace />;
+  }
+  if (loading) {
+    return <PageFallback />;
+  }
+  return <Navigate to="/dashboard" replace />;
+}
+
 export default function App() {
   // Apply saved theme extension across the whole website on initial load
   useEffect(() => {
@@ -160,6 +202,15 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/workspace"
+              element={
+                <ProtectedRoute>
+                  <WorkspaceRedirect />
                 </ProtectedRoute>
               }
             />

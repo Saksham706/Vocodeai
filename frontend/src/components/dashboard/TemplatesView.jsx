@@ -25,9 +25,11 @@ import "../../styles/templates.css";
 
 const CATEGORIES = [
   { id: "all", label: "All Templates" },
+  { id: "fullstack", label: "Full-Stack (MERN/MEAN)" },
+  { id: "backend", label: "Backend (Spring/Flask/Node)" },
   { id: "ai", label: "AI & Voice" },
   { id: "frontend", label: "Frontend & Web" },
-  { id: "backend", label: "Backend & APIs" },
+  { id: "mobile", label: "Flutter & Mobile" },
   { id: "languages", label: "Languages & DSA" },
 ];
 

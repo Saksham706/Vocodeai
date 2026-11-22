@@ -18,35 +18,34 @@ import {
 } from "lucide-react";
 import VocoSiriOrb from "./VocoSiriOrb";
 import { playVocaSound, speakVocaText, stopVocaSpeech } from "./vocaSounds";
-import { queryVocaKnowledge, analyzeCurrentPage } from "./vocaKnowledge";
-import { askAI } from "../../services/aiApi";
+import { askVoiceAI } from "../../services/aiApi";
 import { useAuth } from "../../context/AuthContext";
 import "../../styles/VocoAssistant.css";
 
 // Voice command patterns for VocodeAI
 const COMMAND_PATTERNS = [
-  // 1. Open Folder (e.g. "open the hi folder in the workspace", "open hi folder", "open folder hi")
+  // 1. Open Folder (e.g. "open the hi folder in the workspace", "open hi folder", "open folder hi", "open folder called components")
   {
     type: "open-folder",
-    regex: /(?:open|expand|show|view|navigate to|go to)(?:\s+the)?\s+(?:folder\s+([a-zA-Z0-9_\-./]+)|([a-zA-Z0-9_\-./]+)\s+folder)(?:\s+in(?:\s+the)?\s+workspace)?/i,
+    regex: /(?:open|expand|show|view|navigate to|go to)(?:\s+the)?\s+(?:folder\s+(?:called\s+|named\s+)?["']?([a-zA-Z0-9_\-./]+)["']?|["']?([a-zA-Z0-9_\-./]+)["']?\s+folder|["']?([a-zA-Z0-9_\-./]+)["']?\s+(?:in|inside)(?:\s+the)?\s+workspace)(?:\s+(?:in|inside)(?:\s+the)?\s+workspace)?/i,
     feedback: (match) => {
-      const name = match?.[1] || match?.[2] || "folder";
+      const name = (match?.[1] || match?.[2] || match?.[3] || "folder").replace(/["']/g, "").trim();
       return `Opening the ${name} folder in your workspace.`;
     },
     extractPayload: (match) => ({
-      name: match?.[1] || match?.[2] || "",
+      name: (match?.[1] || match?.[2] || match?.[3] || "").replace(/["']/g, "").trim(),
     }),
   },
-  // 2. Open File (e.g. "open ThreeSum.java", "open file TwoSum.java")
+  // 2. Open File (e.g. "open ThreeSum.java", "open file TwoSum.java", "open file named index.js")
   {
     type: "open-file",
-    regex: /(?:open|edit|show|view)\s+(?:the\s+)?file\s+([a-zA-Z0-9_\-./]+)|(?:open|edit)\s+([a-zA-Z0-9_\-./]+\.[a-zA-Z0-9]+)/i,
+    regex: /(?:open|edit|show|view)\s+(?:the\s+)?file(?:\s+(?:named|called))?\s+["']?([a-zA-Z0-9_\-./]+)["']?|(?:open|edit)\s+["']?([a-zA-Z0-9_\-./]+\.[a-zA-Z0-9]+)["']?/i,
     feedback: (match) => {
-      const name = match?.[1] || match?.[2] || "file";
+      const name = (match?.[1] || match?.[2] || "file").replace(/["']/g, "").trim();
       return `Opening ${name} in editor.`;
     },
     extractPayload: (match) => ({
-      name: match?.[1] || match?.[2] || "",
+      name: (match?.[1] || match?.[2] || "").replace(/["']/g, "").trim(),
     }),
   },
   // 3. Open Workspace
@@ -55,55 +54,65 @@ const COMMAND_PATTERNS = [
     regex: /(?:open|go to|launch|switch to)(?:\s+my)?\s+workspace/i,
     feedback: "Opening your workspace now.",
   },
-  // 4. Terminal Commands
+  // 4. Terminal Commands (handles "open terminal", "run terminal", "run the terminal", "start terminal", "launch terminal")
   {
     type: "open-terminal",
-    regex: /(?:run|open|show|start|launch)(?:\s+the)?\s+terminal/i,
+    regex: /(?:run|open|show|start|launch|toggle|view)\s+(?:the\s+)?(?:integrated\s+|cloud\s+)?terminal/i,
     feedback: "Opening integrated cloud terminal.",
   },
   {
     type: "close-terminal",
-    regex: /(?:close|hide|exit)(?:\s+the)?\s+terminal/i,
+    regex: /(?:close|hide|exit|minimize)\s+(?:the\s+)?(?:integrated\s+|cloud\s+)?terminal/i,
     feedback: "Hiding terminal.",
   },
-  // 5. Code Execution
+  // 5. Code Execution (handles "run code", "run the current opened file", "run active file", "run this file", "execute the current file", "run file")
   {
     type: "run-code",
-    regex: /(?:run|execute|test)(?:\s+the)?\s+(?:code|file|project|program)/i,
+    regex: /(?:run|execute|test|compile|start)\s+(?:the\s+)?(?:(?:current|active|opened|open|this|my)\s+)*(?:code|file|project|program|script)?/i,
     feedback: "Running your code in the cloud sandbox.",
   },
   // 6. Create File & Folder
   {
     type: "create-file",
-    regex: /(?:create|make|add|new)\s+(?:a\s+)?file(?:\s+(?:named|called)?\s*([a-zA-Z0-9_\-./]+))?/i,
-    feedback: (match) => `Creating file ${match?.[1] ? match[1] : ""}.`,
-    extractPayload: (match) => ({ name: match?.[1] || "" }),
+    regex: /(?:create|make|add|new)\s+(?:a\s+)?file(?:\s+(?:named|called)?\s*["']?([a-zA-Z0-9_\-./]+)["']?)?/i,
+    feedback: (match) => {
+      const name = (match?.[1] || "").replace(/["']/g, "").trim();
+      return `Creating file ${name ? name : ""}.`;
+    },
+    extractPayload: (match) => ({
+      name: (match?.[1] || "").replace(/["']/g, "").trim(),
+    }),
   },
   {
     type: "create-folder",
-    regex: /(?:create|make|add|new)\s+(?:a\s+)?folder(?:\s+(?:named|called)?\s*([a-zA-Z0-9_\-./]+))?/i,
-    feedback: (match) => `Creating folder ${match?.[1] ? match[1] : ""}.`,
-    extractPayload: (match) => ({ name: match?.[1] || "" }),
+    regex: /(?:create|make|add|new)\s+(?:a\s+)?folder(?:\s+(?:named|called)?\s*["']?([a-zA-Z0-9_\-./]+)["']?)?/i,
+    feedback: (match) => {
+      const name = (match?.[1] || "").replace(/["']/g, "").trim();
+      return `Creating folder ${name ? name : ""}.`;
+    },
+    extractPayload: (match) => ({
+      name: (match?.[1] || "").replace(/["']/g, "").trim(),
+    }),
   },
   // 7. Navigation & Utilities
   {
     type: "open-dashboard",
-    regex: /(?:go to|open|show|view)\s+dashboard/i,
+    regex: /(?:go to|open|show|view)\s+(?:my\s+)?dashboard/i,
     feedback: "Taking you to your workspace dashboard.",
   },
   {
     type: "open-docs",
-    regex: /(?:open|show|read|go to)\s+(?:documentation|docs|guide)/i,
+    regex: /(?:open|show|read|go to)\s+(?:the\s+)?(?:documentation|docs|guide)/i,
     feedback: "Opening VocodeAI documentation.",
   },
   {
     type: "toggle-theme",
-    regex: /(?:switch|toggle|change)(?:\s+to)?\s+(?:theme|dark mode|light mode)/i,
+    regex: /(?:switch|toggle|change)(?:\s+to)?\s+(?:the\s+)?(?:theme|dark mode|light mode)/i,
     feedback: "Switching appearance theme.",
   },
   {
     type: "open-git",
-    regex: /(?:open|show|view)\s+(?:git|source control|repository)/i,
+    regex: /(?:open|show|view|toggle)\s+(?:the\s+)?(?:git|source control|repository)/i,
     feedback: "Opening source control panel.",
   },
   {
@@ -113,12 +122,12 @@ const COMMAND_PATTERNS = [
   },
   {
     type: "toggle-explorer",
-    regex: /(?:open|toggle|show|close)\s+(?:explorer|files|file tree)/i,
+    regex: /(?:open|toggle|show|close)\s+(?:the\s+)?(?:explorer|files|file tree)/i,
     feedback: "Toggling file explorer.",
   },
   {
     type: "open-settings",
-    regex: /(?:open|show|view)\s+settings/i,
+    regex: /(?:open|show|view|toggle)\s+(?:settings|preferences)/i,
     feedback: "Opening settings and preferences.",
   },
 ];
@@ -509,7 +518,7 @@ export default function VocoAssistant() {
   };
 
   // 5. Voice Command Execution Engine
-  const executeVoiceCommand = (cmd, match) => {
+  const executeVoiceCommand = async (cmd, match) => {
     if (autoDismissTimerRef.current) clearTimeout(autoDismissTimerRef.current);
 
     setOrbState("speaking");
@@ -534,44 +543,112 @@ export default function VocoAssistant() {
       }, 2500);
     }
 
-    const payload =
+    const rawPayload =
       typeof cmd.extractPayload === "function"
         ? cmd.extractPayload(match)
         : {
-            name: match?.[1] || "",
-            target: match?.[1] || "",
+            name: match?.[1] || match?.[2] || match?.[3] || "",
+            target: match?.[1] || match?.[2] || match?.[3] || "",
           };
 
-    // Dispatch global custom event for workspace / dashboard components to react
-    const event = new CustomEvent("vocode-voice-action", {
-      detail: {
-        type: cmd.type,
-        action: cmd.type,
-        payload,
-        match,
-        feedback: feedbackText,
-      },
-    });
-    window.dispatchEvent(event);
+    // Clean payload strings (strip surrounding quotes, whitespace)
+    const payload = {};
+    for (const key in rawPayload) {
+      payload[key] =
+        typeof rawPayload[key] === "string"
+          ? rawPayload[key].replace(/^["']|["']$/g, "").trim()
+          : rawPayload[key];
+    }
 
-    // Standard page navigation actions
-    if (
-      cmd.type === "open-workspace" ||
-      cmd.type === "open-folder" ||
-      cmd.type === "open-file"
-    ) {
-      if (location.pathname !== "/workspace") {
-        navigate("/workspace");
+    const isWorkspaceAction = [
+      "open-workspace",
+      "open-folder",
+      "open-file",
+      "open-terminal",
+      "close-terminal",
+      "run-code",
+      "create-file",
+      "create-folder",
+      "save-file",
+      "open-git",
+      "toggle-explorer",
+    ].includes(cmd.type);
+
+    const isInWorkspace = location.pathname.startsWith("/workspace/");
+
+    if (isInWorkspace) {
+      // User is already in the workspace - dispatch action directly! NEVER navigate away!
+      const event = new CustomEvent("vocode-voice-action", {
+        detail: {
+          type: cmd.type,
+          action: cmd.type,
+          payload,
+          match,
+          feedback: feedbackText,
+        },
+      });
+      window.dispatchEvent(event);
+    } else if (isWorkspaceAction) {
+      // User is outside the workspace (e.g. on Landing or Dashboard)
+      if (!accessToken) {
+        speakVocaText("Please sign in to access your workspace.");
+        navigate("/login");
+        return;
+      }
+
+      // Store pending action in sessionStorage so Workspace executes it on mount
+      sessionStorage.setItem(
+        "vocode_pending_voice_action",
+        JSON.stringify({
+          type: cmd.type,
+          action: cmd.type,
+          payload,
+          match,
+          feedback: feedbackText,
+        })
+      );
+
+      // Resolve target workspace ID
+      let targetWsId = localStorage.getItem("vocode_recent_workspace");
+      if (!targetWsId) {
+        try {
+          const { listWorkspaces } = await import("../../services/workspaceApi");
+          const list = await listWorkspaces(accessToken);
+          if (Array.isArray(list) && list.length > 0) {
+            targetWsId = list[0]._id || list[0].id;
+            localStorage.setItem("vocode_recent_workspace", targetWsId);
+          }
+        } catch (err) {
+          console.warn("Could not fetch workspaces:", err);
+        }
+      }
+
+      if (targetWsId) {
+        navigate(`/workspace/${targetWsId}`);
+      } else {
+        // No workspace exists yet, take them to dashboard
+        navigate("/dashboard");
       }
     } else if (cmd.type === "open-dashboard") {
       navigate("/dashboard");
     } else if (cmd.type === "open-docs") {
-      window.open("/docs", "_blank");
+      navigate("/docs");
     } else if (cmd.type === "toggle-theme") {
       const current = document.documentElement.getAttribute("data-theme") || "dark";
       const next = current === "dark" ? "light" : "dark";
       document.documentElement.setAttribute("data-theme", next);
       localStorage.setItem("vocode_theme", next);
+      window.dispatchEvent(new CustomEvent("vocode-theme-toggle", { detail: { theme: next } }));
+    } else if (cmd.type === "open-settings") {
+      if (isInWorkspace) {
+        window.dispatchEvent(
+          new CustomEvent("vocode-voice-action", {
+            detail: { type: "toggle-settings", action: "toggle-settings" },
+          })
+        );
+      } else {
+        navigate("/dashboard");
+      }
     }
   };
 
@@ -582,61 +659,38 @@ export default function VocoAssistant() {
     setAiResponse(null);
     playVocaSound("ping");
 
-    // Check offline knowledgebase first
-    const localAnswer = queryVocaKnowledge(prompt);
-    if (localAnswer) {
-      const textToSpeak =
-        typeof localAnswer === "string"
-          ? localAnswer
-          : localAnswer?.answer || localAnswer?.title || String(localAnswer);
-
-      setOrbState("speaking");
-      setAiResponse(textToSpeak);
-      if (soundEnabled) {
-        speakVocaText(textToSpeak, () => setOrbState("idle"));
-      } else {
-        setOrbState("idle");
-      }
-      return;
-    }
-
     try {
-      const systemContext = `You are Voco, the ultra-smart Apple Siri-style voice assistant for VocodeAI Cloud IDE.
-The user is speaking to you directly via voice.
-Keep answers concise, direct, helpful, and under 3 sentences so they sound natural when spoken out loud.
-If providing code, provide only the core 1-3 lines.
-Current route: ${location.pathname}.`;
-
-      const res = await askAI(
-        [
-          { role: "system", content: systemContext },
-          { role: "user", content: prompt },
-        ],
-        accessToken
-      );
-
-      const rawAiText =
-        typeof res === "string"
-          ? res
-          : res?.content ||
-            res?.message ||
-            res?.response ||
-            "I processed that command with the AI engine.";
+      const activeWorkspaceId = localStorage.getItem("vocode_recent_workspace");
+      const res = await askVoiceAI(accessToken, prompt, activeWorkspaceId, null, []);
 
       const aiText =
-        typeof rawAiText === "string" ? rawAiText : JSON.stringify(rawAiText);
+        res?.reply ||
+        (typeof res === "string" ? res : "I am Voco, your voice AI assistant for VocodeAI.");
 
       setAiResponse(aiText);
       setOrbState("speaking");
+
       if (soundEnabled) {
         speakVocaText(aiText, () => setOrbState("idle"));
       } else {
         setOrbState("idle");
       }
+
+      // If the AI identified an executable IDE action, execute it seamlessly!
+      if (res?.action?.type) {
+        executeVoiceCommand(
+          {
+            type: res.action.type,
+            feedback: aiText,
+            extractPayload: () => res.action.payload || {},
+          },
+          null
+        );
+      }
     } catch (err) {
       console.warn("AI connection fallback:", err);
       const fallbackMsg =
-        "I'm here to help. You can ask me to open the hi folder, open terminal, run code, or create files.";
+        "Hey! I'm Voco, your voice AI assistant. I can open folders, launch the terminal, run your code, or answer questions about your project.";
       setAiResponse(fallbackMsg);
       setOrbState("speaking");
       if (soundEnabled) {

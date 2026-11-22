@@ -4,6 +4,7 @@ import { auth } from "../middleware/auth.js";
 import { detectProject } from "../projects/projectDetector.js";
 import { codeQueue } from "../queue/codeQueue.js";
 import { execInWorkspace } from "../sandbox/execService.js";
+import { getWorkspacePortBindings } from "../sandbox/containerManager.js";
 import rateLimit from "express-rate-limit";
 import { getWorkspacesRoot } from "../config/paths.js";
 
@@ -17,6 +18,18 @@ const runLimiter = rateLimit({
 
 const router = express.Router();
 const activeRuns = new Map();
+
+/* GET ACTIVE FORWARDED PORTS FOR A WORKSPACE */
+router.get("/ports/:workspaceId", auth, async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    const workspaceKey = `${req.user.id}-${workspaceId}`;
+    const bindings = await getWorkspacePortBindings(workspaceKey);
+    res.json({ success: true, ports: bindings });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 router.post("/", runLimiter, auth, async (req, res) => {
   try {
@@ -71,13 +84,16 @@ router.post("/", runLimiter, auth, async (req, res) => {
         activeRuns.delete(runKey);
       }, 5000);
 
+      const targetPort = detected.port || null;
       res.json({
         success: true,
         jobId: job.id,
         type: detected.type,
         command: detected.command,
         mode: detected.mode,
-        port: detected.port || null,
+        port: targetPort,
+        apiPort: detected.apiPort || null,
+        previewUrl: targetPort ? `http://localhost:${targetPort}` : null,
       });
     } catch (queueErr) {
       console.warn("Queue add failed, running directly:", queueErr.message);
@@ -89,6 +105,7 @@ router.post("/", runLimiter, auth, async (req, res) => {
         command: detected.command,
         detach: detected.mode === "server",
       });
+      const targetPort = detected.port || null;
       res.json({
         success: true,
         direct: true,
@@ -96,7 +113,9 @@ router.post("/", runLimiter, auth, async (req, res) => {
         type: detected.type,
         command: detected.command,
         mode: detected.mode,
-        port: detected.port || null,
+        port: targetPort,
+        apiPort: detected.apiPort || null,
+        previewUrl: targetPort ? `http://localhost:${targetPort}` : null,
       });
     }
   } catch (err) {

@@ -208,11 +208,13 @@ export async function updateGitCredentialsForUser(userId) {
 }
 
 const STANDARD_DEV_PORTS = [
-  3000, 3001, 3002,
-  4000, 4001, 4200,
-  5000, 5001, 5002,
-  5174, 5175,
-  8000, 8001, 8008, 8080, 8081,
+  3000, 3001, 3002, 3003, 3004, 3005,
+  4000, 4001, 4002, 4200,
+  5000, 5001, 5002, 5005,
+  5173, 5174, 5175, 5176,
+  7860,
+  8000, 8001, 8005, 8008, 8080, 8081, 8088,
+  8501,
   8888,
   9000, 9001
 ];
@@ -232,53 +234,79 @@ export function detectWorkspacePorts(workspacePath) {
     const absPath = path.resolve(workspacePath);
     if (!fs.existsSync(absPath)) return Array.from(detected);
 
-    // 1. Scan .env
-    const envFile = path.join(absPath, ".env");
-    if (fs.existsSync(envFile)) {
-      const txt = fs.readFileSync(envFile, "utf-8");
-      const matches = txt.matchAll(/(?:PORT|APP_PORT|SERVER_PORT)\s*=\s*(\d{2,5})/gi);
-      for (const m of matches) {
-        const p = parseInt(m[1], 10);
-        if (p >= 1024 && p <= 65535) detected.add(p);
+    const scanDir = (dir, depth = 0) => {
+      if (depth > 3) return;
+      let entries = [];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
       }
-    }
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          if (!["node_modules", ".git", ".venv", "dist", "build", "target", ".idea"].includes(entry.name)) {
+            scanDir(path.join(dir, entry.name), depth + 1);
+          }
+        } else if (entry.isFile()) {
+          const name = entry.name.toLowerCase();
+          const isTarget =
+            name.startsWith(".env") ||
+            name === "package.json" ||
+            name === "pubspec.yaml" ||
+            name === "angular.json" ||
+            name === "application.properties" ||
+            name === "application.yml" ||
+            name === "docker-compose.yml" ||
+            name === "dockerfile" ||
+            name.endsWith(".py") ||
+            name.endsWith(".js") ||
+            name.endsWith(".mjs") ||
+            name.endsWith(".ts");
 
-    // 2. Scan package.json
-    const pkgFile = path.join(absPath, "package.json");
-    if (fs.existsSync(pkgFile)) {
-      const txt = fs.readFileSync(pkgFile, "utf-8");
-      const matches = txt.matchAll(/(?:--port|-p|PORT=)\s*(\d{2,5})/gi);
-      for (const m of matches) {
-        const p = parseInt(m[1], 10);
-        if (p >= 1024 && p <= 65535) detected.add(p);
-      }
-    }
+          if (isTarget) {
+            try {
+              const txt = fs.readFileSync(path.join(dir, entry.name), "utf-8");
 
-    // 3. Scan common source files
-    const candidateFiles = [
-      "server.js",
-      "app.js",
-      "index.js",
-      "main.py",
-      "app.py",
-      "server.py",
-      "application.properties",
-      "application.yml",
-    ];
+              // 1. PORT=... or APP_PORT=... or SERVER_PORT=... or VITE_PORT=...
+              for (const m of txt.matchAll(/(?:PORT|APP_PORT|SERVER_PORT|VITE_PORT)\s*[:=]\s*(\d{2,5})/gi)) {
+                const p = parseInt(m[1], 10);
+                if (p >= 1024 && p <= 65535) detected.add(p);
+              }
 
-    for (const f of candidateFiles) {
-      const fp = path.join(absPath, f);
-      if (fs.existsSync(fp)) {
-        const txt = fs.readFileSync(fp, "utf-8");
-        const matches = txt.matchAll(
-          /(?:listen\s*\(\s*|PORT\s*=\s*(?:process\.env\.PORT\s*\|\|\s*)?|server\.port\s*=\s*|port\s*=\s*)(\d{2,5})/gi
-        );
-        for (const m of matches) {
-          const p = parseInt(m[1], 10);
-          if (p >= 1024 && p <= 65535) detected.add(p);
+              // 2. server.port = ... (Spring Boot properties & yaml)
+              for (const m of txt.matchAll(/server\.port\s*[:=]\s*(\d{2,5})/gi)) {
+                const p = parseInt(m[1], 10);
+                if (p >= 1024 && p <= 65535) detected.add(p);
+              }
+              for (const m of txt.matchAll(/server:\s*\n(?:\s+.*\n)*?\s+port:\s*(\d{2,5})/gi)) {
+                const p = parseInt(m[1], 10);
+                if (p >= 1024 && p <= 65535) detected.add(p);
+              }
+
+              // 3. CLI flags (--port 3000, -p 3000, --web-port 8080)
+              for (const m of txt.matchAll(/(?:--port|-p|--web-port)\s*[= ]\s*(\d{2,5})/gi)) {
+                const p = parseInt(m[1], 10);
+                if (p >= 1024 && p <= 65535) detected.add(p);
+              }
+
+              // 4. Code listen(3000) or app.run(..., port=5000) or uvicorn.run(..., port=8000)
+              for (const m of txt.matchAll(/(?:listen\s*\(\s*|app\.run\s*\([^)]*port\s*=\s*|uvicorn\.run\s*\([^)]*port\s*=\s*|streamlit\s*run.*--server\.port\s*=?\s*)(\d{2,5})/gi)) {
+                const p = parseInt(m[1], 10);
+                if (p >= 1024 && p <= 65535) detected.add(p);
+              }
+
+              // 5. EXPOSE 8080
+              for (const m of txt.matchAll(/EXPOSE\s+(\d{2,5})/gi)) {
+                const p = parseInt(m[1], 10);
+                if (p >= 1024 && p <= 65535) detected.add(p);
+              }
+            } catch {}
+          }
         }
       }
-    }
+    };
+
+    scanDir(absPath, 0);
   } catch (err) {
     console.warn("Could not detect workspace ports:", err.message);
   }
@@ -329,16 +357,41 @@ function isPortAvailable(port) {
   });
 }
 
-function isContainerUsable(inspectData, workspacePath = null) {
+export async function cleanupOrphanedContainers(currentKey = null) {
+  try {
+    const currentContainerName = currentKey ? getSanitizedContainerName(currentKey) : null;
+    const containers = await docker.listContainers({ all: true });
+    for (const c of containers) {
+      const name = (c.Names || [])[0]?.replace(/^\//, "") || "";
+      if (name.startsWith("vocodeai-") || name.startsWith("vocodea-")) {
+        if (name !== currentContainerName && c.State !== "running") {
+          try {
+            await docker.getContainer(c.Id).remove({ force: true });
+          } catch {}
+        }
+      }
+    }
+  } catch {}
+}
+
+async function isContainerUsable(inspectData, workspacePath = null) {
   if (!inspectData || !inspectData.HostConfig) return false;
   const pb = inspectData.HostConfig.PortBindings || {};
 
   // Check if any explicitly detected workspace port is missing from PortBindings
-  if (workspacePath) {
-    const neededPorts = detectWorkspacePorts(workspacePath);
-    for (const p of neededPorts) {
-      const key = `${p}/tcp`;
-      if (!pb[key] || pb[key].length === 0) {
+  const neededPorts = workspacePath ? detectWorkspacePorts(workspacePath) : [];
+  for (const p of neededPorts) {
+    const key = `${p}/tcp`;
+    if (!pb[key] || pb[key].length === 0) {
+      return false;
+    }
+    // If this detected port was shifted to an alternative host port (e.g. 3000 -> 3003),
+    // but the 1:1 host port (3000) is now free, container is NOT usable! Force recreate 1:1!
+    const currentHostPort = parseInt(pb[key][0]?.HostPort, 10);
+    if (currentHostPort !== p && !RESERVED_HOST_PORTS.has(p)) {
+      const is1to1Free = await isPortAvailable(p);
+      if (is1to1Free) {
+        console.log(`[CONTAINER RECREATE] Port ${p} is now available on host (was ${currentHostPort}). Recreating container with 1:1 mapping.`);
         return false;
       }
     }
@@ -347,6 +400,22 @@ function isContainerUsable(inspectData, workspacePath = null) {
   // Ensure dev ports are bound
   const hasDevPort = Object.keys(pb).some((k) => pb[k] && pb[k].length > 0);
   if (!hasDevPort) return false;
+
+  // Also check standard dev ports (3000, 4200, 5000, 8080):
+  // If any was shifted away, but the standard host port is now available on host, recreate 1:1!
+  for (const p of [3000, 4200, 5000, 8080]) {
+    const key = `${p}/tcp`;
+    if (pb[key] && pb[key][0]) {
+      const currentHostPort = parseInt(pb[key][0].HostPort, 10);
+      if (currentHostPort !== p && !RESERVED_HOST_PORTS.has(p)) {
+        const is1to1Free = await isPortAvailable(p);
+        if (is1to1Free) {
+          console.log(`[CONTAINER RECREATE] Standard port ${p} is now free on host (was shifted to ${currentHostPort}). Recreating container 1:1.`);
+          return false;
+        }
+      }
+    }
+  }
 
   if (inspectData.State?.Running) {
     const networks = inspectData.NetworkSettings?.Networks;
@@ -374,10 +443,23 @@ export async function getAvailableDevPortBindings(workspacePath = null, containe
   for (const port of candidatePorts) {
     // If user's project wants port 8000 while host 8000 is occupied by VocodeAI backend:
     if (port === 8000 && RESERVED_HOST_PORTS.has(8000)) {
-      for (const alt of [8005, 8008, 8085]) {
+      for (const alt of [8005, 8008, 8085, 8088]) {
         if (!assignedHostPorts.has(alt) && !dockerBound.has(alt) && (await isPortAvailable(alt))) {
           exposedPorts["8000/tcp"] = {};
           portBindings["8000/tcp"] = [{ HostPort: String(alt) }];
+          assignedHostPorts.add(alt);
+          break;
+        }
+      }
+      continue;
+    }
+
+    // If user's project wants port 5173 while host 5173 is occupied by Vite:
+    if (port === 5173 && RESERVED_HOST_PORTS.has(5173)) {
+      for (const alt of [5174, 5175, 5176, 5180]) {
+        if (!assignedHostPorts.has(alt) && !dockerBound.has(alt) && (await isPortAvailable(alt))) {
+          exposedPorts["5173/tcp"] = {};
+          portBindings["5173/tcp"] = [{ HostPort: String(alt) }];
           assignedHostPorts.add(alt);
           break;
         }
@@ -389,6 +471,17 @@ export async function getAvailableDevPortBindings(workspacePath = null, containe
       exposedPorts[`${port}/tcp`] = {};
       portBindings[`${port}/tcp`] = [{ HostPort: String(port) }];
       assignedHostPorts.add(port);
+    } else if (detectedPorts.includes(port)) {
+      // If a user's specifically detected port is busy on host, find an available alternative host port!
+      for (let offset = 1; offset <= 20; offset++) {
+        const alt = port + offset;
+        if (!assignedHostPorts.has(alt) && !dockerBound.has(alt) && (await isPortAvailable(alt))) {
+          exposedPorts[`${port}/tcp`] = {};
+          portBindings[`${port}/tcp`] = [{ HostPort: String(alt) }];
+          assignedHostPorts.add(alt);
+          break;
+        }
+      }
     }
   }
 
@@ -404,6 +497,34 @@ export async function getAvailableDevPortBindings(workspacePath = null, containe
   return { exposedPorts, portBindings, detectedPorts };
 }
 
+export async function getWorkspacePortBindings(workspaceKey) {
+  try {
+    const entry = getContainerEntry(workspaceKey);
+    const container = entry?.container || docker.getContainer(getSanitizedContainerName(workspaceKey));
+    if (!container) return [];
+
+    const data = await container.inspect();
+    const ports = data.NetworkSettings?.Ports || data.HostConfig?.PortBindings || {};
+    const result = [];
+
+    for (const [key, bindings] of Object.entries(ports)) {
+      const containerPort = parseInt(key.split("/")[0], 10);
+      if (bindings && bindings.length > 0) {
+        for (const b of bindings) {
+          result.push({
+            containerPort,
+            hostPort: parseInt(b.HostPort, 10),
+            hostUrl: `http://localhost:${b.HostPort}`,
+          });
+        }
+      }
+    }
+    return result;
+  } catch {
+    return [];
+  }
+}
+
 export async function getOrCreateContainer({
   workspaceKey,
   workspacePath,
@@ -415,7 +536,7 @@ export async function getOrCreateContainer({
   if (existing) {
     try {
       const inspectData = await existing.container.inspect();
-      if (!isContainerUsable(inspectData, workspacePath)) {
+      if (!(await isContainerUsable(inspectData, workspacePath))) {
         await existing.container.stop({ t: 1 }).catch(() => {});
         await existing.container.remove({ force: true }).catch(() => {});
         removeContainer(workspaceKey);
@@ -438,7 +559,7 @@ export async function getOrCreateContainer({
   try {
     const existingDocker = docker.getContainer(containerName);
     const data = await existingDocker.inspect();
-    if (!isContainerUsable(data, workspacePath)) {
+    if (!(await isContainerUsable(data, workspacePath))) {
       await existingDocker.stop({ t: 1 }).catch(() => {});
       await existingDocker.remove({ force: true }).catch(() => {});
       removeContainer(workspaceKey);
@@ -455,7 +576,8 @@ export async function getOrCreateContainer({
     // Container does not exist yet in Docker daemon
   }
 
-  // 3. Ensure any conflicting container is cleaned up before creating fresh
+  // 3. Ensure any conflicting or stopped orphaned container is cleaned up before creating fresh
+  await cleanupOrphanedContainers(workspaceKey);
   try {
     const leftover = docker.getContainer(containerName);
     await leftover.stop({ t: 1 }).catch(() => {});

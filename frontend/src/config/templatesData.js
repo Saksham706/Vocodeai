@@ -539,6 +539,195 @@ function speakReply(text) {
         content: `# Java 17 Starter\n\nRun with Maven or Java runner.`
       }
     ]
+  },
+  {
+    id: "mern-stack",
+    title: "MERN Stack Full-Stack",
+    subtitle: "MongoDB, Express, React 18 & Node.js with live API",
+    description: "Complete full-stack MERN application structure featuring an Express REST API backend on Port 5000 and a responsive React Vite frontend on Port 3000.",
+    category: "fullstack",
+    badge: "Full-Stack",
+    icon: "Atom",
+    color: "#00ED64",
+    tags: ["MERN", "React 18", "Express", "Node.js", "MongoDB"],
+    recommendedFile: "client/src/App.jsx",
+    files: [
+      {
+        path: "package.json",
+        type: "file",
+        content: `{\n  "name": "vocode-mern-app",\n  "version": "1.0.0",\n  "type": "module",\n  "scripts": {\n    "start": "node server/server.js",\n    "server": "node server/server.js",\n    "client": "npm --prefix client run dev -- --host 0.0.0.0",\n    "dev": "(cd server && npm start) & (cd client && npm run dev -- --host 0.0.0.0)"\n  }\n}`
+      },
+      {
+        path: "server/server.js",
+        type: "file",
+        content: `import express from "express";\nimport cors from "cors";\nimport dotenv from "dotenv";\n\ndotenv.config();\nconst app = express();\nconst PORT = process.env.PORT || 5000;\napp.use(cors());\napp.use(express.json());\n\nlet items = [\n  { id: 1, name: "Master MERN Stack in VocodeAI", done: true },\n  { id: 2, name: "Deploy full-stack micro-VM containers", done: true }\n];\n\napp.get("/api/items", (req, res) => res.json(items));\napp.listen(PORT, "0.0.0.0", () => console.log(\`🚀 Server running on port \${PORT}\`));`
+      },
+      {
+        path: "client/src/App.jsx",
+        type: "file",
+        content: `import React, { useState, useEffect } from "react";\n\nexport default function App() {\n  const [items, setItems] = useState([]);\n  useEffect(() => {\n    fetch("http://localhost:5000/api/items")\n      .then(r => r.json())\n      .then(setItems)\n      .catch(() => setItems([{ id: 1, name: "MERN Stack Demo", done: true }]));\n  }, []);\n  return (\n    <div style={{ padding: 30, background: "#0d1117", color: "#fff", minHeight: "100vh" }}>\n      <h1>🚀 VocodeAI MERN App</h1>\n      <p>Express API on Port 5000 & React on Port 3000</p>\n      <ul>{items.map(i => <li key={i.id}>{i.name}</li>)}</ul>\n    </div>\n  );\n}`
+      },
+      {
+        path: "README.md",
+        type: "file",
+        content: `# MERN Stack Starter\n\nClick **▶ Run Project** to start both client and server.`
+      }
+    ]
+  },
+  {
+    id: "spring-boot-api",
+    title: "Spring Boot 3 REST API",
+    subtitle: "Enterprise Java 17, Spring Web MVC & Maven",
+    description: "Production-ready Spring Boot 3 web application with REST controllers, JSON endpoints, and dynamic port configuration on Port 8080.",
+    category: "backend",
+    badge: "Spring Boot",
+    icon: "Coffee",
+    color: "#6DB33F",
+    tags: ["Spring Boot 3", "Java 17", "Maven", "REST API"],
+    recommendedFile: "src/main/java/com/vocodeai/controller/ApiController.java",
+    files: [
+      {
+        path: "pom.xml",
+        type: "file",
+        content: `<?xml version="1.0" encoding="UTF-8"?>\n<project xmlns="http://maven.apache.org/POM/4.0.0"\n         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">\n    <modelVersion>4.0.0</modelVersion>\n    <parent>\n        <groupId>org.springframework.boot</groupId>\n        <artifactId>spring-boot-starter-parent</artifactId>\n        <version>3.2.4</version>\n        <relativePath/>\n    </parent>\n    <groupId>com.vocodeai</groupId>\n    <artifactId>spring-boot-starter</artifactId>\n    <version>1.0.0</version>\n    <properties>\n        <java.version>17</java.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.springframework.boot</groupId>\n            <artifactId>spring-boot-starter-web</artifactId>\n        </dependency>\n    </dependencies>\n</project>`
+      },
+      {
+        path: "src/main/resources/application.properties",
+        type: "file",
+        content: `server.port=8080\nspring.application.name=vocode-spring-boot\nserver.address=0.0.0.0\n`
+      },
+      {
+        path: "src/main/java/com/vocodeai/Application.java",
+        type: "file",
+        content: `package com.vocodeai;\n\nimport org.springframework.boot.SpringApplication;\nimport org.springframework.boot.autoconfigure.SpringBootApplication;\n\n@SpringBootApplication\npublic class Application {\n    public static void main(String[] args) {\n        SpringApplication.run(Application.class, args);\n    }\n}`
+      },
+      {
+        path: "src/main/java/com/vocodeai/controller/ApiController.java",
+        type: "file",
+        content: `package com.vocodeai.controller;\n\nimport org.springframework.web.bind.annotation.*;\nimport java.util.*;\n\n@RestController\n@RequestMapping("/api")\n@CrossOrigin(origins = "*")\npublic class ApiController {\n    @GetMapping("/health")\n    public Map<String, String> health() {\n        return Collections.singletonMap("status", "UP");\n    }\n    @GetMapping("/hello")\n    public Map<String, String> hello() {\n        return Collections.singletonMap("message", "Hello from Spring Boot 3 on Port 8080!");\n    }\n}`
+      },
+      {
+        path: "README.md",
+        type: "file",
+        content: `# Spring Boot 3 REST API\n\nRun with \`mvn spring-boot:run\` on Port 8080.`
+      }
+    ]
+  },
+  {
+    id: "python-flask",
+    title: "Python Flask REST & Web App",
+    subtitle: "Lightweight Flask API with CORS & JSON responses",
+    description: "Production-ready Flask application featuring JSON REST routes, CORS enabled, and clean HTML frontend template running on Port 5000.",
+    category: "backend",
+    badge: "Flask",
+    icon: "Zap",
+    color: "#38BDF8",
+    tags: ["Python 3.11", "Flask", "REST API", "JSON"],
+    recommendedFile: "app.py",
+    files: [
+      {
+        path: "requirements.txt",
+        type: "file",
+        content: `Flask>=3.0.0\nflask-cors>=4.0.0\npython-dotenv>=1.0.0\n`
+      },
+      {
+        path: "app.py",
+        type: "file",
+        content: `import os\nfrom flask import Flask, jsonify\nfrom flask_cors import CORS\n\napp = Flask(__name__)\nCORS(app)\nPORT = int(os.environ.get("PORT", 5000))\n\n@app.route("/")\ndef index():\n    return jsonify({"service": "Flask API", "status": "online", "port": PORT})\n\nif __name__ == "__main__":\n    app.run(host="0.0.0.0", port=PORT, debug=True)\n`
+      },
+      {
+        path: "README.md",
+        type: "file",
+        content: `# Python Flask REST API\n\nRun on Port 5000 with \`python3 app.py\`.`
+      }
+    ]
+  },
+  {
+    id: "flutter-web",
+    title: "Flutter Web Application",
+    subtitle: "Cross-platform Dart & Flutter responsive UI",
+    description: "Modern Flutter Web starter configured with Material 3, responsive layout, reactive state, and live web preview support on Port 8080.",
+    category: "mobile",
+    badge: "Flutter",
+    icon: "Layout",
+    color: "#02569B",
+    tags: ["Flutter", "Dart", "Material 3", "Web Server"],
+    recommendedFile: "lib/main.dart",
+    files: [
+      {
+        path: "pubspec.yaml",
+        type: "file",
+        content: `name: vocode_flutter_app\ndescription: "VocodeAI Flutter Web Application"\nversion: 1.0.0\nenvironment:\n  sdk: ">=3.0.0 <4.0.0"\ndependencies:\n  flutter:\n    sdk: flutter\nflutter:\n  uses-material-design: true\n`
+      },
+      {
+        path: "lib/main.dart",
+        type: "file",
+        content: `import 'package:flutter/material.dart';\n\nvoid main() => runApp(const VocodeApp());\n\nclass VocodeApp extends StatelessWidget {\n  const VocodeApp({super.key});\n  @override\n  Widget build(BuildContext context) {\n    return MaterialApp(\n      title: 'VocodeAI Flutter',\n      theme: ThemeData.dark(useMaterial3: true),\n      home: Scaffold(\n        appBar: AppBar(title: const Text('Flutter Web in Cloud')), \n        body: const Center(child: Text('⚡ Flutter Running on Port 8080')),\n      ),\n    );\n  }\n}`
+      },
+      {
+        path: "README.md",
+        type: "file",
+        content: `# Flutter Web Application\n\nRun with \`flutter run -d web-server --web-port=8080 --web-hostname=0.0.0.0\`.`
+      }
+    ]
+  },
+  {
+    id: "mean-stack",
+    title: "MEAN Stack Full-Stack",
+    subtitle: "MongoDB, Express, Angular & Node.js",
+    description: "Enterprise MEAN stack application configured with Angular frontend on Port 4200 and Express API on Port 5000.",
+    category: "fullstack",
+    badge: "Full-Stack",
+    icon: "Layout",
+    color: "#DD0031",
+    tags: ["MEAN", "Angular", "Express", "Node.js", "MongoDB"],
+    recommendedFile: "client/src/index.html",
+    files: [
+      {
+        path: "package.json",
+        type: "file",
+        content: `{\n  "name": "vocode-mean-app",\n  "version": "1.0.0",\n  "scripts": {\n    "start": "node server/server.js",\n    "dev": "(cd server && npm start) & (cd client && npx ng serve --host 0.0.0.0 --port 4200)"\n  }\n}`
+      },
+      {
+        path: "server/server.js",
+        type: "file",
+        content: `import express from "express";\nimport cors from "cors";\nconst app = express();\nconst PORT = process.env.PORT || 5000;\napp.use(cors());\napp.use(express.json());\napp.get("/api/health", (req, res) => res.json({ service: "MEAN API", port: PORT }));\napp.listen(PORT, "0.0.0.0", () => console.log(\`MEAN server running on \${PORT}\`));`
+      },
+      {
+        path: "README.md",
+        type: "file",
+        content: `# MEAN Stack Starter\n\nAngular on Port 4200 and Express on Port 5000.`
+      }
+    ]
+  },
+  {
+    id: "python-ai-agent",
+    title: "AI Agent & LLM Companion",
+    subtitle: "FastAPI + Gemini / OpenAI AI assistant with web interface",
+    description: "Production-grade AI agent powered by FastAPI, Google Gemini, and OpenAI SDKs with streaming inference and conversational UI on Port 8000.",
+    category: "ai",
+    badge: "AI Agent",
+    icon: "Cpu",
+    color: "#8B5CF6",
+    tags: ["Gemini 3.8", "FastAPI", "Python 3.11", "AI Agent", "LLM"],
+    recommendedFile: "main.py",
+    files: [
+      {
+        path: "requirements.txt",
+        type: "file",
+        content: `fastapi>=0.111.0\nuvicorn[standard]>=0.30.0\ngoogle-genai>=0.1.1\nopenai>=1.35.0\npython-dotenv>=1.0.0\n`
+      },
+      {
+        path: "main.py",
+        type: "file",
+        content: `import os\nfrom fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware\n\napp = FastAPI(title="AI Agent")\napp.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])\nPORT = int(os.environ.get("PORT", 8000))\n\n@app.get("/")\nasync def home():\n    return {"message": "AI Agent Online", "port": PORT}\n\nif __name__ == "__main__":\n    import uvicorn\n    uvicorn.run("main:app", host="0.0.0.0", port=PORT, reload=True)\n`
+      },
+      {
+        path: "README.md",
+        type: "file",
+        content: `# Python AI Agent Starter\n\nRun on Port 8000 with FastAPI and uvicorn.`
+      }
+    ]
   }
 ];
 

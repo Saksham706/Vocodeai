@@ -1499,6 +1499,1050 @@ mvn compile exec:java -Dexec.mainClass="com.vocodeai.App"
 `
       }
     ]
+  },
+  {
+    id: "mern-stack",
+    title: "MERN Stack Full-Stack",
+    subtitle: "MongoDB, Express, React 18 & Node.js with live API",
+    description: "Complete full-stack MERN application structure featuring an Express REST API backend on Port 5000 and a responsive React Vite frontend on Port 3000.",
+    category: "fullstack",
+    badge: "Full-Stack",
+    icon: "Atom",
+    color: "#00ED64",
+    tags: ["MERN", "React 18", "Express", "Node.js", "MongoDB"],
+    recommendedFile: "client/src/App.jsx",
+    files: [
+      {
+        path: "package.json",
+        type: "file",
+        content: `{
+  "name": "vocode-mern-app",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server/server.js",
+    "server": "node server/server.js",
+    "client": "npm --prefix client run dev -- --host 0.0.0.0",
+    "dev": "(cd server && npm start) & (cd client && npm run dev -- --host 0.0.0.0)"
+  }
+}`
+      },
+      {
+        path: "server/package.json",
+        type: "file",
+        content: `{
+  "name": "mern-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5"
+  }
+}`
+      },
+      {
+        path: "server/.env",
+        type: "file",
+        content: "PORT=5000\nNODE_ENV=development\n"
+      },
+      {
+        path: "server/server.js",
+        type: "file",
+        content: `import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+app.use(cors());
+app.use(express.json());
+
+let items = [
+  { id: 1, name: "Master MERN Stack in VocodeAI", done: true },
+  { id: 2, name: "Deploy full-stack micro-VM containers", done: true },
+  { id: 3, name: "Build realtime AI features", done: false }
+];
+
+app.get("/api/health", (req, res) => {
+  res.json({ status: "healthy", service: "MERN Express API", port: PORT });
+});
+
+app.get("/api/items", (req, res) => {
+  res.json(items);
+});
+
+app.post("/api/items", (req, res) => {
+  const newItem = {
+    id: items.length + 1,
+    name: req.body.name || "Untitled Item",
+    done: false
+  };
+  items.push(newItem);
+  res.status(201).json(newItem);
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(\`🚀 MERN Server running on http://0.0.0.0:\${PORT}\`);
+});
+`
+      },
+      {
+        path: "client/package.json",
+        type: "file",
+        content: `{
+  "name": "mern-client",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.2.0"
+  }
+}`
+      },
+      {
+        path: "client/vite.config.js",
+        type: "file",
+        content: `import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 3000,
+    host: true
+  }
+});
+`
+      },
+      {
+        path: "client/index.html",
+        type: "file",
+        content: `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MERN Stack - VocodeAI</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+`
+      },
+      {
+        path: "client/src/main.jsx",
+        type: "file",
+        content: `import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import "./App.css";
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+`
+      },
+      {
+        path: "client/src/App.jsx",
+        type: "file",
+        content: `import React, { useState, useEffect } from "react";
+
+export default function App() {
+  const [items, setItems] = useState([]);
+  const [input, setInput] = useState("");
+  const [status, setStatus] = useState("Connecting to Express API...");
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/items")
+      .then((res) => res.json())
+      .then((data) => {
+        setItems(data);
+        setStatus("Connected to Express API (Port 5000)");
+      })
+      .catch(() => {
+        setStatus("Running in standalone preview mode");
+        setItems([
+          { id: 1, name: "Sample Item 1", done: true },
+          { id: 2, name: "Sample Item 2", done: false }
+        ]);
+      });
+  }, []);
+
+  const addItem = (e) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    const newItem = { id: Date.now(), name: input, done: false };
+    setItems([...items, newItem]);
+    setInput("");
+  };
+
+  return (
+    <div className="container">
+      <header>
+        <span className="badge">MERN STACK</span>
+        <h1>VocodeAI MERN App</h1>
+        <p className="status">{status}</p>
+      </header>
+
+      <form onSubmit={addItem} className="input-group">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Add new task or item..."
+        />
+        <button type="submit">Add Item</button>
+      </form>
+
+      <ul className="item-list">
+        {items.map((item) => (
+          <li key={item.id} className={item.done ? "done" : ""}>
+            <span>{item.done ? "✅" : "⏳"}</span>
+            <span>{item.name}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+`
+      },
+      {
+        path: "client/src/App.css",
+        type: "file",
+        content: `* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0d1117;
+  color: #c9d1d9;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+.container {
+  width: 100%;
+  max-width: 540px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 28px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+}
+header { text-align: center; margin-bottom: 24px; }
+.badge {
+  display: inline-block;
+  background: rgba(0, 237, 100, 0.15);
+  color: #00ed64;
+  border: 1px solid rgba(0, 237, 100, 0.3);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 16px;
+  margin-bottom: 8px;
+}
+h1 { font-size: 24px; color: #f0f6fc; margin-bottom: 6px; }
+.status { font-size: 13px; color: #8b949e; }
+.input-group { display: flex; gap: 8px; margin-bottom: 20px; }
+input {
+  flex: 1;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  color: #f0f6fc;
+  padding: 10px 14px;
+  border-radius: 8px;
+  outline: none;
+}
+input:focus { border-color: #00ed64; }
+button {
+  background: #00ed64;
+  color: #0d1117;
+  border: none;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.item-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.item-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #0d1117;
+  border: 1px solid #21262d;
+  padding: 12px 16px;
+  border-radius: 8px;
+}
+.item-list li.done { opacity: 0.6; text-decoration: line-through; }
+`
+      },
+      {
+        path: "README.md",
+        type: "file",
+        content: `# MERN Stack Starter 🚀
+
+Full-stack application featuring:
+- **Client**: React 18 + Vite running on port 3000
+- **Server**: Node.js & Express API running on port 5000
+
+## 🛠️ Run Project
+Click **▶ Run Project** in the IDE, which starts both backend and client automatically.
+`
+      }
+    ]
+  },
+  {
+    id: "spring-boot-api",
+    title: "Spring Boot 3 REST API",
+    subtitle: "Enterprise Java 17, Spring Web MVC & Maven",
+    description: "Production-ready Spring Boot 3 web application with REST controllers, JSON endpoints, and dynamic port configuration on Port 8080.",
+    category: "backend",
+    badge: "Spring Boot",
+    icon: "Coffee",
+    color: "#6DB33F",
+    tags: ["Spring Boot 3", "Java 17", "Maven", "REST API"],
+    recommendedFile: "src/main/java/com/vocodeai/controller/ApiController.java",
+    files: [
+      {
+        path: "pom.xml",
+        type: "file",
+        content: `<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.4</version>
+        <relativePath/>
+    </parent>
+    <groupId>com.vocodeai</groupId>
+    <artifactId>spring-boot-starter</artifactId>
+    <version>1.0.0</version>
+    <name>vocode-spring-boot</name>
+    <description>VocodeAI Spring Boot Starter</description>
+    <properties>
+        <java.version>17</java.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+    </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>`
+      },
+      {
+        path: "src/main/resources/application.properties",
+        type: "file",
+        content: "server.port=8080\nspring.application.name=vocode-spring-boot\nserver.address=0.0.0.0\n"
+      },
+      {
+        path: "src/main/java/com/vocodeai/Application.java",
+        type: "file",
+        content: `package com.vocodeai;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class Application {
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args);
+        System.out.println("🚀 VocodeAI Spring Boot Server online at http://0.0.0.0:8080");
+    }
+}
+`
+      },
+      {
+        path: "src/main/java/com/vocodeai/controller/ApiController.java",
+        type: "file",
+        content: `package com.vocodeai.controller;
+
+import org.springframework.web.bind.annotation.*;
+import java.time.LocalDateTime;
+import java.util.*;
+
+@RestController
+@RequestMapping("/api")
+@CrossOrigin(origins = "*")
+public class ApiController {
+
+    @GetMapping("/health")
+    public Map<String, Object> health() {
+        Map<String, Object> res = new HashMap<>();
+        res.put("status", "UP");
+        res.put("framework", "Spring Boot 3.2.4");
+        res.put("timestamp", LocalDateTime.now().toString());
+        return res;
+    }
+
+    @GetMapping("/hello")
+    public Map<String, String> hello(@RequestParam(defaultValue = "Developer") String name) {
+        return Collections.singletonMap("message", "Hello " + name + "! Welcome to VocodeAI Spring Boot.");
+    }
+
+    @GetMapping("/items")
+    public List<Map<String, Object>> getItems() {
+        List<Map<String, Object>> items = new ArrayList<>();
+        Map<String, Object> i1 = new HashMap<>();
+        i1.put("id", 1);
+        i1.put("name", "Spring Boot Microservice Container");
+        i1.put("status", "ACTIVE");
+        items.add(i1);
+        return items;
+    }
+}
+`
+      },
+      {
+        path: "README.md",
+        type: "file",
+        content: `# Spring Boot 3 REST API ☕
+
+High performance Spring Boot service running on **Port 8080**.
+
+## 🛠️ Run Project
+Click **▶ Run Project** to start:
+\`\`\`bash
+mvn spring-boot:run
+\`\`\`
+Endpoints available:
+- \`http://localhost:8080/api/health\`
+- \`http://localhost:8080/api/hello\`
+- \`http://localhost:8080/api/items\`
+`
+      }
+    ]
+  },
+  {
+    id: "python-flask",
+    title: "Python Flask REST & Web App",
+    subtitle: "Lightweight Flask API with CORS & JSON responses",
+    description: "Production-ready Flask application featuring JSON REST routes, CORS enabled, and clean HTML frontend template running on Port 5000.",
+    category: "backend",
+    badge: "Flask",
+    icon: "Zap",
+    color: "#38BDF8",
+    tags: ["Python 3.11", "Flask", "REST API", "JSON"],
+    recommendedFile: "app.py",
+    files: [
+      {
+        path: "requirements.txt",
+        type: "file",
+        content: "Flask>=3.0.0\nflask-cors>=4.0.0\npython-dotenv>=1.0.0\n"
+      },
+      {
+        path: ".env",
+        type: "file",
+        content: "PORT=5000\nFLASK_ENV=development\n"
+      },
+      {
+        path: "app.py",
+        type: "file",
+        content: `import os
+from flask import Flask, jsonify, request, render_template_string
+from flask_cors import CORS
+from dotenv import load_dotenv
+
+load_dotenv()
+
+app = Flask(__name__)
+CORS(app)
+
+PORT = int(os.environ.get("PORT", 5000))
+
+items = [
+    {"id": 1, "title": "Setup Flask in VocodeAI", "status": "completed"},
+    {"id": 2, "title": "Expose micro-VM container port 5000", "status": "active"},
+    {"id": 3, "title": "Connect Python AI Agent", "status": "pending"}
+]
+
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+  <title>VocodeAI Flask Service</title>
+  <style>
+    body { background: #0b0f19; color: #e2e8f0; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+    .card { background: #1e293b; padding: 32px; border-radius: 12px; border: 1px solid #334155; max-width: 500px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    .badge { background: #38bdf8; color: #0f172a; font-weight: bold; font-size: 11px; padding: 4px 8px; border-radius: 12px; }
+    h1 { margin-top: 10px; font-size: 22px; }
+    ul { list-style: none; padding: 0; margin-top: 20px; }
+    li { background: #0f172a; margin-bottom: 8px; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; }
+    a { color: #38bdf8; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">FLASK SERVICE ONLINE</span>
+    <h1>VocodeAI Flask API</h1>
+    <p>Running live on <strong>Port {{ port }}</strong> inside Docker container.</p>
+    <ul>
+      {% for item in items %}
+        <li><span>{{ item.title }}</span> <em>{{ item.status }}</em></li>
+      {% endfor %}
+    </ul>
+    <p><a href="/api/items">View JSON API: /api/items</a></p>
+  </div>
+</body>
+</html>
+"""
+
+@app.route("/")
+def home():
+    return render_template_string(HTML_TEMPLATE, port=PORT, items=items)
+
+@app.route("/api/health")
+def health():
+    return jsonify({"status": "healthy", "service": "Flask API", "port": PORT})
+
+@app.route("/api/items", methods=["GET"])
+def get_items():
+    return jsonify(items)
+
+@app.route("/api/items", methods=["POST"])
+def add_item():
+    data = request.get_json() or {}
+    new_item = {
+        "id": len(items) + 1,
+        "title": data.get("title", "Untitled"),
+        "status": "active"
+    }
+    items.append(new_item)
+    return jsonify(new_item), 201
+
+if __name__ == "__main__":
+    print(f"🔥 Flask starting on http://0.0.0.0:{PORT}")
+    app.run(host="0.0.0.0", port=PORT, debug=True)
+`
+      },
+      {
+        path: "README.md",
+        type: "file",
+        content: `# Python Flask REST & Web App 🌶️
+
+Lightweight Python Flask service running on **Port 5000**.
+
+## 🛠️ Execution
+Click **▶ Run Project** to start:
+\`\`\`bash
+pip3 install -r requirements.txt && python3 app.py
+\`\`\`
+`
+      }
+    ]
+  },
+  {
+    id: "flutter-web",
+    title: "Flutter Web Application",
+    subtitle: "Cross-platform Dart & Flutter responsive UI",
+    description: "Modern Flutter Web starter configured with Material 3, responsive layout, reactive state, and live web preview support on Port 8080.",
+    category: "mobile",
+    badge: "Flutter",
+    icon: "Layout",
+    color: "#02569B",
+    tags: ["Flutter", "Dart", "Material 3", "Web Server"],
+    recommendedFile: "lib/main.dart",
+    files: [
+      {
+        path: "pubspec.yaml",
+        type: "file",
+        content: `name: vocode_flutter_app
+description: "VocodeAI Flutter Web Application"
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+`
+      },
+      {
+        path: "lib/main.dart",
+        type: "file",
+        content: `import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const VocodeApp());
+}
+
+class VocodeApp extends StatelessWidget {
+  const VocodeApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'VocodeAI Flutter Web',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF02569B),
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      home: const DashboardPage(),
+    );
+  }
+}
+
+class DashboardPage extends StatefulWidget {
+  const DashboardPage({super.key});
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  int _counter = 0;
+
+  void _increment() {
+    setState(() {
+      _counter++;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('⚡ VocodeAI Flutter Web'),
+        centerTitle: true,
+        elevation: 2,
+      ),
+      body: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 480),
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              const Icon(Icons.flutter_dash, size: 80, color: Color(0xFF02569B)),
+              const SizedBox(height: 16),
+              const Text(
+                'Flutter Running in Cloud Container',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Interactive Flutter application served over Web Server on Port 8080.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 32),
+              Card(
+                elevation: 4,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 32),
+                  child: Column(
+                    children: [
+                      const Text('Action Counter', style: TextStyle(fontSize: 14)),
+                      const SizedBox(height: 8),
+                      Text('$_counter', style: Theme.of(context).textTheme.headlineMedium),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _increment,
+                icon: const Icon(Icons.add),
+                label: const Text('Increment Counter'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+`
+      },
+      {
+        path: "web/index.html",
+        type: "file",
+        content: `<!DOCTYPE html>
+<html>
+<head>
+  <base href="/">
+  <meta charset="UTF-8">
+  <title>VocodeAI Flutter Web</title>
+  <meta name="description" content="A new Flutter project.">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <script src="flutter.js" defer></script>
+</body>
+</html>
+`
+      },
+      {
+        path: "README.md",
+        type: "file",
+        content: `# Flutter Web App 💙
+
+Cross-platform Flutter application running inside VocodeAI's container sandbox.
+
+## 🛠️ Run Project
+Click **▶ Run Project** to start:
+\`\`\`bash
+flutter run -d web-server --web-port=8080 --web-hostname=0.0.0.0
+\`\`\`
+`
+      }
+    ]
+  },
+  {
+    id: "mean-stack",
+    title: "MEAN Stack Full-Stack",
+    subtitle: "MongoDB, Express, Angular & Node.js",
+    description: "Enterprise MEAN stack application configured with Angular frontend on Port 4200 and Express API on Port 5000.",
+    category: "fullstack",
+    badge: "Full-Stack",
+    icon: "Layout",
+    color: "#DD0031",
+    tags: ["MEAN", "Angular", "Express", "Node.js", "MongoDB"],
+    recommendedFile: "client/src/index.html",
+    files: [
+      {
+        path: "package.json",
+        type: "file",
+        content: `{
+  "name": "vocode-mean-app",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node server/server.js",
+    "server": "node server/server.js",
+    "client": "npm --prefix client start",
+    "dev": "(cd server && npm start) & (cd client && npx ng serve --host 0.0.0.0 --port 4200)"
+  }
+}`
+      },
+      {
+        path: "server/package.json",
+        type: "file",
+        content: `{
+  "name": "mean-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5"
+  }
+}`
+      },
+      {
+        path: "server/server.js",
+        type: "file",
+        content: `import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+app.use(cors());
+app.use(express.json());
+
+const records = [
+  { id: 1, title: "Angular Component Architecture", status: "Active" },
+  { id: 2, title: "Express REST Endpoint Integration", status: "Active" },
+  { id: 3, title: "MongoDB Schemas & Collections", status: "Ready" }
+];
+
+app.get("/api/health", (req, res) => {
+  res.json({ service: "MEAN Backend API", status: "online", port: PORT });
+});
+
+app.get("/api/records", (req, res) => {
+  res.json(records);
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(\`🚀 MEAN Express API running on http://0.0.0.0:\${PORT}\`);
+});
+`
+      },
+      {
+        path: "client/package.json",
+        type: "file",
+        content: `{
+  "name": "mean-client",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "ng serve --host 0.0.0.0 --port 4200",
+    "build": "ng build"
+  },
+  "dependencies": {
+    "@angular/core": "^17.3.0",
+    "@angular/common": "^17.3.0",
+    "@angular/platform-browser": "^17.3.0"
+  },
+  "devDependencies": {
+    "@angular/cli": "^17.3.0"
+  }
+}`
+      },
+      {
+        path: "client/angular.json",
+        type: "file",
+        content: `{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "newProjectRoot": "projects",
+  "projects": {
+    "mean-client": {
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:browser",
+          "options": {
+            "outputPath": "dist",
+            "index": "src/index.html",
+            "main": "src/main.ts"
+          }
+        },
+        "serve": {
+          "builder": "@angular-devkit/build-angular:dev-server",
+          "options": {
+            "port": 4200,
+            "host": "0.0.0.0"
+          }
+        }
+      }
+    }
+  }
+}`
+      },
+      {
+        path: "client/src/index.html",
+        type: "file",
+        content: `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MEAN Stack - VocodeAI</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { background: #0f172a; color: #f8fafc; font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+    .card { background: #1e293b; padding: 32px; border-radius: 12px; border: 1px solid #334155; max-width: 500px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; }
+    .badge { background: #dd0031; color: #ffffff; font-weight: bold; font-size: 11px; padding: 4px 10px; border-radius: 12px; }
+    h1 { margin-top: 12px; font-size: 24px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">ANGULAR 17 + EXPRESS</span>
+    <h1>MEAN Stack Application</h1>
+    <p>Running Angular frontend on <strong>Port 4200</strong> and Express API on <strong>Port 5000</strong>.</p>
+  </div>
+</body>
+</html>
+`
+      },
+      {
+        path: "README.md",
+        type: "file",
+        content: `# MEAN Stack Starter 🅰️
+
+Enterprise full-stack MEAN architecture:
+- **Client**: Angular on **Port 4200**
+- **Server**: Express on **Port 5000**
+
+## 🛠️ Run Project
+Click **▶ Run Project** to start both client and server:
+\`\`\`bash
+npm run dev
+\`\`\`
+`
+      }
+    ]
+  },
+  {
+    id: "python-ai-agent",
+    title: "AI Agent & LLM Companion",
+    subtitle: "FastAPI + Gemini / OpenAI AI assistant with web interface",
+    description: "Production-grade AI agent powered by FastAPI, Google Gemini, and OpenAI SDKs with streaming inference and conversational UI on Port 8000.",
+    category: "ai",
+    badge: "AI Agent",
+    icon: "Cpu",
+    color: "#8B5CF6",
+    tags: ["Gemini 3.8", "FastAPI", "Python 3.11", "AI Agent", "LLM"],
+    recommendedFile: "main.py",
+    files: [
+      {
+        path: "requirements.txt",
+        type: "file",
+        content: "fastapi>=0.111.0\nuvicorn[standard]>=0.30.0\ngoogle-genai>=0.1.1\nopenai>=1.35.0\npython-dotenv>=1.0.0\n"
+      },
+      {
+        path: ".env",
+        type: "file",
+        content: "PORT=8000\nGEMINI_API_KEY=\nOPENAI_API_KEY=\n"
+      },
+      {
+        path: "main.py",
+        type: "file",
+        content: `import os
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+from dotenv import load_dotenv
+
+load_dotenv()
+
+app = FastAPI(title="VocodeAI AI Agent", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+PORT = int(os.environ.get("PORT", 8000))
+
+class ChatRequest(BaseModel):
+    message: str
+
+@app.get("/", response_class=HTMLResponse)
+async def home():
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>AI Agent Interface</title>
+      <style>
+        body { background: #090d16; color: #f1f5f9; font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .chat-box { background: #131b2e; border: 1px solid #1e293b; border-radius: 16px; padding: 28px; width: 100%; max-width: 580px; box-shadow: 0 16px 40px rgba(0,0,0,0.5); }
+        .badge { background: rgba(139, 92, 246, 0.2); color: #a78bfa; font-weight: bold; font-size: 11px; padding: 4px 10px; border-radius: 20px; }
+        h1 { font-size: 22px; margin: 10px 0; }
+        .log { background: #090d16; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; min-height: 140px; margin: 16px 0; font-size: 14px; line-height: 1.5; }
+        .row { display: flex; gap: 8px; }
+        input { flex: 1; background: #090d16; border: 1px solid #334155; color: #fff; padding: 10px 14px; border-radius: 8px; outline: none; }
+        button { background: #8b5cf6; color: #fff; border: none; font-weight: bold; padding: 10px 18px; border-radius: 8px; cursor: pointer; }
+      </style>
+    </head>
+    <body>
+      <div class="chat-box">
+        <span class="badge">GEMINI 3.8 & FASTAPI</span>
+        <h1>AI Coding Agent Service</h1>
+        <p style="color: #94a3b8; font-size: 13px;">Online on Port 8000</p>
+        <div id="log" class="log"><strong>AI:</strong> Hello! Ask me any coding question or instruct me to generate code.</div>
+        <div class="row">
+          <input id="prompt" placeholder="Ask AI agent..." />
+          <button onclick="send()">Send</button>
+        </div>
+      </div>
+      <script>
+        async function send() {
+          const input = document.getElementById("prompt");
+          const log = document.getElementById("log");
+          const text = input.value.trim();
+          if (!text) return;
+          log.innerHTML += "<br/><strong>You:</strong> " + text;
+          input.value = "";
+          try {
+            const res = await fetch("/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ message: text })
+            });
+            const data = await res.json();
+            log.innerHTML += "<br/><strong>AI:</strong> " + data.reply;
+          } catch(e) {
+            log.innerHTML += "<br/><em>Error connecting to AI backend</em>";
+          }
+        }
+      </script>
+    </body>
+    </html>
+    """
+
+@app.post("/api/chat")
+async def chat(req: ChatRequest):
+    return {
+        "reply": f"AI Agent processed: '{req.message}'. Container runtime is active and responsive!",
+        "status": "success"
+    }
+
+@app.get("/api/health")
+async def health():
+    return {"status": "ok", "service": "AI Agent FastAPI", "port": PORT}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=PORT, reload=True)
+`
+      },
+      {
+        path: "README.md",
+        type: "file",
+        content: `# Python AI Agent Starter 🤖
+
+Production AI agent backend running on **Port 8000**.
+
+## 🛠️ Run Project
+Click **▶ Run Project** to start:
+\`\`\`bash
+pip3 install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+\`\`\`
+`
+      }
+    ]
   }
 ];
 

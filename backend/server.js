@@ -124,6 +124,57 @@ app.get("/", (req, res) => {
   proxyReq.end();
 });
 
+/* ================= UNIVERSAL PROJECT PORT PROXY ================= */
+// Allows previewing and accessing any port (Flask 5000, Spring Boot 8080, Angular 4200, Flutter 8080, Vite, etc.)
+app.use("/proxy/:port", (req, res) => {
+  const targetPort = parseInt(req.params.port, 10);
+  if (isNaN(targetPort) || targetPort < 1024 || targetPort > 65535) {
+    return res.status(400).json({ error: "Invalid port specified" });
+  }
+
+  const subPath = req.url.replace(/^\/?/, "/");
+  let destinationPort = targetPort;
+  if (targetPort === 8000) {
+    destinationPort = 8005;
+  } else if (targetPort === 5173) {
+    destinationPort = 5174;
+  }
+
+  const options = {
+    hostname: "127.0.0.1",
+    port: destinationPort,
+    path: subPath,
+    method: req.method,
+    headers: {
+      ...req.headers,
+      host: `localhost:${destinationPort}`,
+    },
+    timeout: 10000,
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+
+  proxyReq.on("error", (err) => {
+    res.status(502).json({
+      error: `Could not connect to project server on port ${targetPort}`,
+      message: "Make sure the project is running via '▶ Run Project' in the workspace terminal.",
+      details: err.message,
+    });
+  });
+
+  proxyReq.on("timeout", () => {
+    proxyReq.destroy();
+    res.status(504).json({
+      error: `Gateway timeout connecting to port ${targetPort}`,
+    });
+  });
+
+  req.pipe(proxyReq);
+});
+
 /* ================= ROUTES ================= */
 
 app.use("/api/auth", authRoutes);

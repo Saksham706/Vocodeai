@@ -79,6 +79,7 @@ function WorkspaceLayout() {
     setProblems,
     outputLogs,
     setOutputLogs,
+    activeProjectPort,
     isSplitEditor,
     splitEditorFile,
     closeSplitEditor,
@@ -89,6 +90,13 @@ function WorkspaceLayout() {
   const { id: workspaceId } = useParams();
   const { user, accessToken } = useAuth();
   const { aiConfig } = useAI();
+
+  // Remember active workspace ID for Voco and instant redirects
+  useEffect(() => {
+    if (workspaceId) {
+      localStorage.setItem("vocode_recent_workspace", workspaceId);
+    }
+  }, [workspaceId]);
 
   // Settings Panel State
   const [showSettings, setShowSettings] = useState(false);
@@ -695,23 +703,44 @@ function WorkspaceLayout() {
             .catch((err) => console.warn("Save failed:", err));
         }
       } else if (action === "open-folder") {
-        const folderName = payload?.name || payload?.target || "";
+        const folderName = (payload?.name || payload?.target || "").replace(/["']/g, "").trim();
         setActivityTab("explorer");
         setIsExplorerOpen(true);
         if (folderName) {
-          setSelectedTarget({ path: folderName, type: "folder" });
+          const findFolderNode = (nodes) => {
+            if (!nodes) return null;
+            const targetLower = folderName.toLowerCase();
+            for (const n of nodes) {
+              if (
+                n.type === "folder" &&
+                (n.name.toLowerCase() === targetLower ||
+                  n.path.toLowerCase() === targetLower ||
+                  n.path.toLowerCase().endsWith("/" + targetLower))
+              ) {
+                return n;
+              }
+              if (n.children) {
+                const found = findFolderNode(n.children);
+                if (found) return found;
+              }
+            }
+            return null;
+          };
+          const matchedFolder = findFolderNode(tree);
+          const targetPath = matchedFolder ? matchedFolder.path : folderName;
+          setSelectedTarget({ path: targetPath, type: "folder" });
           const wsKey = currentProject || currentWorkspace?._id || "ws";
           try {
-            localStorage.setItem(`vocode_folder_open_${wsKey}_${folderName}`, JSON.stringify(true));
+            localStorage.setItem(`vocode_folder_open_${wsKey}_${targetPath}`, JSON.stringify(true));
           } catch {}
           window.dispatchEvent(
             new CustomEvent("vocode-expand-folder", {
-              detail: { path: folderName, name: folderName },
+              detail: { path: targetPath, name: folderName },
             })
           );
         }
       } else if (action === "open-file") {
-        const fileName = (payload?.name || payload?.target || "").toLowerCase();
+        const fileName = (payload?.name || payload?.target || "").replace(/["']/g, "").trim().toLowerCase();
         if (fileName && tree) {
           const findFileNode = (nodes) => {
             if (!nodes) return null;
@@ -719,7 +748,8 @@ function WorkspaceLayout() {
               if (
                 n.type === "file" &&
                 (n.name.toLowerCase() === fileName ||
-                  n.path.toLowerCase().endsWith(fileName))
+                  n.path.toLowerCase() === fileName ||
+                  n.path.toLowerCase().endsWith("/" + fileName))
               ) {
                 return n;
               }
@@ -754,6 +784,27 @@ function WorkspaceLayout() {
     tree,
     openFile,
   ]);
+
+  // Execute any pending voice command queued before landing into this workspace
+  useEffect(() => {
+    try {
+      const pendingRaw = sessionStorage.getItem("vocode_pending_voice_action");
+      if (pendingRaw) {
+        sessionStorage.removeItem("vocode_pending_voice_action");
+        const pending = JSON.parse(pendingRaw);
+        const timer = setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent("vocode-voice-action", {
+              detail: pending,
+            })
+          );
+        }, 450);
+        return () => clearTimeout(timer);
+      }
+    } catch (e) {
+      console.warn("Failed to replay pending voice command:", e);
+    }
+  }, [workspaceId, tree]);
 
   return (
     <div className={`ide-app ${theme}`}>
@@ -1056,6 +1107,7 @@ function WorkspaceLayout() {
             ? activeFile.split(".").pop().toUpperCase()
             : "JavaScript"
         }
+        activePort={activeProjectPort}
         onToggleTerminal={toggleTerminal}
         onTogglePreview={() => refreshPreview(true)}
         onFocusAntigravity={handleFocusAntigravity}

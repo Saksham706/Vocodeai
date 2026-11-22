@@ -1,5 +1,42 @@
 import { BACKEND_URL } from "../config/apiConfig";
 
+export async function askVoiceAI(
+  token,
+  message,
+  workspaceId,
+  activeFile,
+  history = []
+) {
+  const activeToken = token || localStorage.getItem("accessToken") || "";
+  const res = await fetch(`${BACKEND_URL}/api/ai/voice`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
+    },
+    body: JSON.stringify({
+      message,
+      workspaceId,
+      activeFile,
+      history,
+    }),
+  });
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Voice AI request failed with status ${res.status}`);
+  }
+
+  if (!res.ok) {
+    throw new Error(data.error || "Voice AI request failed");
+  }
+
+  return data;
+}
+
 export async function askAI(
   token,
   message,

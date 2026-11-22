@@ -287,13 +287,106 @@ export async function deleteChatHistory(req, res) {
   }
 }
 
-/* ================= VOCA MASCOT ASSISTANT ================= */
-export async function handleVocaAI(req, res) {
-  // Public mascot help uses built-in content; workspace AI requires a Google Gemini account.
-  return res.status(503).json({
-    error: "Voca's public guide uses built-in help content. Connect Google Gemini in a workspace to use AI chat.",
-  });
+/* ================= VOCO VOICE AI ASSISTANT ================= */
+export async function handleVoiceAI(req, res) {
+  try {
+    const { message, workspaceId, activeFile, history = [] } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: "Message is required." });
+    }
+
+    // Optional workspace context if workspaceId is supplied
+    let workspaceContext = "";
+    if (workspaceId && mongoose.Types.ObjectId.isValid(String(workspaceId))) {
+      try {
+        const files = await FileNode.find({ workspaceId, type: "file" })
+          .select("path name content")
+          .limit(8)
+          .lean();
+        if (files && files.length > 0) {
+          workspaceContext = files
+            .map((f) => `File: ${f.path}\n${(f.content || "").slice(0, 1000)}`)
+            .join("\n\n");
+        }
+      } catch (err) {
+        console.warn("Could not load workspace context for voice:", err.message);
+      }
+    }
+
+    const voiceSystemPrompt = `You are Voco, the ultra-fast, intelligent Voice AI Assistant for the VocodeAI Cloud IDE.
+You are interacting with the user through live voice and speech.
+Current active file in editor: ${activeFile || "None"}
+Current workspace files:
+${workspaceContext || "Standard development workspace"}
+
+VOICE RESPONSE GUIDELINES:
+1. Always identify yourself as Voco. Never say you are an owl, Voca, or a mascot. You are Voco, the AI voice assistant for VocodeAI.
+2. Be concise, direct, helpful, and natural: 1 to 3 spoken sentences is ideal.
+3. If the user asks general questions ("what are you doing", "who are you", "what can you do"), give a friendly, sharp, conversational answer as Voco.
+4. If the user asks for code, provide only the core code snippet or concise explanation.
+5. NEVER format your response as massive markdown bullet lists or tables. It will be read aloud.
+6. If the user's intent is to perform an IDE action, indicate the action at the very end of your response in the format:
+ACTION: {"type": "ACTION_TYPE", "payload": {...}}
+Supported ACTION_TYPEs:
+- "open-terminal" (when user wants to open/run terminal)
+- "close-terminal" (when user wants to hide/close terminal)
+- "run-code" (when user wants to run/execute the active file or code)
+- "open-folder" with payload {"name": "folder_name"}
+- "open-file" with payload {"name": "file_name"}
+- "create-file" with payload {"name": "file_name"}
+- "create-folder" with payload {"name": "folder_name"}
+- "toggle-explorer"
+- "open-git"
+- "save-file"
+- "open-dashboard"
+- "open-docs"
+- "toggle-theme"`;
+
+    const aiRaw = await askAI({
+      message,
+      history,
+      systemPromptOverride: voiceSystemPrompt,
+    });
+
+    let rawReply = typeof aiRaw === "string" ? aiRaw : JSON.stringify(aiRaw);
+    let detectedAction = null;
+
+    // Check if the AI returned an ACTION: tag
+    const actionMatch = rawReply.match(/ACTION:\s*(\{.*\})/s);
+    if (actionMatch) {
+      try {
+        detectedAction = JSON.parse(actionMatch[1].trim());
+        rawReply = rawReply.replace(/ACTION:\s*\{.*\}/s, "").trim();
+      } catch {}
+    }
+
+    // Clean up any remaining JSON wrappers or artifacts
+    let cleanReply = rawReply.trim();
+    if (cleanReply.startsWith("{") && cleanReply.endsWith("}")) {
+      try {
+        const parsedJson = JSON.parse(cleanReply);
+        if (parsedJson.actions) {
+          const chatAct = parsedJson.actions.find((a) => a.action === "chat");
+          cleanReply = chatAct?.message || "I processed that command for your workspace.";
+        }
+      } catch {}
+    }
+
+    return res.json({
+      success: true,
+      reply: cleanReply,
+      action: detectedAction,
+    });
+  } catch (err) {
+    console.error("VOICE AI ERROR:", err.message);
+    return res.status(500).json({
+      error: err.message || "Failed to process voice AI request.",
+      fallback: "I'm Voco, your voice AI assistant. I'm ready to help you code, run terminal commands, and navigate your workspace.",
+    });
+  }
 }
+
+export const handleVocaAI = handleVoiceAI;
 /* ================= REUSE GOOGLE SIGN-IN FOR GEMINI ================= */
 export async function getGoogleAccountStatus(req, res) {
   try {

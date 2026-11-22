@@ -18,6 +18,7 @@ export default function StatusBar({
   gitChangesCount = 0,
   problemCount = 0,
   activeLanguage = "JavaScript",
+  activePort = null,
   onToggleTerminal,
   onTogglePreview,
   onFocusAntigravity,
@@ -60,10 +61,10 @@ export default function StatusBar({
         <div
           className="status-item status-live-btn"
           onClick={onTogglePreview}
-          title="Click to toggle live preview"
+          title={activePort ? `Connected on port ${activePort}. Click to open in browser.` : "Click to toggle live preview"}
         >
           <Radio size={12} style={{ marginRight: 4 }} />
-          <span>Go Live</span>
+          <span>{activePort ? `Port: ${activePort}` : "Go Live"}</span>
         </div>
 
         {/* Antigravity Status */}

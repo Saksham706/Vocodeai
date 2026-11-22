@@ -134,7 +134,12 @@ export default function Dashboard() {
     if (!accessToken) return;
     listWorkspaces(accessToken)
       .then((data) => {
-        setWorkspaces(Array.isArray(data) ? data : []);
+        const wsList = Array.isArray(data) ? data : [];
+        setWorkspaces(wsList);
+        if (wsList.length > 0) {
+          const first = wsList[0];
+          localStorage.setItem("vocode_recent_workspace", first._id || first.id);
+        }
       })
       .catch((err) => {
         console.error("Failed to load workspaces:", err);
@@ -174,14 +179,35 @@ export default function Dashboard() {
   // Voice Actions Handler from Voco
   useEffect(() => {
     const handleVoiceAction = (e) => {
-      const { action } = e.detail || {};
+      const { action, payload, match, feedback } = e.detail || {};
+      const targetWs =
+        workspaces.length > 0
+          ? workspaces[0]._id || workspaces[0].id
+          : localStorage.getItem("vocode_recent_workspace");
+
       if (action === "open-workspace") {
-        if (workspaces.length > 0) {
-          const target = workspaces[0];
-          navigate(`/workspace/${target._id || target.id}`);
+        if (targetWs) {
+          navigate(`/workspace/${targetWs}`);
         }
       } else if (action === "create-workspace") {
         setShowCreateModal(true);
+      } else if (
+        [
+          "open-folder",
+          "open-file",
+          "open-terminal",
+          "run-code",
+          "create-file",
+          "create-folder",
+        ].includes(action)
+      ) {
+        if (targetWs) {
+          sessionStorage.setItem(
+            "vocode_pending_voice_action",
+            JSON.stringify({ action, type: action, payload, match, feedback })
+          );
+          navigate(`/workspace/${targetWs}`);
+        }
       }
     };
     window.addEventListener("vocode-voice-action", handleVoiceAction);

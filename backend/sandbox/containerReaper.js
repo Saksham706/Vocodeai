@@ -1,5 +1,5 @@
 import { getAllContainers } from "./containerRegistry.js";
-import { stopAndRemoveContainer } from "./containerManager.js";
+import { stopAndRemoveContainer, cleanupOrphanedContainers } from "./containerManager.js";
 
 const IDLE_TIMEOUT =
   Number(process.env.CONTAINER_IDLE_TIMEOUT) ||
@@ -15,5 +15,10 @@ export function startContainerReaper() {
         await stopAndRemoveContainer(workspaceId);
       }
     }
+
+    // Periodically remove exited containers so host ports are freed
+    try {
+      await cleanupOrphanedContainers();
+    } catch {}
   }, 60 * 1000);
 }

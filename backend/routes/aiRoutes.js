@@ -3,6 +3,7 @@ import { auth } from "../middleware/auth.js";
 import {
   handleAI,
   deleteChatHistory,
+  handleVoiceAI,
   handleVocaAI,
   getGoogleAccountStatus,
   handleVerifyGoogleAI,
@@ -14,8 +15,9 @@ import {
 
 const router = express.Router();
 
-// Public assistant for the floating robot mascot "Voca"
-router.post("/voca", handleVocaAI);
+// Voice AI assistant for Voco
+router.post("/voice", handleVoiceAI);
+router.post("/voca", handleVoiceAI);
 
 router.get("/usage", auth, getAIUsageStats);
 router.get("/credentials", auth, getAICredentials);

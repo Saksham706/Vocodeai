@@ -4,7 +4,11 @@ import path from "path";
 import jwt from "jsonwebtoken";
 import chokidar from "chokidar";
 
-import { getOrCreateContainer, configureContainerEnvironment } from "./sandbox/containerManager.js";
+import {
+  getOrCreateContainer,
+  configureContainerEnvironment,
+  getWorkspacePortBindings,
+} from "./sandbox/containerManager.js";
 import { touchContainer } from "./sandbox/containerRegistry.js";
 import { createDockerPty, createLocalPty } from "./terminal/dockerPty.js";
 import { syncWorkspaceToDB } from "./services/syncService.js";
@@ -128,6 +132,26 @@ export function setupTerminalServer(server) {
 
         // 3. Spawn real PTY session connected to container with client's exact dimensions
         ptyProcess = createDockerPty(container.id, shell, username, cols, rows);
+
+        // Fetch exact port forwarding URLs
+        try {
+          const bindings = await getWorkspacePortBindings(key);
+          if (bindings && bindings.length > 0) {
+            const mainBindings = bindings.filter((b) =>
+              [3000, 3001, 3002, 4200, 5000, 5174, 8000, 8005, 8080, 8501, 7860].includes(b.containerPort)
+            );
+            const targetList = mainBindings.length > 0 ? mainBindings : bindings.slice(0, 5);
+            fallbackNotice =
+              `\r\n\x1b[32m✔ [VocodeAI Port Forwarding Active]\x1b[0m\r\n` +
+              targetList
+                .map(
+                  (b) =>
+                    `  \x1b[90m•\x1b[0m Port \x1b[33m${b.containerPort}\x1b[0m ➜ \x1b[36m${b.hostUrl}\x1b[0m`
+                )
+                .join("\r\n") +
+              `\r\n\r\n`;
+          }
+        } catch {}
       } catch (dockerErr) {
         console.warn("Docker container spawn unavailable, using local PTY fallback:", dockerErr.message);
         ensureGitCredentials(workspacePath, userId).catch(() => {});
