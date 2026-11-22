@@ -8,6 +8,7 @@ import {
   Bell,
   Code2,
   Terminal,
+  Mic,
 } from "lucide-react";
 import AntigravityLogo from "../common/AntigravityLogo";
 import "../../styles/statusbar.css";
@@ -57,6 +58,17 @@ export default function StatusBar({
 
       {/* Right Items */}
       <div className="status-bar-right">
+        {/* Voco Voice AI Status / Trigger Pill */}
+        <div
+          className="status-item status-voco-pill"
+          onClick={() => window.dispatchEvent(new CustomEvent("vocode-toggle-voice"))}
+          title="Voco Voice Assistant: Active & Listening (Say 'Hey Voco' or click to summon)"
+          style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+        >
+          <Mic size={12} style={{ color: "#00f2fe", marginRight: 4 }} />
+          <span>Voco</span>
+        </div>
+
         {/* Go Live Preview */}
         <div
           className="status-item status-live-btn"

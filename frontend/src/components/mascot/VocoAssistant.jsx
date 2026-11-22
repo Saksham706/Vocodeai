@@ -24,60 +24,135 @@ import "../../styles/VocoAssistant.css";
 
 // Voice command patterns for VocodeAI
 const COMMAND_PATTERNS = [
-  // 1. Open Folder (e.g. "open the hi folder in the workspace", "open hi folder", "open folder hi", "open folder called components")
+  // 1. Code Execution (PRIORITY 1: Handles "run the current opened file in terminal", "run ThreeSum.java in terminal", "run code", "run this file in terminal", "run current file", "run")
+  {
+    type: "run-code",
+    regex: /^(?:(?:hey|hi|ok)\s+voco[,.]?\s*)?(?:run|execute|compile|start|test)(?:\s+(?:(?:the|this|my|current|active|opened|open|currently\s+opened)\s+)*(?:file|code|program|project|script)?|\s+["']?([a-zA-Z0-9_\-./]+\.[a-zA-Z0-9]+)["']?|\s+file(?:\s+(?:named|called))?\s+["']?([a-zA-Z0-9_\-./]+)["']?)?(?:\s+(?:in|inside|on)(?:\s+the)?\s+(?:integrated\s+|cloud\s+)?(?:terminal|console|sandbox))?$/i,
+    feedback: (match) => {
+      const target = (match?.[1] || match?.[2] || "").replace(/["']/g, "").trim();
+      const wittyLines = [
+        target ? `Firing up ${target} in the terminal! Let's see it fly.` : "Firing up your code in the terminal! Zero exit codes incoming.",
+        target ? `Executing ${target}! Fingers crossed for clean green output.` : "Executing code now. No pressure, compiler!",
+        target ? `Launching ${target}! Let's see what wonders we cooked up.` : "Running your file right now! May your variables stay defined."
+      ];
+      return wittyLines[Math.floor(Math.random() * wittyLines.length)];
+    },
+    extractPayload: (match) => ({
+      target: (match?.[1] || match?.[2] || "").replace(/["']/g, "").trim(),
+      name: (match?.[1] || match?.[2] || "").replace(/["']/g, "").trim(),
+    }),
+  },
+  // 2. Open Folder (e.g. "open the hi folder in the workspace", "open hi folder", "open folder hi", "open folder called components")
   {
     type: "open-folder",
     regex: /(?:open|expand|show|view|navigate to|go to)(?:\s+the)?\s+(?:folder\s+(?:called\s+|named\s+)?["']?([a-zA-Z0-9_\-./]+)["']?|["']?([a-zA-Z0-9_\-./]+)["']?\s+folder|["']?([a-zA-Z0-9_\-./]+)["']?\s+(?:in|inside)(?:\s+the)?\s+workspace)(?:\s+(?:in|inside)(?:\s+the)?\s+workspace)?/i,
     feedback: (match) => {
       const name = (match?.[1] || match?.[2] || match?.[3] || "folder").replace(/["']/g, "").trim();
-      return `Opening the ${name} folder in your workspace.`;
+      const wittyLines = [
+        `Cracking open the ${name} folder!`,
+        `Opening ${name} folder. Look at all those lovely files.`,
+        `Navigating right into ${name}. Let's explore!`
+      ];
+      return wittyLines[Math.floor(Math.random() * wittyLines.length)];
     },
     extractPayload: (match) => ({
       name: (match?.[1] || match?.[2] || match?.[3] || "").replace(/["']/g, "").trim(),
     }),
   },
-  // 2. Open File (e.g. "open ThreeSum.java", "open file TwoSum.java", "open file named index.js")
-  {
-    type: "open-file",
-    regex: /(?:open|edit|show|view)\s+(?:the\s+)?file(?:\s+(?:named|called))?\s+["']?([a-zA-Z0-9_\-./]+)["']?|(?:open|edit)\s+["']?([a-zA-Z0-9_\-./]+\.[a-zA-Z0-9]+)["']?/i,
-    feedback: (match) => {
-      const name = (match?.[1] || match?.[2] || "file").replace(/["']/g, "").trim();
-      return `Opening ${name} in editor.`;
-    },
-    extractPayload: (match) => ({
-      name: (match?.[1] || match?.[2] || "").replace(/["']/g, "").trim(),
-    }),
-  },
-  // 3. Open Workspace
-  {
-    type: "open-workspace",
-    regex: /(?:open|go to|launch|switch to)(?:\s+my)?\s+workspace/i,
-    feedback: "Opening your workspace now.",
-  },
-  // 4. Terminal Commands (handles "open terminal", "run terminal", "run the terminal", "start terminal", "launch terminal")
+  // 3. Terminal Commands (handles "open terminal", "show terminal", "launch terminal") - Put BEFORE open-file to avoid shadowing
   {
     type: "open-terminal",
-    regex: /(?:run|open|show|start|launch|toggle|view)\s+(?:the\s+)?(?:integrated\s+|cloud\s+)?terminal/i,
-    feedback: "Opening integrated cloud terminal.",
+    regex: /^(?:(?:hey|hi|ok)\s+voco[,.]?\s*)?(?:open|show|start|launch|toggle|view)\s+(?:the\s+)?(?:integrated\s+|cloud\s+)?terminal$/i,
+    feedback: () => {
+      const wittyLines = [
+        "Integrated cloud terminal is live and ready for action!",
+        "Terminal summoned! Time to unleash some command-line wizardry.",
+        "Opening the terminal. Type away, commander!"
+      ];
+      return wittyLines[Math.floor(Math.random() * wittyLines.length)];
+    },
   },
   {
     type: "close-terminal",
-    regex: /(?:close|hide|exit|minimize)\s+(?:the\s+)?(?:integrated\s+|cloud\s+)?terminal/i,
-    feedback: "Hiding terminal.",
+    regex: /^(?:(?:hey|hi|ok)\s+voco[,.]?\s*)?(?:close|hide|exit|minimize)\s+(?:the\s+)?(?:integrated\s+|cloud\s+)?terminal$/i,
+    feedback: () => {
+      const wittyLines = [
+        "Terminal tucked away! Sleek and tidy.",
+        "Hiding the terminal for you. Back to pure code focus!",
+        "Closed terminal. Clean workspace, clear mind."
+      ];
+      return wittyLines[Math.floor(Math.random() * wittyLines.length)];
+    },
   },
-  // 5. Code Execution (handles "run code", "run the current opened file", "run active file", "run this file", "execute the current file", "run file")
+  // 4. Open File (Handles "open the threesum.java file", "open ThreeSum.java", "open file TwoSum.java", "open threesum", "show me ThreeSum.java")
   {
-    type: "run-code",
-    regex: /(?:run|execute|test|compile|start)\s+(?:the\s+)?(?:(?:current|active|opened|open|this|my)\s+)*(?:code|file|project|program|script)?/i,
-    feedback: "Running your code in the cloud sandbox.",
+    type: "open-file",
+    regex: /^(?:(?:hey|hi|ok)?\s*voco[,.]?\s*)?(?:open|show|view|edit|display)\s+(?:the\s+)?(?:file(?:\s+(?:named|called))?\s+["']?([a-zA-Z0-9_\-./]+)["']?|["']?([a-zA-Z0-9_\-./]+)["']?\s+file|["']?([a-zA-Z0-9_\-./]+\.[a-zA-Z0-9]+)["']?|["']?([a-zA-Z0-9_\-./]+)["']?)$/i,
+    feedback: (match) => {
+      const name = (match?.[1] || match?.[2] || match?.[3] || match?.[4] || "file").replace(/["']/g, "").trim();
+      const wittyLines = [
+        `Cracking open ${name}! Let's write some beautiful code.`,
+        `Opening ${name} in the editor right away.`,
+        `Pulling up ${name}. May your bugs be few and your logic be flawless!`,
+        `Opening ${name}! Clean code incoming.`
+      ];
+      return wittyLines[Math.floor(Math.random() * wittyLines.length)];
+    },
+    extractPayload: (match) => ({
+      name: (match?.[1] || match?.[2] || match?.[3] || match?.[4] || "").replace(/["']/g, "").trim(),
+      target: (match?.[1] || match?.[2] || match?.[3] || match?.[4] || "").replace(/["']/g, "").trim(),
+    }),
   },
-  // 6. Create File & Folder
+  // 5. Close File / Tab (handles "close the file", "close file", "close this file", "close current file", "close tab", "close TwoSum.java")
+  {
+    type: "close-file",
+    regex: /^(?:(?:hey|hi|ok)?\s*voco[,.]?\s*)?(?:(?:close|exit|hide)\s+(?:the\s+)?(?:current\s+|active\s+|opened\s+|open\s+|this\s+)?(?:file|tab)(?:\s+(?:named|called)?\s*["']?([a-zA-Z0-9_\-./]+)["']?)?|(?:close|exit)\s+["']?([a-zA-Z0-9_\-./]+\.[a-zA-Z0-9]+)["']?)$/i,
+    feedback: (match) => {
+      const name = (match?.[1] || match?.[2] || "file").replace(/["']/g, "").trim();
+      const target = name && name !== "file" ? name : "active file";
+      const wittyLines = [
+        `Closing ${target}! Out of sight, out of RAM.`,
+        `Closed ${target} for you. More room for fresh ideas!`,
+        `Tab closed! Keeping your workspace sleek and clean.`
+      ];
+      return wittyLines[Math.floor(Math.random() * wittyLines.length)];
+    },
+    extractPayload: (match) => ({
+      name: (match?.[1] || match?.[2] || "").replace(/["']/g, "").trim(),
+      target: (match?.[1] || match?.[2] || "").replace(/["']/g, "").trim(),
+    }),
+  },
+  // 6. Delete File (handles "delete the twosum.java file", "delete twosum.java", "remove TwoSum.java", "delete file TwoSum.java")
+  {
+    type: "delete-file",
+    regex: /^(?:(?:hey|hi|ok)?\s*voco[,.]?\s*)?(?:delete|remove|destroy|trash)\s+(?:the\s+)?(?:file(?:\s+(?:named|called))?\s+["']?([a-zA-Z0-9_\-./]+)["']?|["']?([a-zA-Z0-9_\-./]+)["']?\s+file|["']?([a-zA-Z0-9_\-./]+\.[a-zA-Z0-9]+)["']?|["']?([a-zA-Z0-9_\-./]+)["']?)$/i,
+    feedback: (match) => {
+      const name = (match?.[1] || match?.[2] || match?.[3] || match?.[4] || "file").replace(/["']/g, "").trim();
+      const wittyLines = [
+        `Deleting ${name}! Out of sight, out of RAM.`,
+        `Poof! Deleted ${name} from your workspace.`,
+        `Removed ${name}. Keeping your workspace clean and lean.`
+      ];
+      return wittyLines[Math.floor(Math.random() * wittyLines.length)];
+    },
+    extractPayload: (match) => ({
+      name: (match?.[1] || match?.[2] || match?.[3] || match?.[4] || "").replace(/["']/g, "").trim(),
+      path: (match?.[1] || match?.[2] || match?.[3] || match?.[4] || "").replace(/["']/g, "").trim(),
+    }),
+  },
+  // 7. Open Workspace
+  {
+    type: "open-workspace",
+    regex: /(?:open|go to|launch|switch to)(?:\s+my)?\s+workspace/i,
+    feedback: "Opening your workspace! Time to build something epic.",
+  },
+  // 8. Create File & Folder
   {
     type: "create-file",
     regex: /(?:create|make|add|new)\s+(?:a\s+)?file(?:\s+(?:named|called)?\s*["']?([a-zA-Z0-9_\-./]+)["']?)?/i,
     feedback: (match) => {
       const name = (match?.[1] || "").replace(/["']/g, "").trim();
-      return `Creating file ${name ? name : ""}.`;
+      return name ? `Creating ${name}! A fresh canvas for pure genius.` : "Creating a new file for you!";
     },
     extractPayload: (match) => ({
       name: (match?.[1] || "").replace(/["']/g, "").trim(),
@@ -88,7 +163,7 @@ const COMMAND_PATTERNS = [
     regex: /(?:create|make|add|new)\s+(?:a\s+)?folder(?:\s+(?:named|called)?\s*["']?([a-zA-Z0-9_\-./]+)["']?)?/i,
     feedback: (match) => {
       const name = (match?.[1] || "").replace(/["']/g, "").trim();
-      return `Creating folder ${name ? name : ""}.`;
+      return name ? `Creating folder ${name}! Keeping the architecture tidy.` : "Creating a new folder!";
     },
     extractPayload: (match) => ({
       name: (match?.[1] || "").replace(/["']/g, "").trim(),
@@ -139,6 +214,11 @@ export default function VocoAssistant() {
 
   // Assistant states
   const [isOpen, setIsOpen] = useState(false);
+  const isOpenRef = useRef(false);
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
   const [orbState, setOrbState] = useState("idle"); // 'idle' | 'listening' | 'thinking' | 'speaking'
   const [transcript, setTranscript] = useState("");
   const [lastAction, setLastAction] = useState(null);
@@ -204,10 +284,9 @@ export default function VocoAssistant() {
     }
   }, [location.pathname]);
 
-  // 2. Hardware Microphone Acquisition (Keeps Chrome Mic Stream Open & Active)
+  // 2. Hardware Microphone Acquisition (Audio Meter Wave Visualizer)
   const initMicrophone = useCallback(async () => {
     try {
-      hasDeniedPermissionRef.current = false;
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         return false;
       }
@@ -223,7 +302,6 @@ export default function VocoAssistant() {
           });
           setMicActive(true);
           setMicPermission("granted");
-          startListening();
           return true;
         }
       }
@@ -278,7 +356,6 @@ export default function VocoAssistant() {
         console.warn("Audio meter setup notice:", audioErr);
       }
 
-      startListening();
       return true;
     } catch (err) {
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
@@ -290,19 +367,24 @@ export default function VocoAssistant() {
     }
   }, []);
 
-  // 3. Background Speech Recognition for "Hey Voco" Wake Word & Commands
+  // 3. Continuous Background Speech Recognition for Wake Word & Commands
   const startListening = useCallback(() => {
-    if (hasDeniedPermissionRef.current) return;
+    if (hasDeniedPermissionRef.current || !isListeningEnabledRef.current) return;
 
     const SpeechRecognition =
       typeof window !== "undefined"
         ? window.SpeechRecognition || window.webkitSpeechRecognition
         : null;
 
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognition) {
+      console.warn("SpeechRecognition not supported in this browser.");
+      return;
+    }
 
     if (recognitionRef.current) {
       try {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
         recognitionRef.current.abort();
       } catch {}
     }
@@ -312,34 +394,39 @@ export default function VocoAssistant() {
       rec.continuous = true;
       rec.interimResults = true;
       rec.lang = "en-US";
+      rec.maxAlternatives = 1;
 
       rec.onstart = () => {
         isListeningRef.current = true;
-        if (isOpen) setOrbState("listening");
+        setMicActive(true);
+        if (isOpenRef.current) setOrbState("listening");
       };
 
       rec.onresult = (event) => {
-        let currentTranscript = "";
+        let interimText = "";
+        let finalText = "";
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const res = event.results[i];
-          currentTranscript += res[0].transcript;
           if (res.isFinal) {
-            handleFinalSpokenText(currentTranscript.trim());
-            currentTranscript = "";
+            finalText += res[0].transcript;
+          } else {
+            interimText += res[0].transcript;
           }
         }
-        if (currentTranscript) {
-          setTranscript(currentTranscript);
-          checkWakeWord(currentTranscript);
+
+        const spoken = (finalText || interimText).trim();
+        if (spoken) {
+          setTranscript(spoken);
+          checkWakeWord(spoken);
+        }
+
+        if (finalText.trim()) {
+          handleFinalSpokenText(finalText.trim());
         }
       };
 
       rec.onerror = (e) => {
-        if (
-          e.error === "not-allowed" ||
-          e.error === "service-not-allowed" ||
-          e.error === "audio-capture"
-        ) {
+        if (e.error === "not-allowed" || e.error === "service-not-allowed") {
           hasDeniedPermissionRef.current = true;
           setMicPermission("denied");
           setMicActive(false);
@@ -349,9 +436,11 @@ export default function VocoAssistant() {
           }
           return;
         }
-        if (e.error !== "no-speech" && e.error !== "aborted") {
-          console.warn("Speech recognition notice:", e.error);
+        if (e.error === "no-speech" || e.error === "aborted") {
+          // Normal background silence, Chrome will call onend to recycle
+          return;
         }
+        console.warn("Speech recognition notice:", e.error);
       };
 
       rec.onend = () => {
@@ -365,20 +454,12 @@ export default function VocoAssistant() {
           return;
         }
 
-        if (isOpen) {
-          restartTimerRef.current = setTimeout(() => {
-            if (
-              recognitionRef.current &&
-              isListeningEnabledRef.current &&
-              !hasDeniedPermissionRef.current &&
-              isOpen
-            ) {
-              try {
-                recognitionRef.current.start();
-              } catch {}
-            }
-          }, 1000);
-        }
+        // ALWAYS restart continuous listening in the background (250ms backoff)
+        restartTimerRef.current = setTimeout(() => {
+          if (isListeningEnabledRef.current && !hasDeniedPermissionRef.current) {
+            startListening();
+          }
+        }, 250);
       };
 
       recognitionRef.current = rec;
@@ -387,21 +468,28 @@ export default function VocoAssistant() {
       if (err.name === "NotAllowedError") {
         hasDeniedPermissionRef.current = true;
       }
+      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = setTimeout(() => {
+        if (isListeningEnabledRef.current && !hasDeniedPermissionRef.current) {
+          startListening();
+        }
+      }, 750);
     }
-  }, [isOpen]);
+  }, []);
 
   // Check for "Hey Voco" wake word
   const checkWakeWord = (phrase) => {
-    const lower = phrase.toLowerCase();
+    const lower = phrase.toLowerCase().trim();
     if (
       lower.includes("hey voco") ||
       lower.includes("hey voko") ||
       lower.includes("voco") ||
       lower.includes("voko") ||
       lower.includes("hi voco") ||
-      lower.includes("ok voco")
+      lower.includes("ok voco") ||
+      lower.includes("wake up voco")
     ) {
-      if (!isOpen) {
+      if (!isOpenRef.current) {
         handleWakeUp();
       }
     }
@@ -416,12 +504,12 @@ export default function VocoAssistant() {
     setIsOpen(true);
     setOrbState("listening");
     setTranscript("Listening...");
-    await initMicrophone();
     playVocaSound("open"); // Signature Apple Siri double-chime
     speakVocaText("Hey! How can I help you?");
+    await initMicrophone();
   };
 
-  // Check existing permissions & hook user gesture on mount
+  // Check existing permissions, start continuous listening & hook gestures
   useEffect(() => {
     isListeningEnabledRef.current = true;
 
@@ -430,43 +518,65 @@ export default function VocoAssistant() {
         .query({ name: "microphone" })
         .then((permStatus) => {
           setMicPermission(permStatus.state);
-          if (permStatus.state === "granted") {
-            hasDeniedPermissionRef.current = false;
-            initMicrophone();
-          } else if (permStatus.state === "denied") {
+          if (permStatus.state === "denied") {
             hasDeniedPermissionRef.current = true;
+          } else {
+            hasDeniedPermissionRef.current = false;
+            startListening();
           }
           permStatus.onchange = () => {
             setMicPermission(permStatus.state);
-            if (permStatus.state === "granted") {
-              hasDeniedPermissionRef.current = false;
-              initMicrophone();
-            } else if (permStatus.state === "denied") {
+            if (permStatus.state === "denied") {
               hasDeniedPermissionRef.current = true;
+              setMicActive(false);
+            } else {
+              hasDeniedPermissionRef.current = false;
+              startListening();
+              initMicrophone();
             }
           };
         })
         .catch(() => {});
     }
 
-    const handleFirstGesture = () => {
-      if (!hasDeniedPermissionRef.current) {
-        initMicrophone();
+    // Immediately kick off speech recognition!
+    startListening();
+    initMicrophone();
+
+    // Hook user interactions (click / typing) to ensure audio context & speech recognition are active
+    const handleUserGesture = () => {
+      if (!isListeningRef.current && !hasDeniedPermissionRef.current) {
+        startListening();
+      }
+      initMicrophone();
+    };
+
+    const handleVoiceToggle = () => {
+      if (isOpenRef.current) {
+        handleDismiss();
+      } else {
+        handleWakeUp();
       }
     };
 
-    window.addEventListener("pointerdown", handleFirstGesture, { once: true });
-    window.addEventListener("keydown", handleFirstGesture, { once: true });
+    window.addEventListener("pointerdown", handleUserGesture);
+    window.addEventListener("keydown", handleUserGesture);
+    window.addEventListener("click", handleUserGesture);
+    window.addEventListener("vocode-toggle-voice", handleVoiceToggle);
 
     return () => {
       isListeningEnabledRef.current = false;
-      window.removeEventListener("pointerdown", handleFirstGesture);
-      window.removeEventListener("keydown", handleFirstGesture);
+      window.removeEventListener("pointerdown", handleUserGesture);
+      window.removeEventListener("keydown", handleUserGesture);
+      window.removeEventListener("click", handleUserGesture);
+      window.removeEventListener("vocode-toggle-voice", handleVoiceToggle);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
       if (autoDismissTimerRef.current) clearTimeout(autoDismissTimerRef.current);
       if (recognitionRef.current) {
         try {
+          recognitionRef.current.onend = null;
+          recognitionRef.current.onerror = null;
           recognitionRef.current.abort();
         } catch {}
       }
@@ -479,7 +589,7 @@ export default function VocoAssistant() {
         } catch {}
       }
     };
-  }, [initMicrophone]);
+  }, [startListening, initMicrophone]);
 
   // 4. Process Final Spoken Text / Voice Commands
   const handleFinalSpokenText = async (rawText) => {
@@ -510,60 +620,32 @@ export default function VocoAssistant() {
     }
 
     if (matchedCommand) {
+      if (!isOpen) {
+        setIsOpen(true);
+      }
       executeVoiceCommand(matchedCommand, matchResult);
     } else {
-      // Connect to AI for general coding questions & instructions
-      await queryAI(clean || rawText);
+      // Connect to AI for coding questions & instructions if addressed or HUD is active
+      const isAddressed =
+        /^(hey|hi|ok)?\s*(voco|voko)/i.test(rawText) || isOpen;
+      if (isAddressed) {
+        if (!isOpen) setIsOpen(true);
+        await queryAI(clean || rawText);
+      }
     }
   };
 
-  // 5. Voice Command Execution Engine
-  const executeVoiceCommand = async (cmd, match) => {
-    if (autoDismissTimerRef.current) clearTimeout(autoDismissTimerRef.current);
-
-    setOrbState("speaking");
-    const feedbackText =
-      typeof cmd.feedback === "function" ? cmd.feedback(match) : cmd.feedback;
-    setLastAction(feedbackText);
-    playVocaSound("chirp");
-
-    if (soundEnabled) {
-      speakVocaText(feedbackText, () => {
-        setOrbState("idle");
-        // Siri auto-dismiss 1.8s after speaking feedback
-        if (autoDismissTimerRef.current) clearTimeout(autoDismissTimerRef.current);
-        autoDismissTimerRef.current = setTimeout(() => {
-          handleDismiss();
-        }, 1800);
-      });
-    } else {
-      setTimeout(() => {
-        setOrbState("idle");
-        handleDismiss();
-      }, 2500);
-    }
-
-    const rawPayload =
-      typeof cmd.extractPayload === "function"
-        ? cmd.extractPayload(match)
-        : {
-            name: match?.[1] || match?.[2] || match?.[3] || "",
-            target: match?.[1] || match?.[2] || match?.[3] || "",
-          };
-
-    // Clean payload strings (strip surrounding quotes, whitespace)
-    const payload = {};
-    for (const key in rawPayload) {
-      payload[key] =
-        typeof rawPayload[key] === "string"
-          ? rawPayload[key].replace(/^["']|["']$/g, "").trim()
-          : rawPayload[key];
-    }
-
+  // Helper to dispatch voice actions into workspace / navigation
+  const dispatchActionToWorkspace = async (actionType, payload = {}, feedbackText = "") => {
     const isWorkspaceAction = [
       "open-workspace",
       "open-folder",
       "open-file",
+      "close-file",
+      "delete-file",
+      "delete_file",
+      "write-file",
+      "write_file",
       "open-terminal",
       "close-terminal",
       "run-code",
@@ -572,7 +654,7 @@ export default function VocoAssistant() {
       "save-file",
       "open-git",
       "toggle-explorer",
-    ].includes(cmd.type);
+    ].includes(actionType);
 
     const isInWorkspace = location.pathname.startsWith("/workspace/");
 
@@ -580,10 +662,9 @@ export default function VocoAssistant() {
       // User is already in the workspace - dispatch action directly! NEVER navigate away!
       const event = new CustomEvent("vocode-voice-action", {
         detail: {
-          type: cmd.type,
-          action: cmd.type,
+          type: actionType,
+          action: actionType,
           payload,
-          match,
           feedback: feedbackText,
         },
       });
@@ -600,10 +681,9 @@ export default function VocoAssistant() {
       sessionStorage.setItem(
         "vocode_pending_voice_action",
         JSON.stringify({
-          type: cmd.type,
-          action: cmd.type,
+          type: actionType,
+          action: actionType,
           payload,
-          match,
           feedback: feedbackText,
         })
       );
@@ -629,17 +709,17 @@ export default function VocoAssistant() {
         // No workspace exists yet, take them to dashboard
         navigate("/dashboard");
       }
-    } else if (cmd.type === "open-dashboard") {
+    } else if (actionType === "open-dashboard") {
       navigate("/dashboard");
-    } else if (cmd.type === "open-docs") {
+    } else if (actionType === "open-docs") {
       navigate("/docs");
-    } else if (cmd.type === "toggle-theme") {
+    } else if (actionType === "toggle-theme") {
       const current = document.documentElement.getAttribute("data-theme") || "dark";
       const next = current === "dark" ? "light" : "dark";
       document.documentElement.setAttribute("data-theme", next);
       localStorage.setItem("vocode_theme", next);
       window.dispatchEvent(new CustomEvent("vocode-theme-toggle", { detail: { theme: next } }));
-    } else if (cmd.type === "open-settings") {
+    } else if (actionType === "open-settings") {
       if (isInWorkspace) {
         window.dispatchEvent(
           new CustomEvent("vocode-voice-action", {
@@ -652,6 +732,52 @@ export default function VocoAssistant() {
     }
   };
 
+  // 5. Voice Command Execution Engine
+  const executeVoiceCommand = async (cmd, match) => {
+    if (autoDismissTimerRef.current) clearTimeout(autoDismissTimerRef.current);
+
+    setOrbState("speaking");
+    const feedbackText =
+      typeof cmd.feedback === "function" ? cmd.feedback(match) : cmd.feedback;
+    setLastAction(feedbackText);
+    playVocaSound("chirp");
+
+    if (soundEnabled) {
+      speakVocaText(feedbackText, () => {
+        setOrbState("idle");
+        // Auto-dismiss after speaking feedback
+        if (autoDismissTimerRef.current) clearTimeout(autoDismissTimerRef.current);
+        autoDismissTimerRef.current = setTimeout(() => {
+          handleDismiss();
+        }, 2000);
+      });
+    } else {
+      setTimeout(() => {
+        setOrbState("idle");
+        handleDismiss();
+      }, 2500);
+    }
+
+    const rawPayload =
+      typeof cmd.extractPayload === "function"
+        ? cmd.extractPayload(match)
+        : {
+            name: match?.[1] || match?.[2] || match?.[3] || "",
+            target: match?.[1] || match?.[2] || match?.[3] || "",
+          };
+
+    // Clean payload strings (strip surrounding quotes, whitespace)
+    const payload = {};
+    for (const key in rawPayload) {
+      payload[key] =
+        typeof rawPayload[key] === "string"
+          ? rawPayload[key].replace(/^["']|["']$/g, "").trim()
+          : rawPayload[key];
+    }
+
+    await dispatchActionToWorkspace(cmd.type, payload, feedbackText);
+  };
+
   // 6. Connect to AI Engine
   const queryAI = async (prompt) => {
     if (autoDismissTimerRef.current) clearTimeout(autoDismissTimerRef.current);
@@ -661,11 +787,33 @@ export default function VocoAssistant() {
 
     try {
       const activeWorkspaceId = localStorage.getItem("vocode_recent_workspace");
-      const res = await askVoiceAI(accessToken, prompt, activeWorkspaceId, null, []);
+      const activeFile = localStorage.getItem("vocode_active_file") || null;
+      const res = await askVoiceAI(accessToken, prompt, activeWorkspaceId, activeFile, []);
 
-      const aiText =
+      let aiText =
         res?.reply ||
-        (typeof res === "string" ? res : "I am Voco, your voice AI assistant for VocodeAI.");
+        (typeof res === "string" ? res : "I'm ready to help you build.");
+
+      // Clean out identity if not specifically requested
+      const isAskingIdentity = /(?:who\s+(?:are\s+you|is\s+voco)|what\s+is\s+your\s+name|what\s+are\s+you|introduce\s+yourself)/i.test(prompt);
+      if (!isAskingIdentity && typeof aiText === "string") {
+        aiText = aiText
+          .replace(/^(?:(?:hello|hey|hi)[,\s]*)?(?:I'm|I am)\s+Voco[,\w\s]*?(?:\.|\!|\:|\—|-)\s*/i, "")
+          .replace(/^(?:(?:hello|hey|hi)[,\s]*)?as\s+Voco[,\w\s]*?(?:\.|\!|\:|\—|-)\s*/i, "")
+          .replace(/^(?:I'm|I am)\s+your\s+(?:voice\s+)?(?:AI\s+)?assistant[,\w\s]*?(?:\.|\!|\:|\—|-)\s*/i, "")
+          .trim();
+      }
+
+      // Strip any residual ACTION tags or JSON code blocks that might leak into the speech or UI
+      aiText = aiText
+        .replace(/(?:^|\n)\s*ACTION(?:\s*:\s*|\s+)?[\s\S]*$/i, "")
+        .replace(/\bACTION\b\s*:?/gi, "")
+        .replace(/```(?:json)?[\s\S]*?```/gi, "")
+        .trim();
+
+      if (!aiText && res?.action?.type) {
+        aiText = `On it! Executing ${res.action.type.replace(/-/g, " ")}.`;
+      }
 
       setAiResponse(aiText);
       setOrbState("speaking");
@@ -676,21 +824,15 @@ export default function VocoAssistant() {
         setOrbState("idle");
       }
 
-      // If the AI identified an executable IDE action, execute it seamlessly!
+      // If the AI identified an executable IDE action, dispatch it to workspace directly!
       if (res?.action?.type) {
-        executeVoiceCommand(
-          {
-            type: res.action.type,
-            feedback: aiText,
-            extractPayload: () => res.action.payload || {},
-          },
-          null
-        );
+        const payload = res.action.payload || {};
+        await dispatchActionToWorkspace(res.action.type, payload, aiText);
       }
     } catch (err) {
       console.warn("AI connection fallback:", err);
       const fallbackMsg =
-        "Hey! I'm Voco, your voice AI assistant. I can open folders, launch the terminal, run your code, or answer questions about your project.";
+        "I'm ready to help you code, run terminal commands, or answer questions about your project.";
       setAiResponse(fallbackMsg);
       setOrbState("speaking");
       if (soundEnabled) {
@@ -770,26 +912,26 @@ export default function VocoAssistant() {
         </div>
       )}
 
-      {/* 2. Floating Siri Pill Trigger (Clean minimal standby badge, NO "Mic Active" tag) */}
+      {/* 2. Standby Floating Living AI Orb Logo (Visible across every page, pure circular logo, NO text) */}
       {!isOpen && (
         <div
-          className="voco-trigger-wrapper"
+          className="voco-standby-logo-btn"
           onClick={handleWakeUp}
-          title="Say 'Hey Voco' or click to speak"
+          role="button"
+          tabIndex={0}
+          title="Voco Voice AI (Say 'Hey Voco' or click to summon)"
+          aria-label="Voco Voice AI Assistant"
         >
-          <div className="voco-pill-btn">
-            <VocoSiriOrb
-              size={26}
-              state="idle"
-              audioLevel={audioLevel}
-              showWaveform={false}
-            />
-            <span className="voco-pill-name">Hey Voco</span>
-          </div>
+          <VocoSiriOrb
+            size={34}
+            state={micActive ? "listening" : "idle"}
+            audioLevel={audioLevel}
+            showWaveform={true}
+          />
         </div>
       )}
 
-      {/* 3. Full Siri Active Interface Overlay (Appears when saying 'Hey Voco') */}
+      {/* 3. Full Siri-style Active Interface Overlay (Appears when saying 'Hey Voco' or calling commands) */}
       {isOpen && (
         <div
           className="voco-assistant-overlay"
@@ -901,10 +1043,17 @@ export default function VocoAssistant() {
               </button>
               <button
                 className="voco-chip-btn"
-                onClick={() => handleFinalSpokenText("run code")}
+                onClick={() => handleFinalSpokenText("run the current opened file in terminal")}
               >
                 <Play size={12} />
-                <span>Run Code</span>
+                <span>Run Current File in Terminal</span>
+              </button>
+              <button
+                className="voco-chip-btn"
+                onClick={() => handleFinalSpokenText("close the file")}
+              >
+                <X size={12} />
+                <span>Close File</span>
               </button>
               <button
                 className="voco-chip-btn"

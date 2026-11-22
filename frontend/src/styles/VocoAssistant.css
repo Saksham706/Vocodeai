@@ -149,25 +149,136 @@
   filter: blur(1.5px);
 }
 
-/* Siri Audio Waveform Bars (Inside Orb) */
+/* Siri Sonic Ripple Rings (Pulsing sound radar when listening/speaking) */
+.siri-sonic-ripples-wrap {
+  position: absolute;
+  inset: -22px;
+  pointer-events: none;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.siri-sonic-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0, 242, 254, 0.5);
+  box-shadow: 0 0 16px rgba(0, 242, 254, 0.35), inset 0 0 10px rgba(127, 0, 255, 0.25);
+  animation: siriSonicPulse 2.4s cubic-bezier(0.1, 0.6, 0.2, 1) infinite;
+}
+
+.siri-sonic-ring.ring-1 {
+  width: 100%;
+  height: 100%;
+  animation-delay: 0s;
+}
+
+.siri-sonic-ring.ring-2 {
+  width: 100%;
+  height: 100%;
+  animation-delay: 0.8s;
+  border-color: rgba(255, 8, 68, 0.45);
+}
+
+.siri-sonic-ring.ring-3 {
+  width: 100%;
+  height: 100%;
+  animation-delay: 1.6s;
+  border-color: rgba(67, 230, 92, 0.45);
+}
+
+@keyframes siriSonicPulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.95;
+  }
+  60% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* Siri Orbital Acoustic Rings with Celestial Nodes */
+.siri-orbital-rings {
+  position: absolute;
+  inset: -16px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.siri-orbit {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+}
+
+.siri-orbit.orbit-1 {
+  inset: -6px;
+  animation: siriOrbitRotate 18s linear infinite;
+  border-color: rgba(0, 242, 254, 0.22);
+}
+
+.siri-orbit.orbit-2 {
+  inset: -14px;
+  animation: siriOrbitRotateRev 26s linear infinite;
+  border-color: rgba(255, 8, 68, 0.18);
+}
+
+.siri-orbit-dot {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 8px #ffffff, 0 0 14px rgba(0, 242, 254, 0.9);
+}
+
+.dot-1 {
+  top: 18%;
+  left: 92%;
+}
+
+.dot-2 {
+  bottom: 24%;
+  left: 6%;
+  box-shadow: 0 0 8px #ffffff, 0 0 14px rgba(255, 8, 68, 0.9);
+}
+
+@keyframes siriOrbitRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes siriOrbitRotateRev {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+/* Siri Audio Waveform Bars (7-Channel Real-Time Equalizer) */
 .siri-waveform-wrap {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 3.5px;
   z-index: 4;
   pointer-events: none;
 }
 
 .siri-wave-bar {
   width: 3.5px;
-  height: 8px;
+  height: 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.8), 0 0 12px rgba(0, 242, 254, 0.9);
-  transition: height 0.15s ease, background-color 0.2s ease;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.9), 0 0 14px rgba(0, 242, 254, 0.95);
+  transition: transform 0.08s cubic-bezier(0.1, 0.7, 0.3, 1), background-color 0.2s ease;
+  transform-origin: center center;
 }
 
 /* Idle State: Gentle soft wave */
@@ -177,20 +288,24 @@
 .state-idle .siri-bar-1 { animation-delay: 0s; height: 6px; }
 .state-idle .siri-bar-2 { animation-delay: 0.2s; height: 10px; }
 .state-idle .siri-bar-3 { animation-delay: 0.4s; height: 14px; }
-.state-idle .siri-bar-4 { animation-delay: 0.2s; height: 10px; }
-.state-idle .siri-bar-5 { animation-delay: 0s; height: 6px; }
+.state-idle .siri-bar-4 { animation-delay: 0.2s; height: 16px; }
+.state-idle .siri-bar-5 { animation-delay: 0.4s; height: 14px; }
+.state-idle .siri-bar-6 { animation-delay: 0.2s; height: 10px; }
+.state-idle .siri-bar-7 { animation-delay: 0s; height: 6px; }
 
-/* Listening State: Highly dynamic frequency jumps */
+/* Listening State: Highly dynamic fluid frequency wave dancing to voice */
 .state-listening .siri-wave-bar {
-  animation: siriListeningWave 0.6s ease-in-out infinite alternate;
+  animation: siriListeningWave 0.55s ease-in-out infinite alternate;
   background: #ffffff;
-  box-shadow: 0 0 8px #ffffff, 0 0 16px #43e65c;
+  box-shadow: 0 0 8px #ffffff, 0 0 16px #00f2fe, 0 0 24px rgba(67, 230, 92, 0.8);
 }
-.state-listening .siri-bar-1 { animation-delay: 0.05s; }
-.state-listening .siri-bar-2 { animation-delay: 0.15s; }
-.state-listening .siri-bar-3 { animation-delay: 0.25s; }
-.state-listening .siri-bar-4 { animation-delay: 0.12s; }
-.state-listening .siri-bar-5 { animation-delay: 0.22s; }
+.state-listening .siri-bar-1 { animation-delay: 0.04s; animation-duration: 0.46s; }
+.state-listening .siri-bar-2 { animation-delay: 0.14s; animation-duration: 0.56s; }
+.state-listening .siri-bar-3 { animation-delay: 0.24s; animation-duration: 0.42s; }
+.state-listening .siri-bar-4 { animation-delay: 0.08s; animation-duration: 0.62s; }
+.state-listening .siri-bar-5 { animation-delay: 0.18s; animation-duration: 0.44s; }
+.state-listening .siri-bar-6 { animation-delay: 0.28s; animation-duration: 0.52s; }
+.state-listening .siri-bar-7 { animation-delay: 0.12s; animation-duration: 0.48s; }
 
 /* Thinking State: Fast undulating wave */
 .state-thinking .siri-wave-bar {
@@ -199,10 +314,12 @@
   box-shadow: 0 0 8px #ffffff, 0 0 16px #ff0844;
 }
 .state-thinking .siri-bar-1 { animation-delay: 0s; }
-.state-thinking .siri-bar-2 { animation-delay: 0.1s; }
-.state-thinking .siri-bar-3 { animation-delay: 0.2s; }
-.state-thinking .siri-bar-4 { animation-delay: 0.1s; }
-.state-thinking .siri-bar-5 { animation-delay: 0s; }
+.state-thinking .siri-bar-2 { animation-delay: 0.08s; }
+.state-thinking .siri-bar-3 { animation-delay: 0.16s; }
+.state-thinking .siri-bar-4 { animation-delay: 0.24s; }
+.state-thinking .siri-bar-5 { animation-delay: 0.16s; }
+.state-thinking .siri-bar-6 { animation-delay: 0.08s; }
+.state-thinking .siri-bar-7 { animation-delay: 0s; }
 
 /* Speaking State: Rhythmic speech bar modulation */
 .state-speaking .siri-wave-bar {
@@ -210,16 +327,18 @@
   background: #ffffff;
   box-shadow: 0 0 8px #ffffff, 0 0 18px #00f2fe;
 }
-.state-speaking .siri-bar-1 { animation-delay: 0.08s; }
-.state-speaking .siri-bar-2 { animation-delay: 0.24s; }
-.state-speaking .siri-bar-3 { animation-delay: 0.12s; }
-.state-speaking .siri-bar-4 { animation-delay: 0.3s; }
-.state-speaking .siri-bar-5 { animation-delay: 0.18s; }
+.state-speaking .siri-bar-1 { animation-delay: 0.06s; }
+.state-speaking .siri-bar-2 { animation-delay: 0.18s; }
+.state-speaking .siri-bar-3 { animation-delay: 0.1s; }
+.state-speaking .siri-bar-4 { animation-delay: 0.26s; }
+.state-speaking .siri-bar-5 { animation-delay: 0.14s; }
+.state-speaking .siri-bar-6 { animation-delay: 0.22s; }
+.state-speaking .siri-bar-7 { animation-delay: 0.08s; }
 
 /* Micro-sparkle particle rings */
 .siri-particles-ring {
   position: absolute;
-  inset: -8px;
+  inset: -10px;
   pointer-events: none;
   z-index: 5;
 }
@@ -241,8 +360,9 @@
 }
 
 .p-1 { top: 0; left: 50%; animation-delay: 0s; }
-.p-2 { bottom: 10%; right: 10%; animation-delay: 1s; }
-.p-3 { bottom: 15%; left: 15%; animation-delay: 2s; }
+.p-2 { bottom: 10%; right: 10%; animation-delay: 0.8s; }
+.p-3 { bottom: 15%; left: 15%; animation-delay: 1.6s; }
+.p-4 { top: 20%; right: 15%; animation-delay: 2.4s; }
 
 /* ========================================================
    2. KEYFRAME ANIMATIONS (SIRI ORGANIC FLUID MOTION)
@@ -306,77 +426,66 @@
 }
 
 /* ========================================================
-   3. FLOATING SIRI PILL TRIGGER (DISCREET STANDBY)
+   3. STANDBY FLOATING LIVING AI ORB LOGO (VISIBLE ON EVERY PAGE)
+   Pure circular living AI logo, NO clunky text, ultra-responsive
    ======================================================== */
 
-.voco-trigger-wrapper {
+.voco-standby-logo-btn {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 99999;
+  bottom: 34px;
+  right: 22px;
+  z-index: 99990;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  background: rgba(11, 19, 29, 0.72);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 24px rgba(0, 242, 254, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   cursor: pointer;
   user-select: none;
-  animation: vocoPillFadeIn 0.3s ease-out;
-}
-
-@keyframes vocoPillFadeIn {
-  from { opacity: 0; transform: translateY(14px) scale(0.94); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.voco-pill-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 44px;
-  padding: 0 16px 0 12px;
-  border-radius: 999px;
-  background: rgba(13, 22, 29, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  color: #ffffff;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 242, 254, 0.22);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-user-select: none;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease;
   outline: none;
+  animation: vocoStandbyAppear 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.voco-pill-btn:hover {
-  background: rgba(20, 32, 44, 0.95);
-  border-color: rgba(0, 242, 254, 0.5);
-  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.6), 0 0 28px rgba(0, 242, 254, 0.4);
-  transform: translateY(-2px);
+@keyframes vocoStandbyAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.6) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
-.voco-pill-btn:active {
-  transform: translateY(0) scale(0.97);
+.voco-standby-logo-btn:hover {
+  transform: scale(1.12);
+  background: rgba(16, 26, 38, 0.9);
+  border-color: rgba(0, 242, 254, 0.6);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 34px rgba(0, 242, 254, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
-.voco-pill-name {
-  font-size: 13.5px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  background: linear-gradient(90deg, #00f2fe 0%, #4facfe 40%, #ff0844 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.voco-standby-logo-btn:active {
+  transform: scale(0.92);
 }
 
-/* mic active tag removed */
-
-[data-theme="light"] .voco-pill-btn {
-  background: rgba(255, 255, 255, 0.92);
+[data-theme="light"] .voco-standby-logo-btn {
+  background: rgba(255, 255, 255, 0.88);
   border-color: rgba(0, 0, 0, 0.12);
-  color: #101c24;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 0 16px rgba(0, 242, 254, 0.18);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.12), 0 0 20px rgba(0, 242, 254, 0.24);
 }
 
-[data-theme="light"] .voco-pill-btn:hover {
+[data-theme="light"] .voco-standby-logo-btn:hover {
   background: #ffffff;
   border-color: rgba(0, 242, 254, 0.6);
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.16), 0 0 24px rgba(0, 242, 254, 0.3);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18), 0 0 28px rgba(0, 242, 254, 0.4);
 }
 
 /* ========================================================
@@ -389,19 +498,12 @@
   z-index: 100000;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;
+  justify-content: flex-end;
   padding: 24px;
-  background: radial-gradient(
-    ellipse at 50% 50%,
-    rgba(127, 0, 255, 0.28) 0%,
-    rgba(0, 242, 254, 0.18) 35%,
-    rgba(255, 8, 68, 0.1) 60%,
-    rgba(2, 7, 8, 0.78) 85%,
-    rgba(2, 7, 8, 0.92) 100%
-  );
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(2, 7, 8, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   animation: vocoOverlayFade 0.25s ease-out;
 }
 
@@ -411,26 +513,20 @@
 }
 
 [data-theme="light"] .voco-assistant-overlay {
-  background: radial-gradient(
-    ellipse at 50% 50%,
-    rgba(0, 242, 254, 0.15) 0%,
-    rgba(255, 8, 68, 0.08) 35%,
-    rgba(255, 255, 255, 0.75) 75%,
-    rgba(255, 255, 255, 0.9) 100%
-  );
+  background: rgba(240, 244, 248, 0.45);
 }
 
 /* Glassmorphic Siri Card */
 .voco-siri-card {
-  width: 92%;
-  max-width: 520px;
-  max-height: 85vh;
+  width: 460px;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 48px);
   background: rgba(13, 22, 29, 0.92);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 24px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 40px rgba(0, 242, 254, 0.18);
+  border-radius: 26px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 40px rgba(0, 242, 254, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   overflow: hidden;
   display: flex;
   flex-direction: column;

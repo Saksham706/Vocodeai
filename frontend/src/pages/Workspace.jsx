@@ -83,6 +83,10 @@ function WorkspaceLayout() {
     isSplitEditor,
     splitEditorFile,
     closeSplitEditor,
+    closeTab,
+    deleteNode,
+    applyFileChange,
+    loadWorkspace,
   } = useWorkspace();
 
   const location = useLocation();
@@ -646,18 +650,60 @@ function WorkspaceLayout() {
     }
   };
 
-  const handleMainRun = () => {
+  const handleMainRun = (file = null) => {
+    let target = file || activeFile || (openTabs && openTabs.length > 0 ? openTabs[0] : null);
+    if (file && activeFile && activeFile.endsWith(file)) {
+      target = activeFile;
+    }
+
+    // If file was specified (e.g. "ThreeSum.java") but not matching activeFile directly, search tree
+    if (file && tree) {
+      const fileLower = file.toLowerCase();
+      const fileNoExt = fileLower.replace(/\.[^.]+$/, "");
+      const getList = (nodeOrList) => {
+        if (!nodeOrList) return [];
+        if (Array.isArray(nodeOrList)) return nodeOrList;
+        if (Array.isArray(nodeOrList.children)) return nodeOrList.children;
+        return [nodeOrList];
+      };
+      const findFilePath = (input) => {
+        const nodes = getList(input);
+        for (const n of nodes) {
+          if (n.type === "file") {
+            const nLower = (n.name || "").toLowerCase();
+            const pLower = (n.path || "").toLowerCase();
+            const nNoExt = nLower.replace(/\.[^.]+$/, "");
+            if (
+              nLower === fileLower ||
+              pLower === fileLower ||
+              pLower.endsWith("/" + fileLower) ||
+              nNoExt === fileNoExt
+            ) {
+              return n.path;
+            }
+          }
+          if (n.children) {
+            const found = findFilePath(n.children);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      const resolved = findFilePath(tree);
+      if (resolved) target = resolved;
+    }
+
     const isHtml =
-      activeFile?.toLowerCase().endsWith(".html") ||
-      activeFile?.toLowerCase().endsWith(".htm");
+      target?.toLowerCase().endsWith(".html") ||
+      target?.toLowerCase().endsWith(".htm");
     if (isHtml) {
-      refreshPreview(true);
+      refreshPreview(true, target);
       return;
     }
     setShowTerminal(true);
     setActiveTermTab("terminal");
-    if (activeFile) {
-      runCode();
+    if (target) {
+      runCode(target);
     } else {
       runProject();
     }
@@ -665,15 +711,117 @@ function WorkspaceLayout() {
 
   // Handle Voice Assistant (Voco) system actions
   useEffect(() => {
-    const handleVoiceAction = (e) => {
+    const handleVoiceAction = async (e) => {
       const { action, payload } = e.detail || {};
       if (action === "open-terminal" || action === "toggle-terminal") {
         setShowTerminal(true);
         setActiveTermTab("terminal");
+        if (!terminals || terminals.length === 0) {
+          openNewTerminal("bash");
+        }
       } else if (action === "close-terminal") {
         setShowTerminal(false);
+      } else if (action === "close-file") {
+        let fileTarget = payload?.target || payload?.name || activeFile;
+        fileTarget = typeof fileTarget === "string" ? fileTarget.replace(/["']/g, "").trim() : "";
+        if (fileTarget && fileTarget !== activeFile && tree) {
+          const fileLower = fileTarget.toLowerCase();
+          const fileNoExt = fileLower.replace(/\.[^.]+$/, "");
+          const getList = (n) => (!n ? [] : Array.isArray(n) ? n : Array.isArray(n.children) ? n.children : [n]);
+          const findFilePath = (input) => {
+            for (const n of getList(input)) {
+              if (n.type === "file") {
+                const nLower = (n.name || "").toLowerCase();
+                const pLower = (n.path || "").toLowerCase();
+                const nNoExt = nLower.replace(/\.[^.]+$/, "");
+                if (
+                  nLower === fileLower ||
+                  pLower === fileLower ||
+                  pLower.endsWith("/" + fileLower) ||
+                  nNoExt === fileNoExt
+                ) {
+                  return n.path;
+                }
+              }
+              if (n.children) {
+                const found = findFilePath(n.children);
+                if (found) return found;
+              }
+            }
+            return null;
+          };
+          const resolved = findFilePath(tree);
+          if (resolved) fileTarget = resolved;
+        }
+        if (fileTarget) {
+          closeTab(fileTarget);
+        } else if (activeFile) {
+          closeTab(activeFile);
+        }
+      } else if (action === "delete-file" || action === "delete_file") {
+        let rawFileName = (payload?.path || payload?.name || payload?.target || "").replace(/["']/g, "").trim();
+        rawFileName = rawFileName.replace(/\s+file$/i, "").trim();
+        let fileTarget = rawFileName;
+        if (tree && rawFileName) {
+          const findFilePath = (input) => {
+            const nodes = getList(input);
+            for (const n of nodes) {
+              if (n.type === "file") {
+                const nLower = (n.name || "").toLowerCase();
+                const pLower = (n.path || "").toLowerCase();
+                const targetLower = rawFileName.toLowerCase();
+                if (nLower === targetLower || pLower === targetLower || pLower.endsWith("/" + targetLower)) {
+                  return n.path;
+                }
+              }
+              if (n.children) {
+                const found = findFilePath(n.children);
+                if (found) return found;
+              }
+            }
+            return null;
+          };
+          const resolved = findFilePath(tree);
+          if (resolved) fileTarget = resolved;
+        }
+        if (fileTarget) {
+          closeTab(fileTarget);
+          try {
+            await deleteNode(fileTarget);
+          } catch (err) {
+            console.warn("Failed to delete node:", err);
+          }
+          await loadWorkspace();
+        }
+      } else if (action === "write-file" || action === "write_file") {
+        const filePath = payload?.path || payload?.name;
+        const content = payload?.content;
+        if (filePath && content !== undefined) {
+          let resolvedPath = filePath;
+          if (tree && !filePath.includes("/")) {
+            const findFilePath = (input) => {
+              const nodes = getList(input);
+              for (const n of nodes) {
+                if (n.type === "file") {
+                  const nLower = (n.name || "").toLowerCase();
+                  if (nLower === filePath.toLowerCase()) return n.path;
+                }
+                if (n.children) {
+                  const found = findFilePath(n.children);
+                  if (found) return found;
+                }
+              }
+              return null;
+            };
+            const found = findFilePath(tree);
+            if (found) resolvedPath = found;
+          }
+          await applyFileChange(resolvedPath, content);
+        }
       } else if (action === "run-code") {
-        handleMainRun();
+        let fileTarget = payload?.target || payload?.name || "";
+        fileTarget = typeof fileTarget === "string" ? fileTarget.replace(/["']/g, "").trim() : "";
+        handleMainRun(fileTarget || null);
       } else if (action === "create-file") {
         if (!isExplorerOpen) setIsExplorerOpen(true);
         setCreateRequest({
@@ -703,21 +851,36 @@ function WorkspaceLayout() {
             .catch((err) => console.warn("Save failed:", err));
         }
       } else if (action === "open-folder") {
-        const folderName = (payload?.name || payload?.target || "").replace(/["']/g, "").trim();
+        const rawFolderName = (payload?.name || payload?.target || "").replace(/["']/g, "").trim();
         setActivityTab("explorer");
         setIsExplorerOpen(true);
-        if (folderName) {
-          const findFolderNode = (nodes) => {
-            if (!nodes) return null;
-            const targetLower = folderName.toLowerCase();
+        if (rawFolderName && tree) {
+          const targetLower = rawFolderName.toLowerCase();
+          const targetClean = targetLower.replace(/[\s_.-]/g, "");
+
+          const getList = (nodeOrList) => {
+            if (!nodeOrList) return [];
+            if (Array.isArray(nodeOrList)) return nodeOrList;
+            if (Array.isArray(nodeOrList.children)) return nodeOrList.children;
+            return [nodeOrList];
+          };
+
+          const findFolderNode = (input) => {
+            const nodes = getList(input);
             for (const n of nodes) {
-              if (
-                n.type === "folder" &&
-                (n.name.toLowerCase() === targetLower ||
-                  n.path.toLowerCase() === targetLower ||
-                  n.path.toLowerCase().endsWith("/" + targetLower))
-              ) {
-                return n;
+              if (n.type === "folder") {
+                const nLower = (n.name || "").toLowerCase();
+                const pLower = (n.path || "").toLowerCase();
+                const nClean = nLower.replace(/[\s_.-]/g, "");
+                if (
+                  nLower === targetLower ||
+                  pLower === targetLower ||
+                  pLower.endsWith("/" + targetLower) ||
+                  nClean === targetClean ||
+                  nLower.includes(targetLower)
+                ) {
+                  return n;
+                }
               }
               if (n.children) {
                 const found = findFolderNode(n.children);
@@ -726,8 +889,9 @@ function WorkspaceLayout() {
             }
             return null;
           };
+
           const matchedFolder = findFolderNode(tree);
-          const targetPath = matchedFolder ? matchedFolder.path : folderName;
+          const targetPath = matchedFolder ? matchedFolder.path : rawFolderName;
           setSelectedTarget({ path: targetPath, type: "folder" });
           const wsKey = currentProject || currentWorkspace?._id || "ws";
           try {
@@ -735,35 +899,103 @@ function WorkspaceLayout() {
           } catch {}
           window.dispatchEvent(
             new CustomEvent("vocode-expand-folder", {
-              detail: { path: targetPath, name: folderName },
+              detail: { path: targetPath, name: rawFolderName },
             })
           );
         }
       } else if (action === "open-file") {
-        const fileName = (payload?.name || payload?.target || "").replace(/["']/g, "").trim().toLowerCase();
-        if (fileName && tree) {
-          const findFileNode = (nodes) => {
-            if (!nodes) return null;
+        let rawFileName = (payload?.name || payload?.target || "").replace(/["']/g, "").trim();
+        rawFileName = rawFileName
+          .replace(/\s+dot\s+/gi, ".")
+          .replace(/\.\s+/g, ".")
+          .replace(/\s+file$/i, "")
+          .trim();
+
+        if (tree) {
+          const targetLower = rawFileName.toLowerCase();
+          const targetNoExt = targetLower.replace(/\.[^.]+$/, "");
+          const targetClean = targetLower.replace(/[\s_.-]/g, "");
+          const targetCleanNoExt = targetNoExt.replace(/[\s_.-]/g, "");
+
+          const getList = (nodeOrList) => {
+            if (!nodeOrList) return [];
+            if (Array.isArray(nodeOrList)) return nodeOrList;
+            if (Array.isArray(nodeOrList.children)) return nodeOrList.children;
+            return [nodeOrList];
+          };
+
+          let candidateNode = null;
+
+          const searchNodes = (input) => {
+            const nodes = getList(input);
             for (const n of nodes) {
-              if (
-                n.type === "file" &&
-                (n.name.toLowerCase() === fileName ||
-                  n.path.toLowerCase() === fileName ||
-                  n.path.toLowerCase().endsWith("/" + fileName))
-              ) {
-                return n;
+              if (n.type === "file") {
+                const nLower = (n.name || "").toLowerCase();
+                const pLower = (n.path || "").toLowerCase();
+                const nNoExt = nLower.replace(/\.[^.]+$/, "");
+                const nClean = nLower.replace(/[\s_.-]/g, "");
+                const nCleanNoExt = nNoExt.replace(/[\s_.-]/g, "");
+
+                // Tier 1: Exact match on name or path
+                if (
+                  nLower === targetLower ||
+                  pLower === targetLower ||
+                  pLower.endsWith("/" + targetLower)
+                ) {
+                  candidateNode = n;
+                  return true;
+                }
+
+                // Tier 2: Match without extension (e.g. "ThreeSum" -> "ThreeSum.java")
+                if (nNoExt === targetNoExt || nCleanNoExt === targetCleanNoExt) {
+                  candidateNode = n;
+                  return true;
+                }
+
+                // Tier 3: Match ignoring spaces/underscores/hyphens
+                if (nClean === targetClean) {
+                  candidateNode = n;
+                  return true;
+                }
+
+                // Tier 4: Partial / substring match
+                if (
+                  (!candidateNode && targetNoExt.length > 2 && nNoExt.includes(targetNoExt)) ||
+                  (!candidateNode && nNoExt.length > 2 && targetNoExt.includes(nNoExt))
+                ) {
+                  candidateNode = n;
+                }
               }
-              if (n.children) {
-                const found = findFileNode(n.children);
-                if (found) return found;
+              if (n.children && searchNodes(n.children)) {
+                return true;
               }
             }
-            return null;
+            return false;
           };
-          const matchNode = findFileNode(tree);
-          if (matchNode) {
-            openFile(matchNode.path);
+
+          searchNodes(tree);
+
+          if (candidateNode) {
+            if (candidateNode.path && candidateNode.path.includes("/")) {
+              const parts = candidateNode.path.split("/");
+              const parentFolder = parts.slice(0, -1).join("/");
+              const wsKey = currentProject || currentWorkspace?._id || "ws";
+              try {
+                localStorage.setItem(`vocode_folder_open_${wsKey}_${parentFolder}`, JSON.stringify(true));
+              } catch {}
+              window.dispatchEvent(
+                new CustomEvent("vocode-expand-folder", {
+                  detail: { path: parentFolder },
+                })
+              );
+            }
+            setIsExplorerOpen(true);
+            openFile(candidateNode.path);
+          } else if (rawFileName) {
+            openFile(rawFileName);
           }
+        } else if (rawFileName) {
+          openFile(rawFileName);
         }
       }
     };
@@ -783,7 +1015,24 @@ function WorkspaceLayout() {
     currentWorkspace,
     tree,
     openFile,
+    terminals,
+    openNewTerminal,
+    closeTab,
+    deleteNode,
+    applyFileChange,
+    loadWorkspace,
   ]);
+
+  // Keep activeFile synchronized in localStorage for voice AI context
+  useEffect(() => {
+    try {
+      if (activeFile) {
+        localStorage.setItem("vocode_active_file", activeFile);
+      } else {
+        localStorage.removeItem("vocode_active_file");
+      }
+    } catch {}
+  }, [activeFile]);
 
   // Execute any pending voice command queued before landing into this workspace
   useEffect(() => {

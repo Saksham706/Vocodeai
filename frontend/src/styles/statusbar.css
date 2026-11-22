@@ -65,6 +65,16 @@
   background: rgba(0, 0, 0, 0.28);
 }
 
+.status-voco-pill {
+  font-weight: 600;
+  color: #00f2fe;
+}
+
+.status-voco-pill:hover {
+  background: rgba(0, 242, 254, 0.15) !important;
+  color: #ffffff;
+}
+
 /* ========================================================
    LIGHT & DARK MODE OVERRIDES FOR STATUS BAR
    ======================================================== */
