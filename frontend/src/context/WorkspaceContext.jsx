@@ -10,9 +10,10 @@ import * as fileApi from "../services/fileApi";
 import { buildTree, isIgnoredArtifact } from "../utils/buildTree";
 import { useAuth } from "../context/AuthContext";
 import { getEffectiveSettings } from "../utils/settingsStorage";
+import { BACKEND_URL } from "../config/apiConfig";
 
 const WorkspaceContext = createContext();
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+const backendUrl = BACKEND_URL;
 const safeTerminalId = (id) =>
   "term_" + id.replace(/[^a-zA-Z0-9_-]/g, "_");
 

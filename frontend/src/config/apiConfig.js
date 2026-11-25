@@ -6,10 +6,14 @@
 
 export const getBackendUrl = () => {
   const envUrl = import.meta.env.VITE_BACKEND_URL;
-  if (!envUrl || envUrl.includes(":5000") || envUrl === "undefined") {
-    return "http://localhost:8000";
+  if (envUrl && !envUrl.includes(":5000") && envUrl !== "undefined") {
+    return envUrl.replace(/\/+$/, "");
   }
-  return envUrl.replace(/\/+$/, "");
+  // Production fallback for vocodeai.com
+  if (typeof window !== "undefined" && window.location.hostname.includes("vocodeai.com")) {
+    return "https://api.vocodeai.com";
+  }
+  return "http://localhost:8000";
 };
 
 export const BACKEND_URL = getBackendUrl();

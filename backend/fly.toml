@@ -1,0 +1,36 @@
+# fly.toml app configuration file generated for backend-aged-firefly-4317 on 2026-11-22T21:26:21+05:30
+#
+# See https://docs.fly.io/reference/configuration for information about how to use this file.
+#
+
+app = 'backend-aged-firefly-4317'
+primary_region = 'sin'
+
+[build]
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+# -------------------------------------------------
+# <-- INSERT THIS BLOCK HERE
+[env]
+  # ---- URLs you want the backend to know ----
+  FRONTEND_URL = "https://vocodeai.com"
+  BACKEND_URL  = "https://api.vocodeai.com"
+  GOOGLE_CALLBACK_URL = "https://api.vocodeai.com/api/auth/google/callback"
+
+  # ---- Other non‑secret config (optional) ----
+  PORT = "8000"
+  NODE_ENV = "development"
+  CONTAINER_IDLE_TIMEOUT = "900000"
+# -------------------------------------------------
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1

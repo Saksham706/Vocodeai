@@ -21,8 +21,9 @@ import {
 } from "lucide-react";
 import AuthBackground from "./AuthBackground";
 import "../styles/auth.css";
+import { BACKEND_URL } from "../config/apiConfig";
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+const backendUrl = BACKEND_URL;
 
 export default function Signup() {
   const navigate = useNavigate();
