@@ -4,7 +4,7 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node init && nodemon server.js",
+    "start": "nodemon server.js",
     "worker": "node workers/codeWorker.js"
   },
   "keywords": [],

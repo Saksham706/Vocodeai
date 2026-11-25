@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 node_modules
 dist
 .env
@@ -5,3 +6,11 @@ dist
 .history
 workspaces/
 *.log
+=======
+node_modules
+dist
+.history
+workspaces/
+*.log
+config.bat
+>>>>>>> 2027bbd971afbd5453f9c448aeefb503313125d0
