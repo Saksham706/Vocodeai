@@ -31,6 +31,19 @@ COPY . .
 # Final stage for app image
 FROM base
 
+# Install runtimes for languages: Java (OpenJDK), Python, Git, Curl, Bash
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+      default-jdk-headless \
+      python3 \
+      python-is-python3 \
+      git \
+      curl \
+      bash \
+      ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy built application
 COPY --from=build /app /app
 
