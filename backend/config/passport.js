@@ -27,7 +27,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           const expiresAt = Number(params?.expires_in)
             ? new Date(Date.now() + Number(params.expires_in) * 1000)
             : undefined;
-          const grantedScopes = params?.scope || GEMINI_OAUTH_SCOPES;
+          const grantedScopes = params?.scope || "profile email";
 
           if (!email) {
             return done(new Error("No email found in Google profile"), null);

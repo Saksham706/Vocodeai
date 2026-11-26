@@ -36,12 +36,7 @@ router.get("/google", (req, res, next) => {
   const state = Buffer.from(JSON.stringify({ origin, action: "login", returnTo })).toString("base64");
 
   passport.authenticate("google", {
-    scope: [
-      "profile",
-      "email",
-      "https://www.googleapis.com/auth/cloud-platform",
-      "https://www.googleapis.com/auth/generative-language.retriever",
-    ],
+    scope: ["profile", "email"],
     prompt: req.query.prompt || "select_account",
     accessType: "offline",
     includeGrantedScopes: true,
