@@ -9,6 +9,7 @@ import { askAI, verifyAIKey } from "../services/aiService.js";
 import { parseAI } from "../utils/aiParser.js";
 import { executeAI } from "../services/aiExecutor.js";
 import * as fileService from "../services/fileService.js";
+import * as r2Service from "../services/r2Service.js";
 import { getWorkspacesRoot } from "../config/paths.js";
 import {
   getGoogleAIAccountStatus,
@@ -484,11 +485,13 @@ VOICE RESPONSE GUIDELINES:
           }
         } else if (actType === "delete-file") {
           try {
+            const escaped = cleanPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
             fileService.deleteNode(uid, workspaceId, cleanPath);
             await FileNode.deleteMany({
-              workspaceId,
-              path: { $regex: `^${cleanPath}` },
+              $or: [{ workspaceId }, { workspaceId: String(workspaceId) }],
+              path: { $regex: `^${escaped}(/|$)` },
             });
+            await r2Service.deleteFileFromR2(uid, workspaceId, cleanPath).catch(() => {});
           } catch (delErr) {
             console.warn("Voice AI could not delete file:", delErr.message);
           }

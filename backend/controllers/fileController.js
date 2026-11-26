@@ -285,16 +285,17 @@ export async function deleteNode(req, res) {
 
     fsService.deleteNode(userId, wsId, clean);
 
-    // 2. Move file/folder in Cloudflare R2 to trash prefix asynchronously in background
-    r2Service.moveNodeToTrashR2(userId, wsId, clean, binItem._id.toString()).then(async (r2Trash) => {
+    // 2. Move file/folder in Cloudflare R2 to trash prefix before returning so immediate syncs don't resurrect it
+    try {
+      const r2Trash = await r2Service.moveNodeToTrashR2(userId, wsId, clean, binItem._id.toString());
       if (r2Trash?.r2Key) {
         binItem.r2Key = r2Trash.r2Key;
         binItem.size = r2Trash.size;
         await binItem.save();
       }
-    }).catch((r2Err) => {
+    } catch (r2Err) {
       console.warn("R2 move to trash warning:", r2Err.message);
-    });
+    }
 
     res.json({ success: true, movedToRecycleBin: true });
   } catch (err) {

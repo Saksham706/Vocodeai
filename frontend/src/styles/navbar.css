@@ -49,9 +49,38 @@
 .ide-nav-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-shrink: 0;
   position: relative;
+}
+
+.ide-nav-back-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  border-radius: 7px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: var(--nav-text-muted, #94a3b8) !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+  transition: all 0.16s ease !important;
+}
+
+.ide-nav-back-btn:hover {
+  background: rgba(16, 185, 129, 0.14) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  color: #43e65c !important;
+}
+
+[data-theme="light"] .ide-nav-back-btn {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: var(--nav-text-muted, #475569) !important;
 }
 
 .ide-brand-wrap {

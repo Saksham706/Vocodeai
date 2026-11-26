@@ -1,6 +1,8 @@
 import * as fileService from "../services/fileService.js";
+import * as r2Service from "../services/r2Service.js";
 import { execInWorkspace } from "../sandbox/execService.js";
 import FileNode from "../models/FileNode.js";
+import { buildWsQuery } from "../controllers/fileController.js";
 
 function cleanRelativePath(p) {
   let clean = (p || "").replace(/^[\\\/]+/, "");
@@ -102,14 +104,20 @@ export async function executeAI({
       case "delete_file":
       case "remove_file": {
         const cleanPath = cleanRelativePath(cmd.path);
+        const escaped = cleanPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         fileService.deleteNode(userId, workspaceId, cleanPath);
         try {
           await FileNode.deleteMany({
-            workspaceId,
-            path: { $regex: `^${cleanPath}` },
+            ...buildWsQuery(workspaceId),
+            path: { $regex: `^${escaped}(/|$)` },
           });
         } catch (dbErr) {
           console.warn("Could not delete FileNode in DB:", dbErr.message);
+        }
+        try {
+          await r2Service.deleteFileFromR2(userId, workspaceId, cleanPath);
+        } catch (r2Err) {
+          console.warn("Could not delete file in R2:", r2Err.message);
         }
         results.push(`Deleted ${cleanPath}`);
         break;

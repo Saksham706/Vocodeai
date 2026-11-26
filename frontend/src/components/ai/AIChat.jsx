@@ -571,6 +571,13 @@ export default function AIChat({
   };
 
   /* ================= SEND MESSAGE ================= */
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+  }, [input]);
+
   const handleSend = (textToSend) => {
     const query = typeof textToSend === "string" ? textToSend : input;
     if ((!query.trim() && attachments.length === 0) || loading) return;
