@@ -84,6 +84,74 @@ const COMMAND_PATTERNS = [
       return wittyLines[Math.floor(Math.random() * wittyLines.length)];
     },
   },
+  // 3b. Page & Sidebar Route Navigation (Placed BEFORE open-file so routes never collide with filenames)
+  {
+    type: "open-home",
+    regex: /^(?:(?:hey|hi|ok)?\s*(?:voco|voko|boco|vocode)[,.]?\s*)?(?:go to|open|show|navigate to|switch to|take me to|visit)?\s*(?:the\s+)?(?:home|landing)(?:\s+page)?$/i,
+    feedback: "Opening the home page.",
+  },
+  {
+    type: "open-login",
+    regex: /^(?:(?:hey|hi|ok)?\s*(?:voco|voko|boco|vocode)[,.]?\s*)?(?:go to|open|show|navigate to|switch to|take me to)?\s*(?:the\s+)?(?:login|log in|sign in)(?:\s+page)?$/i,
+    feedback: "Taking you to the sign in page.",
+  },
+  {
+    type: "open-signup",
+    regex: /^(?:(?:hey|hi|ok)?\s*(?:voco|voko|boco|vocode)[,.]?\s*)?(?:go to|open|show|navigate to|switch to|take me to)?\s*(?:the\s+)?(?:signup|sign up|register|create account)(?:\s+page)?$/i,
+    feedback: "Opening the create account page.",
+  },
+  {
+    type: "open-forgot",
+    regex: /^(?:(?:hey|hi|ok)?\s*(?:voco|voko|boco|vocode)[,.]?\s*)?(?:go to|open|show|navigate to|switch to)?\s*(?:the\s+)?(?:forgot password|reset password)(?:\s+page)?$/i,
+    feedback: "Opening password recovery.",
+  },
+  {
+    type: "open-docs",
+    regex: /^(?:(?:hey|hi|ok)?\s*(?:voco|voko|boco|vocode)[,.]?\s*)?(?:go to|open|show|read|navigate to|switch to|view)?\s*(?:the\s+)?(?:documentation|docs|guide|help docs)(?:\s+page)?$/i,
+    feedback: "Opening VocodeAI documentation.",
+  },
+  {
+    type: "open-dashboard",
+    regex: /^(?:(?:hey|hi|ok)?\s*(?:voco|voko|boco|vocode)[,.]?\s*)?(?:go to|open|show|navigate to|switch to|back to|view)?\s*(?:the\s+|my\s+)?(?:dashboard|workspaces page|my workspaces|workspaces)(?:\s+tab|\s+page)?$/i,
+    feedback: "Opening your dashboard.",
+  },
+  {
+    type: "dashboard-tab",
+    regex: /^(?:(?:hey|hi|ok)?\s*(?:voco|voko|boco|vocode)[,.]?\s*)?(?:go to|open|show|navigate to|switch to|view)?\s*(?:the\s+)?(?:(templates|starter templates)|(recycle bin|trash|deleted files|bin)|(account settings|profile|my account))(?:\s+tab|\s+page)?$/i,
+    feedback: (match) => {
+      if (match?.[1]) return "Opening starter templates.";
+      if (match?.[2]) return "Opening the recycle bin.";
+      return "Opening account settings.";
+    },
+    extractPayload: (match) => ({
+      tab: match?.[1] ? "templates" : match?.[2] ? "recycle-bin" : "settings",
+    }),
+  },
+  {
+    type: "workspace-tab",
+    regex: /^(?:(?:hey|hi|ok)?\s*(?:voco|voko|boco|vocode)[,.]?\s*)?(?:go to|open|show|navigate to|switch to|view|toggle)?\s*(?:the\s+)?(?:(explorer|file explorer|file tree|files)|(search|global search|search files)|(git|source control|repository)|(debug|run and debug|run debug)|(extensions|marketplace|plugins)|(ai chat|ai assistant|assistant|chat panel))(?:\s+tab|\s+panel|\s+sidebar)?$/i,
+    feedback: (match) => {
+      if (match?.[1]) return "Opening file explorer.";
+      if (match?.[2]) return "Opening global search.";
+      if (match?.[3]) return "Opening source control.";
+      if (match?.[4]) return "Opening run and debug.";
+      if (match?.[5]) return "Opening extensions marketplace.";
+      return "Opening AI assistant panel.";
+    },
+    extractPayload: (match) => ({
+      tab: match?.[1]
+        ? "explorer"
+        : match?.[2]
+        ? "search"
+        : match?.[3]
+        ? "git"
+        : match?.[4]
+        ? "run"
+        : match?.[5]
+        ? "extensions"
+        : "ai",
+    }),
+  },
   // 4. Open File (Handles "open the threesum.java file", "open ThreeSum.java", "open file TwoSum.java", "open threesum", "show me ThreeSum.java")
   {
     type: "open-file",
@@ -716,14 +784,14 @@ export default function VocoAssistant() {
   const handleFinalSpokenText = async (rawText) => {
     if (!rawText) return;
     const clean = rawText
-      .replace(/^(hey|hi|ok)\s+voco[,.]?\s*/i, "")
-      .replace(/^voco[,.]?\s*/i, "")
+      .replace(/^(?:hey|hi|ok)\s+(?:voco|voko|boco|vocode)[,.]?\s*/i, "")
+      .replace(/^(?:voco|voko|boco|vocode)[,.]?\s*/i, "")
       .trim();
 
     setTranscript(rawText);
 
     // If user says just "Hey Voco", wake up and acknowledge
-    if (/^(hey|hi|ok)?\s*(voco|voko)\s*$/i.test(rawText)) {
+    if (/^(?:hey|hi|ok)?\s*(?:voco|voko|boco|vocode)\s*$/i.test(rawText)) {
       handleWakeUp();
       return;
     }
@@ -741,16 +809,16 @@ export default function VocoAssistant() {
     }
 
     if (matchedCommand) {
-      if (!isOpen) {
+      if (!isOpenRef.current) {
         setIsOpen(true);
       }
       executeVoiceCommand(matchedCommand, matchResult);
     } else {
       // Connect to AI for coding questions & instructions if addressed or HUD is active
       const isAddressed =
-        /^(hey|hi|ok)?\s*(voco|voko)/i.test(rawText) || isOpen;
+        /^(?:hey|hi|ok)?\s*(?:voco|voko|boco|vocode)/i.test(rawText) || isOpenRef.current;
       if (isAddressed) {
-        if (!isOpen) setIsOpen(true);
+        if (!isOpenRef.current) setIsOpen(true);
         await queryAI(clean || rawText);
       }
     }
@@ -775,6 +843,7 @@ export default function VocoAssistant() {
       "save-file",
       "open-git",
       "toggle-explorer",
+      "workspace-tab",
     ].includes(actionType);
 
     const isInWorkspace = location.pathname.startsWith("/workspace/");
@@ -832,8 +901,46 @@ export default function VocoAssistant() {
         // No workspace exists yet, take them to dashboard
         navigate("/dashboard");
       }
+    } else if (actionType === "open-home") {
+      navigate("/");
+    } else if (actionType === "open-login") {
+      navigate("/login");
+    } else if (actionType === "open-signup") {
+      navigate("/signup");
+    } else if (actionType === "open-forgot") {
+      navigate("/forgot");
     } else if (actionType === "open-dashboard") {
-      navigate("/dashboard");
+      if (location.pathname === "/dashboard") {
+        window.dispatchEvent(
+          new CustomEvent("vocode-voice-action", {
+            detail: { type: "dashboard-tab", action: "dashboard-tab", payload: { tab: "workspaces" } },
+          })
+        );
+      } else {
+        try {
+          sessionStorage.setItem("vocode_pending_dashboard_tab", "workspaces");
+        } catch {}
+        navigate("/dashboard");
+      }
+    } else if (actionType === "dashboard-tab") {
+      const targetTab = payload?.tab || "workspaces";
+      if (!accessToken) {
+        speakVocaText("Please sign in to access your dashboard.");
+        navigate("/login");
+        return;
+      }
+      if (location.pathname === "/dashboard") {
+        window.dispatchEvent(
+          new CustomEvent("vocode-voice-action", {
+            detail: { type: "dashboard-tab", action: "dashboard-tab", payload: { tab: targetTab } },
+          })
+        );
+      } else {
+        try {
+          sessionStorage.setItem("vocode_pending_dashboard_tab", targetTab);
+        } catch {}
+        navigate("/dashboard");
+      }
     } else if (actionType === "open-docs") {
       navigate("/docs");
     } else if (actionType === "toggle-theme") {
@@ -849,7 +956,16 @@ export default function VocoAssistant() {
             detail: { type: "toggle-settings", action: "toggle-settings" },
           })
         );
+      } else if (location.pathname === "/dashboard") {
+        window.dispatchEvent(
+          new CustomEvent("vocode-voice-action", {
+            detail: { type: "dashboard-tab", action: "dashboard-tab", payload: { tab: "settings" } },
+          })
+        );
       } else {
+        try {
+          sessionStorage.setItem("vocode_pending_dashboard_tab", "settings");
+        } catch {}
         navigate("/dashboard");
       }
     }

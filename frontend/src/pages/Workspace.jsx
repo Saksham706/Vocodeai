@@ -725,7 +725,18 @@ function WorkspaceLayout() {
   useEffect(() => {
     const handleVoiceAction = async (e) => {
       const { action, payload } = e.detail || {};
-      if (action === "open-terminal" || action === "toggle-terminal") {
+      if (action === "workspace-tab" && payload?.tab) {
+        const tab = payload.tab;
+        if (tab === "settings") {
+          setShowSettings(true);
+        } else if (tab === "ai") {
+          setShowAI(true);
+        } else {
+          setShowSettings(false);
+          setIsExplorerOpen(true);
+          setActivityTab(tab);
+        }
+      } else if (action === "open-terminal" || action === "toggle-terminal") {
         setShowTerminal(true);
         setActiveTermTab("terminal");
         if (!terminals || terminals.length === 0) {

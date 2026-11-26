@@ -65,7 +65,16 @@ export default function Dashboard() {
   const [workspaces, setWorkspaces] = useState([]);
   const [search, setSearch] = useState("");
   const [newName, setNewName] = useState("");
-  const [activeTab, setActiveTab] = useState("workspaces");
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const pending = sessionStorage.getItem("vocode_pending_dashboard_tab");
+      if (pending) {
+        sessionStorage.removeItem("vocode_pending_dashboard_tab");
+        return pending;
+      }
+    } catch {}
+    return "workspaces";
+  });
   const [menuOpenId, setMenuOpenId] = useState(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -186,7 +195,9 @@ export default function Dashboard() {
           ? workspaces[0]._id || workspaces[0].id
           : localStorage.getItem("vocode_recent_workspace");
 
-      if (action === "open-workspace") {
+      if (action === "dashboard-tab" && payload?.tab) {
+        setActiveTab(payload.tab);
+      } else if (action === "open-workspace") {
         if (targetWs) {
           const wsObj = workspaces.find((w) => (w._id || w.id) === targetWs);
           const target = getWorkspaceNavTarget(targetWs, wsObj?.name);

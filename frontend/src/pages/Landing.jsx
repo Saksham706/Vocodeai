@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { BACKEND_URL } from "../config/apiConfig";
 import {
   Rocket,
   ArrowRight,
@@ -62,6 +63,31 @@ export default function Landing() {
   const [activePersona, setActivePersona] = useState("developers");
   const [openFaqIndex, setOpenFaqIndex] = useState(0);
   const [isVoiceSimulating, setIsVoiceSimulating] = useState(true);
+  const [liveStats, setLiveStats] = useState({
+    activeUsers: null,
+    projectsCreated: null,
+    apiResponseMs: null,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    const t0 = performance.now();
+    fetch(`${BACKEND_URL}/api/stats`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        const latency = Math.max(1, Math.round(performance.now() - t0));
+        setLiveStats({
+          activeUsers: typeof data.activeUsers === "number" ? data.activeUsers : 0,
+          projectsCreated: typeof data.projectsCreated === "number" ? data.projectsCreated : 0,
+          apiResponseMs: latency,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -696,12 +722,24 @@ export default function Landing() {
                             <div className="preview-stat-cards">
                               <div className="p-card">
                                 <span className="p-title">Active Users</span>
-                                <span className="p-val">14,290</span>
-                                <span className="p-growth">+24.8%</span>
+                                <span className="p-val">
+                                  {liveStats.activeUsers !== null
+                                    ? liveStats.activeUsers.toLocaleString()
+                                    : "..."}
+                                </span>
+                                <span className="p-growth">
+                                  {liveStats.projectsCreated !== null
+                                    ? `${liveStats.projectsCreated.toLocaleString()} Workspaces`
+                                    : "Live Cloud"}
+                                </span>
                               </div>
                               <div className="p-card">
                                 <span className="p-title">API Response</span>
-                                <span className="p-val">12ms</span>
+                                <span className="p-val">
+                                  {liveStats.apiResponseMs !== null
+                                    ? `${liveStats.apiResponseMs}ms`
+                                    : "..."}
+                                </span>
                                 <span className="p-growth">Optimal</span>
                               </div>
                               <div className="p-card">
