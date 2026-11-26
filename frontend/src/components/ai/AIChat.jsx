@@ -1172,7 +1172,7 @@ export default function AIChat({
                     <div className="vocode-hero-pulse-ring" />
                   </div>
                   <h2 className="vocode-hero-greeting">
-                    Hey <span className="vocode-hero-user">{user?.name || user?.username || "Saksham"}</span>, what should we build today?
+                    Hey <span className="vocode-hero-user">{user?.firstName || user?.name?.split(" ")[0] || user?.username || (user?.email ? user.email.split("@")[0] : null) || "Developer"}</span>, what should we build today?
                   </h2>
                   <p className="vocode-hero-sub">
                     Autonomous AI pair programmer with live code & terminal execution

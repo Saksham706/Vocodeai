@@ -1359,7 +1359,7 @@ function WorkspaceLayout() {
       {/* 3. VS CODE BOTTOM STATUS BAR */}
       <StatusBar
         theme={theme}
-        userName={user?.name || user?.username || "Saksham"}
+        userName={user?.firstName || user?.name?.split(" ")[0] || user?.username || (user?.email ? user.email.split("@")[0] : null) || "Developer"}
         gitBranch="main"
         gitChangesCount={gitChangesCount}
         problemCount={problems ? problems.length : 0}

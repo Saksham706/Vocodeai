@@ -14,7 +14,7 @@ import AntigravityLogo from "../common/AntigravityLogo";
 import "../../styles/statusbar.css";
 
 export default function StatusBar({
-  userName = "Saksham",
+  userName = "Developer",
   gitBranch = "main",
   gitChangesCount = 0,
   problemCount = 0,

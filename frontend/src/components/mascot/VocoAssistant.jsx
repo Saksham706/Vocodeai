@@ -227,6 +227,127 @@ export default function VocoAssistant() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showGreetingToast, setShowGreetingToast] = useState(false);
 
+  // Draggable Orb & Compact Card Positions
+  const [orbPos, setOrbPos] = useState(() => {
+    try {
+      const saved = localStorage.getItem("voco_orb_pos");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed?.x === "number" && typeof parsed?.y === "number") {
+          return parsed;
+        }
+      }
+    } catch {}
+    return null;
+  });
+  const [isDraggingOrb, setIsDraggingOrb] = useState(false);
+  const orbDragRef = useRef({ active: false, moved: false, startX: 0, startY: 0, origX: 0, origY: 0 });
+  const standbyBtnRef = useRef(null);
+
+  const [cardPos, setCardPos] = useState(null);
+  const cardDragRef = useRef({ active: false, startX: 0, startY: 0, origX: 0, origY: 0 });
+  const cardElRef = useRef(null);
+
+  useEffect(() => {
+    const clampOrb = () => {
+      setOrbPos((prev) => {
+        if (!prev) return prev;
+        const maxX = Math.max(8, window.innerWidth - 46);
+        const maxY = Math.max(8, window.innerHeight - 46);
+        return {
+          x: Math.min(Math.max(8, prev.x), maxX),
+          y: Math.min(Math.max(8, prev.y), maxY),
+        };
+      });
+    };
+    window.addEventListener("resize", clampOrb);
+    return () => window.removeEventListener("resize", clampOrb);
+  }, []);
+
+  const handleOrbPointerDown = (e) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    const rect = standbyBtnRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    orbDragRef.current = {
+      active: true,
+      moved: false,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: rect.left,
+      origY: rect.top,
+    };
+    setIsDraggingOrb(true);
+
+    const onMove = (ev) => {
+      if (!orbDragRef.current.active) return;
+      const dx = ev.clientX - orbDragRef.current.startX;
+      const dy = ev.clientY - orbDragRef.current.startY;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+        orbDragRef.current.moved = true;
+      }
+      const maxX = Math.max(8, window.innerWidth - 46);
+      const maxY = Math.max(8, window.innerHeight - 46);
+      const nextPos = {
+        x: Math.min(Math.max(8, orbDragRef.current.origX + dx), maxX),
+        y: Math.min(Math.max(8, orbDragRef.current.origY + dy), maxY),
+      };
+      setOrbPos(nextPos);
+    };
+
+    const onUp = () => {
+      orbDragRef.current.active = false;
+      setIsDraggingOrb(false);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      setOrbPos((latest) => {
+        if (latest) {
+          try {
+            localStorage.setItem("voco_orb_pos", JSON.stringify(latest));
+          } catch {}
+        }
+        return latest;
+      });
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  const handleCardPointerDown = (e) => {
+    if (e.target.closest("button")) return;
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    const rect = cardElRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    cardDragRef.current = {
+      active: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: rect.left,
+      origY: rect.top,
+    };
+
+    const onMove = (ev) => {
+      if (!cardDragRef.current.active) return;
+      const dx = ev.clientX - cardDragRef.current.startX;
+      const dy = ev.clientY - cardDragRef.current.startY;
+      const maxX = Math.max(8, window.innerWidth - rect.width - 8);
+      const maxY = Math.max(8, window.innerHeight - rect.height - 8);
+      setCardPos({
+        x: Math.min(Math.max(8, cardDragRef.current.origX + dx), maxX),
+        y: Math.min(Math.max(8, cardDragRef.current.origY + dy), maxY),
+      });
+    };
+
+    const onUp = () => {
+      cardDragRef.current.active = false;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
   // Live Hardware Microphone & Audio Meter States
   const [micActive, setMicActive] = useState(false);
   const [micPermission, setMicPermission] = useState("unknown");
@@ -914,18 +1035,31 @@ export default function VocoAssistant() {
         </div>
       )}
 
-      {/* 2. Standby Floating Living AI Orb Logo (Visible across every page, pure circular logo, NO text) */}
+      {/* 2. Standby Floating Living AI Orb Logo (Draggable & compact) */}
       {!isOpen && (
         <div
-          className="voco-standby-logo-btn"
-          onClick={handleWakeUp}
+          ref={standbyBtnRef}
+          className={`voco-standby-logo-btn ${isDraggingOrb ? "is-dragging" : ""}`}
+          style={
+            orbPos
+              ? { left: `${orbPos.x}px`, top: `${orbPos.y}px`, right: "auto", bottom: "auto" }
+              : undefined
+          }
+          onPointerDown={handleOrbPointerDown}
+          onClick={() => {
+            if (orbDragRef.current.moved) {
+              orbDragRef.current.moved = false;
+              return;
+            }
+            handleWakeUp();
+          }}
           role="button"
           tabIndex={0}
-          title="Voco Voice AI (Say 'Hey Voco' or click to summon)"
+          title="Voco Voice AI (Drag to move, click to open)"
           aria-label="Voco Voice AI Assistant"
         >
           <VocoSiriOrb
-            size={34}
+            size={24}
             state={micActive ? "listening" : "idle"}
             audioLevel={audioLevel}
             showWaveform={true}
@@ -933,7 +1067,7 @@ export default function VocoAssistant() {
         </div>
       )}
 
-      {/* 3. Full Siri-style Active Interface Overlay (Appears when saying 'Hey Voco' or calling commands) */}
+      {/* 3. Compact Siri-style Active Interface Overlay (Appears when saying 'Hey Voco' or clicking) */}
       {isOpen && (
         <div
           className="voco-assistant-overlay"
@@ -941,12 +1075,26 @@ export default function VocoAssistant() {
             if (e.target === e.currentTarget) handleDismiss();
           }}
         >
-          <div className="voco-siri-card" onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
-            <div className="voco-card-header">
+          <div
+            ref={cardElRef}
+            className="voco-siri-card"
+            style={
+              cardPos
+                ? {
+                    position: "fixed",
+                    left: `${cardPos.x}px`,
+                    top: `${cardPos.y}px`,
+                    margin: 0,
+                  }
+                : undefined
+            }
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header (drag handle) */}
+            <div className="voco-card-header" onPointerDown={handleCardPointerDown}>
               <div className="voco-header-left">
                 <VocoSiriOrb
-                  size={32}
+                  size={24}
                   state={orbState}
                   audioLevel={audioLevel}
                   showWaveform={false}
@@ -971,22 +1119,22 @@ export default function VocoAssistant() {
                   onClick={() => setSoundEnabled((prev) => !prev)}
                   title={soundEnabled ? "Mute Voice Speech" : "Unmute Voice Speech"}
                 >
-                  {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+                  {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
                 </button>
                 <button
                   className="voco-close-btn"
                   onClick={handleDismiss}
                   title="Close (Esc)"
                 >
-                  <X size={16} />
+                  <X size={14} />
                 </button>
               </div>
             </div>
 
-            {/* Center Stage: Apple Siri Animated Energy Orb */}
+            {/* Center Stage: Compact Apple Siri Animated Energy Orb */}
             <div className="voco-card-stage">
               <VocoSiriOrb
-                size={110}
+                size={68}
                 state={orbState}
                 audioLevel={audioLevel}
                 onClick={async () => {
