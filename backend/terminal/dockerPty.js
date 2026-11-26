@@ -1,4 +1,6 @@
 import fs from "fs";
+import os from "os";
+import path from "path";
 import pty from "node-pty";
 
 export function createDockerPty(
@@ -67,9 +69,12 @@ export function createLocalPty(
   workspacePath,
   shell = "bash",
   cols = 120,
-  rows = 30
+  rows = 30,
+  username = "user"
 ) {
   const isWindows = process.platform === "win32";
+  const cleanUser =
+    (username || "user").toLowerCase().replace(/[^a-z0-9_-]/g, "") || "user";
   let shellCmd = isWindows ? "powershell.exe" : "/bin/bash";
   let shellArgs = [];
 
@@ -85,6 +90,29 @@ export function createLocalPty(
     shellCmd = "cmd.exe";
   } else if (isWindows) {
     shellArgs = ["-NoLogo"];
+  } else if (!isWindows) {
+    const rcPath = path.join(os.tmpdir(), "vocode_local_bashrc");
+    try {
+      const rcContent = [
+        "export TERM=xterm-256color",
+        "alias cls='clear'",
+        "alias ll='ls -la --color=auto'",
+        "alias ls='ls --color=auto'",
+        "prompt_func() {",
+        '  local p="${PWD}"',
+        '  if [ -n "$VOCODE_WS_ROOT" ] && [[ "$p" == "$VOCODE_WS_ROOT"* ]]; then',
+        '    p="/workspace${p#$VOCODE_WS_ROOT}"',
+        "  fi",
+        '  PS1="\\[\\e[32m\\]${TERM_USER:-user}@vocodeai\\[\\e[0m\\]:\\[\\e[34;1m\\]${p}\\[\\e[0m\\]\\$ "',
+        "}",
+        "PROMPT_COMMAND=prompt_func",
+        "",
+      ].join("\n");
+      fs.writeFileSync(rcPath, rcContent, "utf8");
+      shellArgs = ["--rcfile", rcPath, "-i"];
+    } catch {
+      shellArgs = ["-i"];
+    }
   }
 
   const termCols = Math.max(20, Math.min(Number(cols) || 120, 500));
@@ -99,6 +127,8 @@ export function createLocalPty(
     env: {
       ...process.env,
       TERM: "xterm-256color",
+      TERM_USER: cleanUser,
+      VOCODE_WS_ROOT: workspacePath || "",
     },
   });
 }

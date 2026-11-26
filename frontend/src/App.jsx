@@ -100,35 +100,37 @@ function PublicRoute({ children }) {
 ========================= */
 function WorkspaceRedirect() {
   const { accessToken } = useAuth();
-  const [targetUrl, setTargetUrl] = useState(() => {
+  const [target, setTarget] = useState(() => {
     const recent = localStorage.getItem("vocode_recent_workspace");
-    return recent ? `/workspace/${recent}` : null;
+    return recent ? { path: "/workspace/editor", state: { workspaceId: recent } } : null;
   });
-  const [loading, setLoading] = useState(!targetUrl);
+  const [loading, setLoading] = useState(!target);
 
   useEffect(() => {
-    if (targetUrl) return;
+    if (target) return;
     if (!accessToken) {
       setLoading(false);
       return;
     }
-    import("./services/workspaceApi")
-      .then(({ listWorkspaces }) => listWorkspaces(accessToken))
-      .then((list) => {
-        if (Array.isArray(list) && list.length > 0) {
-          const firstId = list[0]._id || list[0].id;
-          localStorage.setItem("vocode_recent_workspace", firstId);
-          setTargetUrl(`/workspace/${firstId}`);
-        } else {
-          setTargetUrl("/dashboard");
-        }
-      })
-      .catch(() => setTargetUrl("/dashboard"))
+    Promise.all([
+      import("./services/workspaceApi"),
+      import("./utils/workspaceUrl"),
+    ])
+      .then(([{ listWorkspaces }, { getWorkspaceNavTarget }]) =>
+        listWorkspaces(accessToken).then((list) => {
+          if (Array.isArray(list) && list.length > 0) {
+            setTarget(getWorkspaceNavTarget(list[0]));
+          } else {
+            setTarget({ path: "/dashboard" });
+          }
+        })
+      )
+      .catch(() => setTarget({ path: "/dashboard" }))
       .finally(() => setLoading(false));
-  }, [accessToken, targetUrl]);
+  }, [accessToken, target]);
 
-  if (targetUrl) {
-    return <Navigate to={targetUrl} replace />;
+  if (target) {
+    return <Navigate to={target.path} state={target.state} replace />;
   }
   if (loading) {
     return <PageFallback />;

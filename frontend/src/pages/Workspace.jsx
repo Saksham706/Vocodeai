@@ -5,7 +5,13 @@ import {
   useWorkspace,
 } from "../context/WorkspaceContext";
 import { useEffect, useState, useRef } from "react";
-import { getWorkspace } from "../services/workspaceApi";
+import { getWorkspace, listWorkspaces } from "../services/workspaceApi";
+import {
+  toWorkspaceSlug,
+  isWorkspaceIdLike,
+  saveWorkspaceSlug,
+  getWorkspaceIdForSlug,
+} from "../utils/workspaceUrl";
 
 import ActivityBar from "../components/layout/ActivityBar";
 import Sidebar from "../components/layout/Sidebar";
@@ -89,9 +95,15 @@ function WorkspaceLayout() {
     loadWorkspace,
   } = useWorkspace();
 
+  const { workspaceId: ctxWorkspaceId } = useWorkspace();
   const location = useLocation();
   const navigate = useNavigate();
-  const { id: workspaceId } = useParams();
+  const { id: routeParam } = useParams();
+  const workspaceId =
+    ctxWorkspaceId ||
+    location.state?.workspaceId ||
+    (isWorkspaceIdLike(routeParam) ? routeParam : getWorkspaceIdForSlug(routeParam)) ||
+    localStorage.getItem("vocode_recent_workspace");
   const { user, accessToken } = useAuth();
   const { aiConfig } = useAI();
 
@@ -1420,16 +1432,26 @@ function WorkspaceLayout() {
 
 /* ================= WORKSPACE META LOADER ================= */
 
-function WorkspaceLoader({ workspaceId, accessToken }) {
+function WorkspaceLoader({ workspaceId, accessToken, routeParam }) {
   const { setCurrentWorkspace } = useWorkspace();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!workspaceId || !accessToken) return;
 
     getWorkspace(accessToken, workspaceId)
-      .then(setCurrentWorkspace)
+      .then((ws) => {
+        setCurrentWorkspace(ws);
+        if (ws?.name) {
+          const slug = toWorkspaceSlug(ws.name);
+          saveWorkspaceSlug(slug, workspaceId);
+          if (!routeParam || isWorkspaceIdLike(routeParam) || routeParam !== slug) {
+            navigate(`/workspace/${slug}`, { replace: true, state: { workspaceId } });
+          }
+        }
+      })
       .catch(() => setCurrentWorkspace(null));
-  }, [workspaceId, accessToken, setCurrentWorkspace]);
+  }, [workspaceId, accessToken, routeParam, navigate, setCurrentWorkspace]);
 
   return null;
 }
@@ -1437,18 +1459,51 @@ function WorkspaceLoader({ workspaceId, accessToken }) {
 /* ================= PROVIDER WRAPPER ================= */
 
 export default function Workspace() {
-  const { id: workspaceId } = useParams();
+  const { id: routeParam } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user, accessToken, loading } = useAuth();
 
-  if (loading) return null;
+  const directId =
+    location.state?.workspaceId ||
+    (isWorkspaceIdLike(routeParam) ? routeParam : getWorkspaceIdForSlug(routeParam)) ||
+    localStorage.getItem("vocode_recent_workspace") ||
+    null;
+
+  const [resolvedId, setResolvedId] = useState(directId);
+
+  useEffect(() => {
+    if (directId) {
+      setResolvedId(directId);
+      return;
+    }
+    if (!accessToken) return;
+
+    listWorkspaces(accessToken)
+      .then((list) => {
+        if (!Array.isArray(list) || list.length === 0) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+        const match =
+          list.find((w) => toWorkspaceSlug(w.name) === routeParam) || list[0];
+        const id = match._id || match.id;
+        saveWorkspaceSlug(toWorkspaceSlug(match.name), id);
+        setResolvedId(id);
+      })
+      .catch(() => navigate("/dashboard", { replace: true }));
+  }, [directId, routeParam, accessToken, navigate]);
+
+  if (loading || !resolvedId) return null;
   if (!user || !accessToken) return null;
 
   return (
-    <WorkspaceProvider key={workspaceId} userId={user.id || user._id} workspaceId={workspaceId}>
+    <WorkspaceProvider key={resolvedId} userId={user.id || user._id} workspaceId={resolvedId}>
       <AIProvider>
         <WorkspaceLoader
-          workspaceId={workspaceId}
+          workspaceId={resolvedId}
           accessToken={accessToken}
+          routeParam={routeParam}
         />
         <WorkspaceLayout />
       </AIProvider>

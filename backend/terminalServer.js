@@ -155,7 +155,7 @@ export function setupTerminalServer(server) {
       } catch (dockerErr) {
         console.warn("Docker container spawn unavailable, using local PTY fallback:", dockerErr.message);
         ensureGitCredentials(workspacePath, userId).catch(() => {});
-        ptyProcess = createLocalPty(workspacePath, shell, cols, rows);
+        ptyProcess = createLocalPty(workspacePath, shell, cols, rows, username);
         fallbackNotice = `\r\n\x1b[33m⚡ [VocodeAI] Docker offline (${dockerErr.message.slice(0, 40)}...). Connected to native terminal in /workspace.\x1b[0m\r\n`;
       }
 

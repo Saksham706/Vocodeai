@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { getWorkspaceNavTarget } from "../utils/workspaceUrl";
 import {
   listWorkspaces,
   createWorkspace,
@@ -187,7 +188,9 @@ export default function Dashboard() {
 
       if (action === "open-workspace") {
         if (targetWs) {
-          navigate(`/workspace/${targetWs}`);
+          const wsObj = workspaces.find((w) => (w._id || w.id) === targetWs);
+          const target = getWorkspaceNavTarget(targetWs, wsObj?.name);
+          navigate(target.path, { state: target.state });
         }
       } else if (action === "create-workspace") {
         setShowCreateModal(true);
@@ -206,7 +209,9 @@ export default function Dashboard() {
             "vocode_pending_voice_action",
             JSON.stringify({ action, type: action, payload, match, feedback })
           );
-          navigate(`/workspace/${targetWs}`);
+          const wsObj = workspaces.find((w) => (w._id || w.id) === targetWs);
+          const target = getWorkspaceNavTarget(targetWs, wsObj?.name);
+          navigate(target.path, { state: target.state });
         }
       }
     };
@@ -800,7 +805,8 @@ export default function Dashboard() {
         const ws = await createWorkspace(accessToken, name, templateId);
         setWorkspaces((prev) => [ws, ...prev]);
         showToast(`Created workspace from template "${ws.name}"`);
-        navigate(`/workspace/${ws._id}`);
+        const target = getWorkspaceNavTarget(ws);
+        navigate(target.path, { state: target.state });
       } else {
         const newWs = {
           _id: `ws-${Date.now()}`,
@@ -976,7 +982,9 @@ export default function Dashboard() {
   };
 
   const handleCardClick = (id) => {
-    navigate(`/workspace/${id}`);
+    const wsObj = workspaces.find((w) => (w._id || w.id) === id);
+    const target = getWorkspaceNavTarget(id, wsObj?.name);
+    navigate(target.path, { state: target.state });
   };
 
   return (

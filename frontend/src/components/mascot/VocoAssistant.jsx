@@ -704,7 +704,9 @@ export default function VocoAssistant() {
       }
 
       if (targetWsId) {
-        navigate(`/workspace/${targetWsId}`);
+        const { getWorkspaceNavTarget } = await import("../../utils/workspaceUrl");
+        const target = getWorkspaceNavTarget(targetWsId);
+        navigate(target.path, { state: target.state });
       } else {
         // No workspace exists yet, take them to dashboard
         navigate("/dashboard");
