@@ -3243,20 +3243,24 @@
 
 /* Antigravity Input Box at Bottom */
 .antigravity-input-box {
-  background: #091016;
+  background: rgba(5, 16, 20, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  padding: 6px 10px 5px 10px;
-  margin: 4px 10px 8px 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  border-radius: 14px;
+  padding: 8px 12px 6px 12px;
+  margin: 4px 10px 10px 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  transition: border-color 0.18s ease;
+  gap: 5px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .antigravity-input-box:focus-within {
-  border-color: rgba(56, 189, 248, 0.45);
+  border-color: rgba(0, 240, 152, 0.45);
+  box-shadow: 0 0 24px rgba(0, 240, 152, 0.18), 0 8px 32px rgba(0, 0, 0, 0.5);
+  background: rgba(6, 20, 26, 0.92);
 }
 
 .antigravity-chips-top {
@@ -3658,8 +3662,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
-  border-radius: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
   border: 1px solid transparent;
   background: transparent;
   color: #94a3b8;
@@ -3668,20 +3672,20 @@
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .vocode-nav-tab:hover {
   background: rgba(255, 255, 255, 0.05);
-  color: #e2e8f0;
+  color: #ffffff;
 }
 
 .vocode-nav-tab.active {
-  background: rgba(16, 185, 129, 0.14);
-  color: #34d399;
-  border-color: rgba(16, 185, 129, 0.32);
+  background: rgba(0, 240, 152, 0.12);
+  color: #00F098;
+  border-color: rgba(0, 240, 152, 0.38);
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+  box-shadow: 0 0 14px rgba(0, 240, 152, 0.18);
 }
 
 .vocode-tab-count-pill {
@@ -3694,11 +3698,11 @@
 }
 
 .vocode-nav-tab.active .vocode-tab-count-pill {
-  background: rgba(16, 185, 129, 0.3);
-  color: #a7f3d0;
+  background: rgba(0, 240, 152, 0.25);
+  color: #FFFFFF;
 }
 
-/* Premium Welcome View (Replaces Antigravity Rainbow Arch) */
+/* Premium Welcome View (Matching Landing Cyber Theme) */
 .vocode-welcome-view {
   position: relative;
   flex: 1;
@@ -3736,21 +3740,23 @@
 
 .vocode-hero-avatar-wrap {
   position: relative;
-  width: 82px;
-  height: 82px;
+  width: 84px;
+  height: 84px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 18px;
-  background: radial-gradient(circle at 40% 40%, rgba(16, 185, 129, 0.22), rgba(6, 182, 212, 0.08) 60%, transparent 80%);
+  margin-bottom: 20px;
+  background: radial-gradient(circle at 40% 40%, rgba(0, 240, 152, 0.22), rgba(0, 229, 255, 0.1) 60%, transparent 80%);
   border-radius: 50%;
+  border: 1px solid rgba(0, 240, 152, 0.25);
+  box-shadow: 0 0 24px rgba(0, 240, 152, 0.2);
 }
 
 .vocode-hero-pulse-ring {
   position: absolute;
   inset: -6px;
   border-radius: 50%;
-  border: 1.5px solid rgba(16, 185, 129, 0.4);
+  border: 1.5px solid rgba(0, 240, 152, 0.4);
   animation: vocodeHaloPulse 3s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
   pointer-events: none;
 }
@@ -3766,7 +3772,7 @@
 }
 
 .vocode-hero-user {
-  background: linear-gradient(135deg, #34d399 0%, #38bdf8 100%);
+  background: linear-gradient(135deg, #00F098 0%, #00E5FF 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: 700;
@@ -3776,7 +3782,7 @@
   font-size: 12.5px;
   line-height: 1.5;
   color: #94a3b8;
-  margin: 0 0 22px 0;
+  margin: 0 0 24px 0;
   max-width: 320px;
 }
 
@@ -3791,25 +3797,26 @@
 .vocode-starter-chip {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px 12px;
+  gap: 8px;
+  padding: 7px 16px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  color: #cbd5e1;
-  font-size: 11.5px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  color: #E2E8F0;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
 }
 
 .vocode-starter-chip:hover {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.4);
-  color: #ffffff;
+  background: rgba(0, 240, 152, 0.1);
+  border-color: rgba(0, 240, 152, 0.5);
+  color: #00F098;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.18);
+  box-shadow: 0 0 18px rgba(0, 240, 152, 0.25);
 }
 
 /* Premium Thinking / Running State ("vocodeai....") */
@@ -5151,4 +5158,100 @@
 .ide-app.light .ai-attach-menu button,
 .ide-app.light .ai-mention-item {
   color: #0f172a !important;
+}
+
+/* AI Model Selector Light Mode Styles */
+[data-theme="light"] .ai-step-instruction,
+.ide-app.light .ai-step-instruction {
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .ai-compact-model-card,
+.ide-app.light .ai-compact-model-card {
+  background-color: #FFFFFF !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .ai-compact-model-card:hover,
+.ide-app.light .ai-compact-model-card:hover {
+  background-color: #F8FAFC !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+}
+
+[data-theme="light"] .ai-compact-model-card.selected,
+.ide-app.light .ai-compact-model-card.selected {
+  background-color: rgba(16, 185, 129, 0.08) !important;
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 1px #059669 !important;
+}
+
+[data-theme="light"] .ai-compact-name,
+.ide-app.light .ai-compact-name {
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .ai-compact-desc,
+.ide-app.light .ai-compact-desc {
+  color: #475569 !important;
+}
+
+[data-theme="light"] .ai-selected-model-pill,
+.ide-app.light .ai-selected-model-pill {
+  background-color: #F8FAFC !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+}
+
+[data-theme="light"] .ai-selected-model-name,
+.ide-app.light .ai-selected-model-name {
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .ai-google-signin-box,
+.ide-app.light .ai-google-signin-box {
+  background-color: #F8FAFC !important;
+  border: 1px solid rgba(15, 23, 42, 0.14) !important;
+}
+
+[data-theme="light"] .ai-step-subdesc,
+.ide-app.light .ai-step-subdesc {
+  color: #475569 !important;
+}
+
+[data-theme="light"] .ai-auth-label,
+.ide-app.light .ai-auth-label {
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .ai-auth-input,
+.ide-app.light .ai-auth-input {
+  background-color: #FFFFFF !important;
+  border: 1px solid rgba(15, 23, 42, 0.15) !important;
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .ai-auth-input:focus,
+.ide-app.light .ai-auth-input:focus {
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
+}
+
+[data-theme="light"] .ai-token-get-link,
+.ide-app.light .ai-token-get-link {
+  color: #059669 !important;
+}
+
+[data-theme="light"] .ai-user-account-email,
+.ide-app.light .ai-user-account-email {
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .ai-user-account-label,
+.ide-app.light .ai-user-account-label {
+  color: #64748B !important;
+}
+
+[data-theme="light"] .ai-modal-header h3,
+.ide-app.light .ai-modal-header h3 {
+  color: #0F172A !important;
 }

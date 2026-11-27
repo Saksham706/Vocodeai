@@ -2236,3 +2236,66 @@
   border-color: #FFD1BB;
   color: #101C24;
 }
+
+/* Ensure data-theme="light" attribute selector matches Auth Modal */
+[data-theme="light"] .auth-popup-card {
+  background: #FFFCFA !important;
+  border: 1px solid #F3DED2 !important;
+  box-shadow: 0 24px 60px rgba(173, 91, 48, 0.14) !important;
+}
+
+[data-theme="light"] .auth-popup-card .auth-field-label {
+  color: #344451 !important;
+}
+
+[data-theme="light"] .auth-popup-card .auth-input-wrapper {
+  background: #FFF5EF !important;
+  border: 1px solid #F3DED2 !important;
+}
+
+[data-theme="light"] .auth-popup-card .auth-input-wrapper:focus-within {
+  border-color: #FF8B32 !important;
+  background: #FFFCFA !important;
+  box-shadow: 0 0 0 3px rgba(255, 139, 50, 0.14) !important;
+}
+
+[data-theme="light"] .auth-popup-card .auth-text-input {
+  color: #101C24 !important;
+}
+
+[data-theme="light"] .auth-popup-card .auth-text-input::placeholder {
+  color: #687784 !important;
+}
+
+[data-theme="light"] .auth-popup-card .auth-field-icon,
+[data-theme="light"] .auth-popup-card .auth-eye-toggle {
+  color: #687784 !important;
+}
+
+[data-theme="light"] .auth-popup-card .auth-forgot-link,
+[data-theme="light"] .auth-popup-card .auth-switch-link {
+  color: #FF8B32 !important;
+}
+
+[data-theme="light"] .auth-popup-card .auth-google-button {
+  background: #FFF5EF !important;
+  border: 1px solid #F3DED2 !important;
+  color: #101C24 !important;
+}
+
+[data-theme="light"] .auth-popup-card .auth-google-button:hover {
+  background: #FFF0E7 !important;
+  border-color: #FFD1BB !important;
+}
+
+[data-theme="light"] .auth-popup-card .auth-switch-footer {
+  color: #687784 !important;
+}
+
+[data-theme="light"] .auth-popup-card .auth-terms-text {
+  color: #687784 !important;
+}
+
+[data-theme="light"] .auth-popup-card .auth-terms-link {
+  color: #FF8B32 !important;
+}

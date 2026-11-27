@@ -84,52 +84,51 @@ export default function DashboardBackground({ theme = "dark" }) {
           preserveAspectRatio="xMidYMid slice"
         >
           <defs>
-            <filter id="dashGlowDark" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="5" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
+            <radialGradient id="dashTealLeft" cx="15%" cy="35%" r="55%">
+              <stop offset="0%" stopColor="#14B8A6" stopOpacity="0.16" />
+              <stop offset="60%" stopColor="#0D9488" stopOpacity="0.04" />
+              <stop offset="100%" stopColor="#020506" stopOpacity="0" />
+            </radialGradient>
 
-            <radialGradient id="dashEmeraldGlow" cx="80%" cy="80%" r="50%">
-              <stop offset="0%" stopColor="#0B3826" stopOpacity="0.45" />
-              <stop offset="100%" stopColor="#020708" stopOpacity="0" />
+            <radialGradient id="dashOrangeRight" cx="88%" cy="85%" r="50%">
+              <stop offset="0%" stopColor="#EA580C" stopOpacity="0.12" />
+              <stop offset="55%" stopColor="#F97316" stopOpacity="0.03" />
+              <stop offset="100%" stopColor="#020506" stopOpacity="0" />
             </radialGradient>
           </defs>
 
-          {/* Ambient bottom-right emerald glow */}
-          <circle cx="1150" cy="750" r="450" fill="url(#dashEmeraldGlow)" />
+          {/* Subtle Teal Ambient Light (Left) + Faint Warm Orange Glow (Lower-Right) */}
+          <rect width="1440" height="900" fill="url(#dashTealLeft)" />
+          <rect width="1440" height="900" fill="url(#dashOrangeRight)" />
 
-          {/* Glowing cybernetic curves */}
-          <path
-            d="M320,880 C540,680 820,890 1120,680 C1280,560 1400,640 1520,520"
-            stroke="rgba(184, 255, 43, 0.38)"
-            strokeWidth="4"
-            filter="url(#dashGlowDark)"
-            fill="none"
-          />
-          <path
-            d="M320,880 C540,680 820,890 1120,680 C1280,560 1400,640 1520,520"
-            stroke="rgba(67, 230, 92, 0.50)"
-            strokeWidth="1.2"
-            fill="none"
-          />
-
-          <path
-            d="M360,910 C580,710 860,920 1150,710 C1310,590 1430,670 1550,550"
-            stroke="rgba(24, 151, 73, 0.38)"
+          {/* Concentric Elliptical Rings matching Landing Page */}
+          <ellipse
+            cx="720"
+            cy="450"
+            rx="460"
+            ry="255"
+            stroke="rgba(20, 184, 166, 0.11)"
             strokeWidth="1"
             fill="none"
           />
-
-          <path
-            d="M650,850 C880,580 1200,620 1460,450"
-            stroke="rgba(184, 255, 43, 0.42)"
-            strokeWidth="1.2"
+          <ellipse
+            cx="720"
+            cy="450"
+            rx="590"
+            ry="330"
+            stroke="rgba(255, 255, 255, 0.05)"
+            strokeWidth="1"
             fill="none"
           />
-
-          {/* Glowing node at arc intersection */}
-          <circle cx="1120" cy="680" r="6" fill="rgba(184, 255, 43, 0.28)" />
-          <circle cx="1120" cy="680" r="2.5" fill="#D0FF55" />
+          <ellipse
+            cx="720"
+            cy="450"
+            rx="730"
+            ry="410"
+            stroke="rgba(20, 184, 166, 0.055)"
+            strokeWidth="1"
+            fill="none"
+          />
         </svg>
       )}
     </div>

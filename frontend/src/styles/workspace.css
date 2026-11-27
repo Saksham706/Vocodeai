@@ -8,78 +8,78 @@
 }
 
 /* ========================================================
-   DARK THEME VARIABLES
+   DARK THEME VARIABLES (MATCHING LANDING LUXURY CYBER THEME)
    ======================================================== */
 [data-theme="dark"], .ide-app.dark {
   --ide-bg: #020708;
-  --ide-nav-bg: rgba(2, 7, 8, 0.82);
-  --ide-sidebar-bg: rgba(2, 7, 8, 0.72);
-  --ide-editor-bg: #080F12;
-  --ide-terminal-bg: #030C08;
-  --ide-card-bg: #04100B;
-  --ide-border: rgba(66, 165, 104, 0.18);
-  --ide-border-hover: rgba(67, 230, 92, 0.35);
-  --ide-text-primary: #F3F8F4;
-  --ide-text-secondary: #C1D2C7;
-  --ide-text-muted: #8BA195;
-  --ide-accent-green: #43E65C;
-  --ide-accent-lime: #B7FF29;
-  --ide-accent-orange: #FF8B32;
-  --ide-accent-coral: #FF5F45;
-  --ide-active-pill-bg: rgba(255, 139, 50, 0.12);
-  --ide-active-pill-border: rgba(255, 139, 50, 0.45);
-  --ide-active-pill-text: #FF9B3D;
-  --ide-hover-bg: rgba(67, 230, 92, 0.08);
+  --ide-nav-bg: rgba(2, 7, 8, 0.85);
+  --ide-sidebar-bg: rgba(5, 16, 20, 0.82);
+  --ide-editor-bg: transparent;
+  --ide-terminal-bg: rgba(3, 12, 10, 0.94);
+  --ide-card-bg: rgba(5, 16, 20, 0.85);
+  --ide-border: rgba(255, 255, 255, 0.08);
+  --ide-border-hover: rgba(0, 240, 152, 0.35);
+  --ide-text-primary: #FFFFFF;
+  --ide-text-secondary: #94A3B8;
+  --ide-text-muted: #64748B;
+  --ide-accent-green: #00F098;
+  --ide-accent-lime: #00F098;
+  --ide-accent-orange: #00E5FF;
+  --ide-accent-coral: #FF6448;
+  --ide-active-pill-bg: rgba(0, 240, 152, 0.12);
+  --ide-active-pill-border: rgba(0, 240, 152, 0.45);
+  --ide-active-pill-text: #00F098;
+  --ide-hover-bg: rgba(0, 240, 152, 0.08);
   --ide-card-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  --ide-glow-primary: rgba(67, 230, 92, 0.15);
+  --ide-glow-primary: rgba(0, 240, 152, 0.2);
 
   /* Section 3 Dark Mode Explorer Variables */
-  --explorer-bg: #020B08;
-  --explorer-surface: #04150F;
-  --explorer-surface-hover: #09271B;
-  --explorer-text: #F3F8F4;
-  --explorer-text-muted: #91A89B;
-  --explorer-border: rgba(74, 190, 113, 0.22);
-  --explorer-border-active: rgba(255, 160, 55, 0.90);
-  --explorer-accent: #FFAA43;
-  --explorer-accent-secondary: #FF6347;
-  --explorer-selection: rgba(255, 153, 48, 0.12);
-  --explorer-guide-line: rgba(74, 190, 113, 0.18);
+  --explorer-bg: rgba(2, 7, 8, 0.85);
+  --explorer-surface: rgba(5, 16, 20, 0.75);
+  --explorer-surface-hover: rgba(0, 240, 152, 0.08);
+  --explorer-text: #FFFFFF;
+  --explorer-text-muted: #94A3B8;
+  --explorer-border: rgba(255, 255, 255, 0.08);
+  --explorer-border-active: rgba(0, 240, 152, 0.8);
+  --explorer-accent: #00F098;
+  --explorer-accent-secondary: #00E5FF;
+  --explorer-selection: rgba(0, 240, 152, 0.14);
+  --explorer-guide-line: rgba(255, 255, 255, 0.08);
 
   /* Terminal Variables - Dark Mode */
-  --terminal-bg: #020B08;
-  --terminal-header-bg: #020D09;
-  --terminal-tabs-bg: #020B08;
-  --terminal-output-bg: #020B08;
-  --terminal-border: rgba(66, 165, 104, 0.25);
-  --terminal-border-active: rgba(255, 139, 50, 0.6);
-  --terminal-divider: rgba(66, 165, 104, 0.2);
+  --terminal-bg: rgba(3, 12, 10, 0.94);
+  --terminal-header-bg: rgba(2, 7, 8, 0.9);
+  --terminal-tabs-bg: rgba(2, 7, 8, 0.9);
+  --terminal-output-bg: rgba(3, 12, 10, 0.94);
+  --terminal-border: rgba(255, 255, 255, 0.08);
+  --terminal-border-active: rgba(0, 240, 152, 0.6);
+  --terminal-divider: rgba(255, 255, 255, 0.06);
   --terminal-text: #E2E8F0;
   --terminal-text-muted: #94A3B8;
-  --terminal-prompt-user: #22C55E;
-  --terminal-prompt-path: #38BDF8;
+  --terminal-prompt-user: #00F098;
+  --terminal-prompt-path: #00E5FF;
   --terminal-cmd: #FFFFFF;
-  --terminal-link: #38BDF8;
-  --terminal-cursor: #FFFFFF;
-  --terminal-hover-bg: rgba(67, 230, 92, 0.08);
-  --terminal-active-tab-bg: rgba(255, 139, 50, 0.14);
-  --terminal-active-tab-border: rgba(255, 139, 50, 0.5);
-  --terminal-active-tab-text: #FF8B32;
+  --terminal-link: #00E5FF;
+  --terminal-cursor: #00F098;
+  --terminal-hover-bg: rgba(0, 240, 152, 0.08);
+  --terminal-active-tab-bg: rgba(0, 240, 152, 0.12);
+  --terminal-active-tab-border: rgba(0, 240, 152, 0.5);
+  --terminal-active-tab-text: #00F098;
 
   /* AI Assistant Variables - Dark Mode */
-  --ai-bg: #020B08;
-  --ai-surface: #04140F;
-  --ai-surface-secondary: #061B13;
-  --ai-surface-hover: #0B291D;
-  --ai-text: #F3F8F4;
-  --ai-text-secondary: #C1D2C7;
-  --ai-text-muted: #91A89B;
-  --ai-border: rgba(52, 174, 112, 0.22);
-  --ai-border-strong: rgba(43, 218, 127, 0.38);
-  --ai-accent: #FF9B3D;
-  --ai-accent-secondary: #FF6347;
-  --ai-selection: rgba(255, 153, 48, 0.13);
-  --ai-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  --ai-bg: rgba(2, 7, 8, 0.88);
+  --ai-surface: rgba(5, 16, 20, 0.85);
+  --ai-surface-secondary: rgba(9, 25, 31, 0.8);
+  --ai-surface-hover: rgba(0, 240, 152, 0.08);
+  --ai-text: #FFFFFF;
+  --ai-text-secondary: #CBD5E1;
+  --ai-text-muted: #94A3B8;
+  --ai-border: rgba(255, 255, 255, 0.08);
+  --ai-border-strong: rgba(0, 240, 152, 0.38);
+  --ai-accent: #00F098;
+  --ai-accent-secondary: #00E5FF;
+  --ai-selection: rgba(0, 240, 152, 0.14);
+  --ai-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
 }
 
 /* ========================================================
@@ -225,7 +225,7 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  background-color: var(--ide-editor-bg);
+  background-color: transparent !important;
   z-index: 1;
 }
 
@@ -235,7 +235,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background-color: var(--ide-bg);
+  background-color: transparent !important;
   position: relative;
   z-index: 1;
 }

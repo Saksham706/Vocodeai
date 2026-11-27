@@ -22,15 +22,15 @@
 }
 
 [data-theme="dark"] .ide-navbar {
-  --nav-bg: rgba(2, 7, 8, 0.82);
-  --nav-border: rgba(16, 185, 129, 0.12);
-  --nav-text: #D5EDE2;
-  --nav-text-muted: #7E9D90;
+  --nav-bg: rgba(2, 7, 8, 0.88);
+  --nav-border: rgba(255, 255, 255, 0.08);
+  --nav-text: #FFFFFF;
+  --nav-text-muted: #94A3B8;
   --nav-hover-bg: rgba(255, 255, 255, 0.08);
-  --nav-dropdown-bg: #04160F;
-  --nav-dropdown-border: rgba(43, 216, 127, 0.25);
-  --nav-dropdown-hover: #08281B;
-  --nav-dropdown-shortcut: #5A7D6F;
+  --nav-dropdown-bg: rgba(5, 16, 20, 0.95);
+  --nav-dropdown-border: rgba(0, 240, 152, 0.25);
+  --nav-dropdown-hover: rgba(0, 240, 152, 0.1);
+  --nav-dropdown-shortcut: #64748B;
 }
 
 [data-theme="light"] .ide-navbar {

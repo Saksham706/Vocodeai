@@ -152,7 +152,9 @@ export default function Dashboard() {
         }
       })
       .catch((err) => {
-        console.error("Failed to load workspaces:", err);
+        if (err?.response?.status !== 401) {
+          console.error("Failed to load workspaces:", err);
+        }
         setWorkspaces([]);
       });
 
@@ -173,7 +175,9 @@ export default function Dashboard() {
       const items = await getRecycleBin(accessToken);
       setRecycleItems(Array.isArray(items) ? items : []);
     } catch (err) {
-      console.error("Failed to load recycle bin:", err);
+      if (err?.response?.status !== 401) {
+        console.error("Failed to load recycle bin:", err);
+      }
       setRecycleItems([]);
     } finally {
       setRecycleLoading(false);
@@ -1087,7 +1091,7 @@ export default function Dashboard() {
               } finally {
                 localStorage.removeItem("accessToken");
                 localStorage.removeItem("user");
-                navigate("/login", { replace: true });
+                navigate("/?auth=login", { replace: true });
               }
             }}
           />

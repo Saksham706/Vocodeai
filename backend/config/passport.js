@@ -33,6 +33,20 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             return done(new Error("No email found in Google profile"), null);
           }
 
+          // Safely unlink any existing document that might have this googleId with a different email
+          await User.updateMany(
+            { googleId: profile.id, email: { $ne: email } },
+            {
+              $unset: {
+                googleId: 1,
+                googleAccessToken: 1,
+                googleRefreshToken: 1,
+                googleAccessTokenExpiresAt: 1,
+                googleOAuthScopes: 1,
+              },
+            }
+          );
+
           // 1️⃣ PRIMARY TRUTH: Match user by Google account email
           let user = await User.findOne({ email });
 

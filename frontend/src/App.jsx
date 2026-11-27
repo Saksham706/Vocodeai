@@ -10,8 +10,6 @@ const Landing = lazy(() => import("./pages/Landing"));
 const Documentation = lazy(() => import("./pages/Documentation"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Workspace = lazy(() => import("./pages/Workspace"));
-const Login = lazy(() => import("./auth/Login"));
-const Signup = lazy(() => import("./auth/Signup"));
 const ForgotPassword = lazy(() => import("./auth/ForgotPassword"));
 const ResetPassword = lazy(() => import("./auth/ResetPassword"));
 const OAuthSuccess = lazy(() => import("./auth/OAuthSuccess"));
@@ -73,7 +71,7 @@ function ProtectedRoute({ children }) {
   if (loading) return <PageFallback />;
 
   if (!accessToken) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/?auth=login" replace />;
   }
 
   return children;
@@ -198,20 +196,12 @@ export default function App() {
 
             <Route
               path="/login"
-              element={
-                <PublicRoute>
-                  <Login />
-                </PublicRoute>
-              }
+              element={<Navigate to="/?auth=login" replace />}
             />
 
             <Route
               path="/signup"
-              element={
-                <PublicRoute>
-                  <Signup />
-                </PublicRoute>
-              }
+              element={<Navigate to="/?auth=signup" replace />}
             />
 
             <Route

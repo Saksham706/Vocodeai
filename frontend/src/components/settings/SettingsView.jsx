@@ -17,6 +17,7 @@ import {
   Check,
   Copy,
   ChevronRight,
+  ChevronDown,
   EyeOff,
   Sliders,
   ArrowLeft,
@@ -572,7 +573,7 @@ export default function SettingsView({
       <div className="settings-header">
         <div className="settings-header-top">
           <div className="settings-title-group">
-            {onBack && (
+            {workspaceId && onBack && (
               <button
                 className="settings-back-btn"
                 onClick={onBack}
@@ -709,6 +710,32 @@ export default function SettingsView({
       ) : (
         /* DOCS-STYLE DEDICATED CATEGORY VIEW (NO SLIDING) */
         <div className="settings-body">
+          {/* Compact Mobile Category Dropdown */}
+          <div className="settings-mobile-dropdown-wrap">
+            <Sliders size={13} className="settings-mobile-dd-icon" />
+            <select
+              className="settings-mobile-select"
+              aria-label="Select settings category"
+              value={activeCategory}
+              onChange={(e) => handleSelectCategory(e.target.value)}
+            >
+              {SETTINGS_GROUPS.map((grp) => (
+                <optgroup key={grp.group} label={grp.group}>
+                  {grp.categoryIds.map((catId) => {
+                    const cat = findCategory(catId);
+                    if (!cat) return null;
+                    return (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.label} ({cat.items.length})
+                      </option>
+                    );
+                  })}
+                </optgroup>
+              ))}
+            </select>
+            <ChevronDown size={14} className="settings-mobile-dd-chevron" />
+          </div>
+
           {/* Left Category Sidebar (Docs Guide Tree Style) */}
           <aside className="settings-sidebar">
             <div className="settings-sidebar-header">

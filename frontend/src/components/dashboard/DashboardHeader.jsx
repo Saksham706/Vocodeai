@@ -34,7 +34,7 @@ export default function DashboardHeader({
 
       {/* Theme Toggle Button */}
       <button
-        className="dash-theme-toggle"
+        className="dash-theme-toggle vocode-pill-btn"
         onClick={toggleTheme}
         title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
         aria-label="Toggle dark and light mode"
@@ -55,7 +55,7 @@ export default function DashboardHeader({
 
       {/* Import Folder Button */}
       <button
-        className="btn-dash-action-secondary"
+        className="btn-dash-action-secondary vocode-pill-btn"
         onClick={onOpenImport}
         title="Import a folder from desktop as a new workspace"
       >
@@ -65,7 +65,7 @@ export default function DashboardHeader({
 
       {/* Export Workspaces Button */}
       <button
-        className="btn-dash-action-secondary"
+        className="btn-dash-action-secondary vocode-pill-btn"
         onClick={onOpenExport}
         title="Export workspace folders as ZIP"
         disabled={workspacesCount === 0}
@@ -77,7 +77,7 @@ export default function DashboardHeader({
       {/* Primary "+ Create Workspace" Button */}
       <button
         ref={createBtnRef}
-        className="btn-create-workspace-primary"
+        className="btn-create-workspace-primary vocode-pill-btn"
         onClick={() => {
           setShowCreate((prev) => {
             const next = !prev;

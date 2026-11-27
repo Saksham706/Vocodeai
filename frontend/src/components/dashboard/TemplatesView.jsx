@@ -129,17 +129,6 @@ export default function TemplatesView({
       {/* Top Banner Header */}
       <div className="templates-header-section">
         <div style={{ display: "flex", alignItems: "flex-start", gap: "16px", marginBottom: "8px" }}>
-          {onBack && (
-            <button
-              type="button"
-              className="dash-back-arrow-btn"
-              onClick={onBack}
-              title="Back to Workspaces"
-              aria-label="Back"
-            >
-              <ArrowLeft size={18} />
-            </button>
-          )}
           <div className="templates-title-group" style={{ flex: 1 }}>
             <div className="templates-badge">
               <Sparkles size={14} className="sparkle-icon" />

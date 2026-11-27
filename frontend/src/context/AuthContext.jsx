@@ -23,10 +23,20 @@ export function AuthProvider({ children }) {
     }
   });
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/oauth-success")) {
+      return false;
+    }
+    return true;
+  });
 
   /* ================= AUTO REFRESH & PROFILE SYNC ON APP LOAD ================= */
   useEffect(() => {
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/oauth-success")) {
+      setLoading(false);
+      return;
+    }
+
     let isMounted = true;
 
     const checkAuth = async () => {
@@ -57,9 +67,11 @@ export function AuthProvider({ children }) {
           setUser(data.user);
           localStorage.setItem("accessToken", data.accessToken);
           localStorage.setItem("user", JSON.stringify(data.user));
+          setLoading(false);
+          return;
         }
       } catch {
-        // If both failed, clear stale local session
+        // Both verification and refresh failed: credentials are invalid/expired
         if (isMounted) {
           setAccessToken(null);
           setUser(null);
@@ -114,6 +126,7 @@ export function AuthProvider({ children }) {
   const login = useCallback((token, userData) => {
     setAccessToken(token);
     setUser(userData);
+    setLoading(false);
     if (token) localStorage.setItem("accessToken", token);
     if (userData) {
       localStorage.setItem("user", JSON.stringify(userData));

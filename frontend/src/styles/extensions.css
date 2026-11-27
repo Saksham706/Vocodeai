@@ -98,20 +98,20 @@
 
 .ext-search-input {
   width: 100%;
-  padding: 7px 28px 7px 30px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
+  padding: 8px 30px 8px 32px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
   color: #f1f5f9;
   font-size: 12px;
   outline: none;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ext-search-input:focus {
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.18);
-  background: rgba(0, 0, 0, 0.55);
+  border-color: rgba(0, 240, 152, 0.45);
+  box-shadow: 0 0 14px rgba(0, 240, 152, 0.18);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .ext-search-clear {
@@ -145,28 +145,30 @@
 }
 
 .ext-filter-chip {
-  padding: 3px 9px;
+  padding: 4px 12px;
   font-size: 11px;
   font-weight: 500;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #94a3b8;
-  border-radius: 12px;
+  border-radius: 9999px;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ext-filter-chip:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #f1f5f9;
+  background: rgba(0, 240, 152, 0.08);
+  border-color: rgba(0, 240, 152, 0.3);
+  color: #00F098;
 }
 
 .ext-filter-chip.active {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: rgba(56, 189, 248, 0.45);
-  color: #38bdf8;
+  background: rgba(0, 240, 152, 0.14);
+  border-color: rgba(0, 240, 152, 0.45);
+  color: #00F098;
   font-weight: 600;
+  box-shadow: 0 0 10px rgba(0, 240, 152, 0.18);
 }
 
 /* View Mode Filter Tabs (All / Installed / Recommended) */
@@ -196,8 +198,8 @@
 }
 
 .ext-view-tab.active {
-  color: #38bdf8;
-  border-bottom-color: #38bdf8;
+  color: #00F098;
+  border-bottom-color: #00F098;
   font-weight: 600;
 }
 
@@ -416,29 +418,34 @@
   flex-shrink: 0;
 }
 
-/* Install Button */
+/* Install Button — Matching Landing Discovery Button */
 .ext-btn-install {
-  padding: 4px 11px;
+  padding: 5px 14px;
   font-size: 11px;
   font-weight: 600;
-  background: #0284c7;
-  color: #ffffff;
-  border: 1px solid #38bdf8;
-  border-radius: 5px;
+  letter-spacing: 0.3px;
+  background: linear-gradient(135deg, rgba(0, 240, 152, 0.15) 0%, rgba(0, 229, 255, 0.1) 100%);
+  color: #00F098;
+  border: 1px solid rgba(0, 240, 152, 0.4);
+  border-radius: 9999px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .ext-btn-install:hover {
-  background: #0369a1;
-  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35);
+  background: linear-gradient(135deg, rgba(0, 240, 152, 0.25) 0%, rgba(0, 229, 255, 0.18) 100%);
+  border-color: #00F098;
+  color: #FFFFFF;
+  box-shadow: 0 0 16px rgba(0, 240, 152, 0.35);
+  transform: translateY(-1px);
 }
 
 .ext-btn-install:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: wait;
 }
 
@@ -446,14 +453,14 @@
 .ext-installed-badge {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   font-size: 10px;
   font-weight: 600;
-  color: #10b981;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #00F098;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(0, 240, 152, 0.1);
+  border: 1px solid rgba(0, 240, 152, 0.3);
 }
 
 /* Set Color Theme Button */
@@ -1000,4 +1007,46 @@
 [data-theme="light"] .ext-author,
 .ide-app.light .ext-meta {
   color: #475569 !important;
+}
+
+[data-theme="light"] .ext-search-input-wrap,
+.ide-app.light .ext-search-input-wrap {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(15, 23, 42, 0.15) !important;
+}
+
+[data-theme="light"] .ext-search-input,
+.ide-app.light .ext-search-input {
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .ext-search-input::placeholder,
+.ide-app.light .ext-search-input::placeholder {
+  color: #64748B !important;
+}
+
+[data-theme="light"] .ext-filter-chip,
+.ide-app.light .ext-filter-chip {
+  background: rgba(15, 23, 42, 0.04) !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+  color: #334155 !important;
+}
+
+[data-theme="light"] .ext-filter-chip:hover,
+.ide-app.light .ext-filter-chip:hover {
+  background: rgba(16, 185, 129, 0.08) !important;
+  color: #059669 !important;
+}
+
+[data-theme="light"] .ext-filter-chip.active,
+.ide-app.light .ext-filter-chip.active {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  color: #059669 !important;
+}
+
+[data-theme="light"] .ext-details-view-container,
+.ide-app.light .ext-details-view-container {
+  background: #F8FAFB !important;
+  color: #0F172A !important;
 }

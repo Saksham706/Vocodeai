@@ -17,14 +17,14 @@
 }
 
 [data-theme="dark"] .ide-sidebar {
-  --explorer-bg: #020B08;
-  --explorer-border: rgba(16, 185, 129, 0.12);
-  --explorer-text: #F3F8F4;
-  --explorer-text-muted: #809C8E;
-  --explorer-surface: #04160F;
-  --explorer-surface-hover: rgba(255, 255, 255, 0.06);
-  --explorer-selection: #08281B;
-  --explorer-border-active: rgba(43, 216, 127, 0.45);
+  --explorer-bg: rgba(2, 7, 8, 0.85);
+  --explorer-border: rgba(255, 255, 255, 0.08);
+  --explorer-text: #FFFFFF;
+  --explorer-text-muted: #94A3B8;
+  --explorer-surface: rgba(5, 16, 20, 0.75);
+  --explorer-surface-hover: rgba(0, 240, 152, 0.08);
+  --explorer-selection: rgba(0, 240, 152, 0.12);
+  --explorer-border-active: rgba(0, 240, 152, 0.35);
 }
 
 [data-theme="light"] .ide-sidebar {

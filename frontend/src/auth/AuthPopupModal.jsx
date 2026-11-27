@@ -23,6 +23,7 @@ const backendUrl = BACKEND_URL;
 export default function AuthPopupModal({
   isOpen,
   initialMode = "login",
+  initialError = "",
   onClose,
   theme = "dark",
 }) {
@@ -36,7 +37,7 @@ export default function AuthPopupModal({
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showLoginPwd, setShowLoginPwd] = useState(false);
-  const [loginError, setLoginError] = useState("");
+  const [loginError, setLoginError] = useState(initialError || "");
   const [loginLoading, setLoginLoading] = useState(false);
 
   // Signup state
@@ -57,11 +58,11 @@ export default function AuthPopupModal({
     if (isOpen) {
       setMode(initialMode);
       setIsClosing(false);
-      setLoginError("");
+      setLoginError(initialError || "");
       setSignupError("");
       setSignupSuccess("");
     }
-  }, [isOpen, initialMode]);
+  }, [isOpen, initialMode, initialError]);
 
   useEffect(() => {
     if (!isOpen) return;

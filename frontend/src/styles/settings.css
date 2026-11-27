@@ -23,13 +23,18 @@
 .settings-header {
   display: flex;
   flex-direction: column;
-  padding: 18px 24px 14px;
+  padding: 18px 24px 14px 116px;
   background: var(--surface-primary);
   border-bottom: 1px solid var(--border-primary);
   gap: 12px;
   flex-shrink: 0;
   z-index: 20;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.ide-settings-modal .settings-header,
+.workspace-settings-modal .settings-header {
+  padding-left: 24px !important;
 }
 
 .settings-header-top {
@@ -1447,6 +1452,11 @@
   color: var(--text-primary);
 }
 
+/* Mobile category dropdown (hidden on desktop) */
+.settings-mobile-dropdown-wrap {
+  display: none;
+}
+
 /* =========================================================
    RESPONSIVE SETTINGS VIEW STYLES
    ========================================================= */
@@ -1463,28 +1473,63 @@
 
 @media (max-width: 768px) {
   .settings-header {
-    padding: 14px 16px;
-    gap: 10px;
+    padding: 8px 12px;
+    gap: 6px;
   }
 
   .settings-header-top {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .settings-title-group {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .settings-back-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .settings-title {
+    font-size: 0.92rem;
+    gap: 6px;
+  }
+
+  .settings-title svg {
+    width: 15px;
+    height: 15px;
   }
 
   .settings-scope-switcher {
-    width: 100%;
+    width: auto;
+    padding: 2px;
   }
 
   .scope-btn {
-    flex: 1;
-    text-align: center;
+    padding: 4px 8px;
+    font-size: 11px;
   }
 
   .settings-actions-group {
-    width: 100%;
+    width: auto;
     justify-content: flex-end;
+  }
+
+  .settings-action-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .settings-search-input {
+    height: 32px;
+    font-size: 12px;
+    padding: 4px 28px 4px 30px;
   }
 
   .settings-body {
@@ -1492,51 +1537,60 @@
   }
 
   .settings-sidebar {
-    width: 100%;
-    height: auto;
-    max-height: 140px;
-    border-right: none;
-    border-bottom: 1px solid var(--border-primary);
-    padding: 10px 14px;
-    flex-direction: row;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    gap: 12px;
-  }
-
-  .settings-sidebar-header {
     display: none;
   }
 
-  .settings-sidebar-categories {
-    flex-direction: row;
-    gap: 12px;
-  }
-
-  .settings-category-group {
-    flex-direction: row;
-    gap: 6px;
-  }
-
-  .settings-category-group-title {
-    display: none;
-  }
-
-  .settings-category-item {
-    white-space: nowrap;
+  .settings-mobile-dropdown-wrap {
+    display: flex;
+    align-items: center;
+    position: relative;
     padding: 6px 12px;
-    border-radius: 8px;
+    border-bottom: 1px solid var(--border-primary);
     background: var(--surface-secondary);
   }
 
+  .settings-mobile-dd-icon {
+    position: absolute;
+    left: 22px;
+    color: var(--accent-primary);
+    pointer-events: none;
+  }
+
+  .settings-mobile-select {
+    width: 100%;
+    height: 32px;
+    padding: 0 28px 0 28px;
+    border-radius: 8px;
+    border: 1px solid var(--border-primary);
+    background: var(--surface-primary);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 500;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .settings-mobile-select:focus {
+    border-color: var(--accent-primary);
+  }
+
+  .settings-mobile-dd-chevron {
+    position: absolute;
+    right: 22px;
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
   .settings-content {
-    padding: 18px 16px;
+    padding: 12px;
   }
 
   .setting-row {
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: 8px;
   }
 
   .setting-control-wrapper {
@@ -1547,19 +1601,19 @@
 
 @media (max-width: 480px) {
   .settings-header {
-    padding: 12px;
+    padding: 8px 10px;
   }
 
   .settings-title {
-    font-size: 1.1rem;
+    font-size: 0.88rem;
   }
 
   .settings-content {
-    padding: 14px 12px;
+    padding: 10px;
   }
 
   .setting-item-card {
-    padding: 14px 12px;
+    padding: 10px 10px;
   }
 }
 

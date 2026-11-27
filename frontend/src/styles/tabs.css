@@ -2,44 +2,93 @@
 
 .tabs-bar {
   display: flex;
-  background: #252526;
-  border-bottom: 1px solid #333;
+  background: rgba(5, 16, 20, 0.75);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  overflow-x: auto;
 }
 
 .tab {
-  padding: 6px 12px;
+  padding: 8px 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #94A3B8;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.tab:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: #FFFFFF;
 }
 
 .tab.active {
-  background: #1e1e1e;
+  background: rgba(0, 240, 152, 0.08);
+  color: #FFFFFF;
+  border-bottom: 2px solid #00F098;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 240, 152, 0.4), transparent);
 }
 
 .close {
   margin-left: 6px;
-  color: #888;
+  color: #64748B;
+  border-radius: 4px;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.close:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .dirty-dot {
-  color: orange;
+  color: #00E5FF;
 }
 
 /* ========== TERMINAL TABS ========== */
 
 .terminal-tabs {
   display: flex;
-  background: #252526;
-  border-top: 1px solid #333;
+  background: rgba(5, 16, 20, 0.85);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
 }
 
 .terminal-tab {
-  padding: 6px 10px;
+  padding: 6px 12px;
   cursor: pointer;
+  font-size: 12px;
+  color: #94A3B8;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.2s ease;
+}
+
+.terminal-tab:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .terminal-tab.active {
-  background: #1e1e1e;
+  background: rgba(0, 240, 152, 0.08);
+  color: #00F098;
+  font-weight: 600;
+  border-bottom: 2px solid #00F098;
 }

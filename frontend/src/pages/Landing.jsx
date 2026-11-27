@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { BACKEND_URL } from "../config/apiConfig";
 import VocodeLogo from "../components/common/VocodeLogo";
@@ -55,6 +55,7 @@ import "../styles/landing.css";
 
 export default function Landing() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { accessToken } = useAuth();
 
   // Dark mode by default for premium developer aesthetic
@@ -65,6 +66,33 @@ export default function Landing() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState("login");
+  const [authModalError, setAuthModalError] = useState("");
+
+  // Open auth popup automatically when redirected via /?auth=login or /?auth=signup
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const authParam = params.get("auth");
+    const errorParam = params.get("error");
+    if (authParam === "login" || authParam === "signup") {
+      const activeToken = localStorage.getItem("accessToken") || accessToken;
+      if (activeToken) {
+        navigate("/dashboard", { replace: true });
+      } else {
+        setAuthModalMode(authParam);
+        if (errorParam) {
+          setAuthModalError(
+            errorParam === "oauth_failed"
+              ? "Google sign-in was canceled or failed. Please try again."
+              : decodeURIComponent(errorParam)
+          );
+        } else {
+          setAuthModalError("");
+        }
+        setAuthModalOpen(true);
+        navigate("/", { replace: true });
+      }
+    }
+  }, [location.search, accessToken, navigate]);
   const [activeScene, setActiveScene] = useState(0);
   const TOTAL_SCENES = 4;
   const activeSceneRef = React.useRef(0);
@@ -469,7 +497,7 @@ export default function Landing() {
                   tabIndex={mobileMenuOpen ? 0 : -1}
                 >
                   <span className="overlay-link-index">01</span>
-                  <span className="overlay-link-label">OVERVIEW</span>
+                  <span className="overlay-link-label">Overview</span>
                 </button>
               </li>
               <li style={{ "--i": 1 }}>
@@ -480,7 +508,7 @@ export default function Landing() {
                   tabIndex={mobileMenuOpen ? 0 : -1}
                 >
                   <span className="overlay-link-index">02</span>
-                  <span className="overlay-link-label">ANY DEVICE &amp; ZERO SETUP</span>
+                  <span className="overlay-link-label">Any device &amp; zero setup</span>
                 </button>
               </li>
               <li style={{ "--i": 2 }}>
@@ -491,7 +519,7 @@ export default function Landing() {
                   tabIndex={mobileMenuOpen ? 0 : -1}
                 >
                   <span className="overlay-link-index">03</span>
-                  <span className="overlay-link-label">HOW IT WORKS</span>
+                  <span className="overlay-link-label">How it works</span>
                 </button>
               </li>
               <li style={{ "--i": 3 }}>
@@ -505,7 +533,7 @@ export default function Landing() {
                   tabIndex={mobileMenuOpen ? 0 : -1}
                 >
                   <span className="overlay-link-index">04</span>
-                  <span className="overlay-link-label">DOCUMENTATION</span>
+                  <span className="overlay-link-label">Documentation</span>
                 </button>
               </li>
               <li style={{ "--i": 4 }}>
@@ -519,7 +547,7 @@ export default function Landing() {
                   tabIndex={mobileMenuOpen ? 0 : -1}
                 >
                   <span className="overlay-link-index">05</span>
-                  <span className="overlay-link-label">ENTER VOCODEAI</span>
+                  <span className="overlay-link-label">Enter VocodeAI</span>
                 </button>
               </li>
             </ul>
@@ -585,10 +613,10 @@ export default function Landing() {
                 <div className="bugatti-cta-wrap">
                   <button
                     type="button"
-                    className="bugatti-cta-pill"
-                    onClick={() => scrollToSection("any-device")}
+                    className="bugatti-cta-pill vocode-pill-btn"
+                    onClick={() => handleEnter("login")}
                   >
-                    <span>Discover VocodeAI</span>
+                    <span>Enter VocodeAI</span>
                     <ArrowRight size={15} className="bugatti-cta-arrow" />
                   </button>
                 </div>
@@ -1002,6 +1030,7 @@ export default function Landing() {
       <AuthPopupModal
         isOpen={authModalOpen}
         initialMode={authModalMode}
+        initialError={authModalError}
         onClose={() => setAuthModalOpen(false)}
         theme={theme}
       />

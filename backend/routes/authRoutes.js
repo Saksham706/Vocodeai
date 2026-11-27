@@ -44,29 +44,33 @@ router.get("/google", (req, res, next) => {
   })(req, res, next);
 });
 
-router.get(
-  "/google/callback",
-  passport.authenticate("google", { session: false }),
-  async (req, res) => {
+router.get("/google/callback", (req, res, next) => {
+  passport.authenticate("google", { session: false }, async (err, user, info) => {
+    let targetOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
+    let returnTo = "";
+
+    if (req.query.state) {
+      try {
+        const parsed = JSON.parse(Buffer.from(req.query.state, "base64").toString("utf-8"));
+        if (parsed.origin) {
+          targetOrigin = parsed.origin.replace(/\/+$/, "");
+        }
+        if (parsed.returnTo) returnTo = parsed.returnTo;
+      } catch {}
+    }
+
+    if (err || !user) {
+      console.error("Google OAuth authentication error:", err || info);
+      const errMsg = encodeURIComponent(err?.message || (typeof info === "string" ? info : info?.message) || "oauth_failed");
+      return res.redirect(`${targetOrigin}/?auth=login&error=${errMsg}`);
+    }
+
     try {
-      let targetOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
-      let returnTo = "";
+      const accessToken = generateAccessToken(user);
+      const refreshToken = generateRefreshToken(user);
 
-      if (req.query.state) {
-        try {
-          const parsed = JSON.parse(Buffer.from(req.query.state, "base64").toString("utf-8"));
-          if (parsed.origin) {
-            targetOrigin = parsed.origin.replace(/\/+$/, "");
-          }
-          if (parsed.returnTo) returnTo = parsed.returnTo;
-        } catch {}
-      }
-
-      const accessToken = generateAccessToken(req.user);
-      const refreshToken = generateRefreshToken(req.user);
-
-      req.user.refreshToken = refreshToken;
-      await req.user.save();
+      user.refreshToken = refreshToken;
+      await user.save();
 
       res.cookie("refreshToken", refreshToken, {
         httpOnly: true,
@@ -77,27 +81,25 @@ router.get(
 
       const userJson = encodeURIComponent(
         JSON.stringify({
-          id: req.user._id,
-          email: req.user.email,
-          firstName: req.user.firstName,
-          lastName: req.user.lastName,
-          hasGoogleAuth: Boolean(req.user.googleAccessToken || req.user.googleId),
+          id: user._id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          hasGoogleAuth: Boolean(user.googleAccessToken || user.googleId),
         })
       );
 
       const returnParam = returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : "";
 
-      res.redirect(
+      return res.redirect(
         `${targetOrigin}/oauth-success?token=${accessToken}&refreshToken=${refreshToken}&user=${userJson}${returnParam}`
       );
-    } catch (err) {
-      console.error("Google OAuth callback error:", err);
-      res.redirect(
-        `${process.env.FRONTEND_URL || "http://localhost:5173"}/login?error=oauth_failed`
-      );
+    } catch (saveErr) {
+      console.error("Google OAuth token generation error:", saveErr);
+      return res.redirect(`${targetOrigin}/?auth=login&error=oauth_failed`);
     }
-  }
-);
+  })(req, res, next);
+});
 
 /* ================= GITHUB OAUTH (VS CODE STYLE) ================= */
 router.get("/github", githubAuth);

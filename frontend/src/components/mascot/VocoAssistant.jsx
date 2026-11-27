@@ -447,46 +447,6 @@ export default function VocoAssistant() {
   const restartTimerRef = useRef(null);
   const autoDismissTimerRef = useRef(null);
   const hasDeniedPermissionRef = useRef(false);
-  const autoGreetedRef = useRef(false);
-
-  // 1. Landing Page Speech Greeting ("Welcome to Vocodeai. Hey, I am Voco")
-  useEffect(() => {
-    if (location.pathname === "/" && !autoGreetedRef.current) {
-      const alreadyGreeted = sessionStorage.getItem("voco_landing_greeted");
-      if (!alreadyGreeted) {
-        autoGreetedRef.current = true;
-        sessionStorage.setItem("voco_landing_greeted", "true");
-
-        const greetingSpeech = "Welcome to Vocodeai! Hey, I am Voco.";
-
-        const triggerGreeting = () => {
-          setShowGreetingToast(true);
-          playVocaSound("open");
-          speakVocaText(greetingSpeech);
-          cleanupEvents();
-        };
-
-        const cleanupEvents = () => {
-          window.removeEventListener("pointerdown", triggerGreeting);
-          window.removeEventListener("keydown", triggerGreeting);
-        };
-
-        try {
-          speakVocaText(greetingSpeech);
-          setShowGreetingToast(true);
-        } catch {
-          window.addEventListener("pointerdown", triggerGreeting, { once: true });
-          window.addEventListener("keydown", triggerGreeting, { once: true });
-        }
-
-        const t = setTimeout(() => setShowGreetingToast(false), 8000);
-        return () => {
-          clearTimeout(t);
-          cleanupEvents();
-        };
-      }
-    }
-  }, [location.pathname]);
 
   // 2. Hardware Microphone Acquisition (Audio Meter Wave Visualizer)
   const initMicrophone = useCallback(async () => {

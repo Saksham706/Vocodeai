@@ -71,6 +71,7 @@ export default function AccountSettingsView({ onBack, onSignOut }) {
   const { user, accessToken, logout } = useAuth();
 
   const [activeTab, setActiveTab] = useState("profile");
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   // Profile Form State
   const [firstName, setFirstName] = useState(user?.firstName || "");
@@ -379,27 +380,21 @@ export default function AccountSettingsView({ onBack, onSignOut }) {
       {/* ===== TOP NAVIGATION / HEADER ===== */}
       <header className="account-header">
         <div className="account-header-left">
-          {onBack && (
-            <button
-              type="button"
-              className="dash-back-arrow-btn account-back-btn"
-              onClick={onBack}
-              title="Back to Workspaces"
-              aria-label="Back"
-            >
-              <ArrowLeft size={18} />
-            </button>
-          )}
           <div>
             <nav className="account-breadcrumbs">
               <span>VocodeAI</span>
               <ChevronRight size={12} />
               <span>Account</span>
               <ChevronRight size={12} />
-              <span className="current">Settings & Profile</span>
+              <span className="current">
+                {activeTab === "profile" && "Profile & Identity"}
+                {activeTab === "security" && "Security & Passwords"}
+                {activeTab === "connections" && "Connected Accounts"}
+                {activeTab === "cloud" && "Cloud Sandbox & Quota"}
+              </span>
             </nav>
             <h1 className="account-title">
-              <User size={22} className="text-accent" />
+              <User size={20} className="text-accent" />
               <span>Account Settings</span>
             </h1>
           </div>
@@ -410,59 +405,119 @@ export default function AccountSettingsView({ onBack, onSignOut }) {
             <Sparkles size={13} />
             <span>Developer Cloud Pro</span>
           </span>
+
+          <button
+            type="button"
+            className={`account-section-menu-btn vocode-pill-btn ${accountMenuOpen ? "is-open" : ""}`}
+            onClick={() => setAccountMenuOpen((prev) => !prev)}
+            aria-label="Account sections menu"
+            aria-expanded={accountMenuOpen}
+            title="Account Sections"
+          >
+            <span className="dash-hamburger-morph" aria-hidden="true">
+              <span className="hm-line hm-line-top" />
+              <span className="hm-line hm-line-bot" />
+            </span>
+          </button>
         </div>
       </header>
 
-      {/* ===== MAIN BODY ===== */}
+      {/* Full-Screen Glassy Account Sections Overlay (Matches Landing Page Menu) */}
+      <div
+        className={`account-nav-overlay ${accountMenuOpen ? "is-open" : ""}`}
+        onClick={() => setAccountMenuOpen(false)}
+        aria-hidden={!accountMenuOpen}
+      >
+        <div className="dash-overlay-inner" onClick={(e) => e.stopPropagation()}>
+          <div className="dash-overlay-topbar">
+            <span className="dash-overlay-wordmark">ACCOUNT SECTIONS</span>
+          </div>
+
+          <nav className="dash-overlay-nav" aria-label="Account Sections">
+            <ul className="dash-overlay-links">
+              <li style={{ "--i": 0 }}>
+                <button
+                  type="button"
+                  className={`dash-overlay-link ${activeTab === "profile" ? "is-active" : ""}`}
+                  onClick={() => {
+                    setActiveTab("profile");
+                    setAccountMenuOpen(false);
+                  }}
+                  tabIndex={accountMenuOpen ? 0 : -1}
+                >
+                  <span className="dash-overlay-index">01</span>
+                  <span>Profile &amp; Identity</span>
+                </button>
+              </li>
+              <li style={{ "--i": 1 }}>
+                <button
+                  type="button"
+                  className={`dash-overlay-link ${activeTab === "security" ? "is-active" : ""}`}
+                  onClick={() => {
+                    setActiveTab("security");
+                    setAccountMenuOpen(false);
+                  }}
+                  tabIndex={accountMenuOpen ? 0 : -1}
+                >
+                  <span className="dash-overlay-index">02</span>
+                  <span>Security &amp; Passwords</span>
+                </button>
+              </li>
+              <li style={{ "--i": 2 }}>
+                <button
+                  type="button"
+                  className={`dash-overlay-link ${activeTab === "connections" ? "is-active" : ""}`}
+                  onClick={() => {
+                    setActiveTab("connections");
+                    setAccountMenuOpen(false);
+                  }}
+                  tabIndex={accountMenuOpen ? 0 : -1}
+                >
+                  <span className="dash-overlay-index">03</span>
+                  <span>Connected Accounts</span>
+                </button>
+              </li>
+              <li style={{ "--i": 3 }}>
+                <button
+                  type="button"
+                  className={`dash-overlay-link ${activeTab === "cloud" ? "is-active" : ""}`}
+                  onClick={() => {
+                    setActiveTab("cloud");
+                    setAccountMenuOpen(false);
+                  }}
+                  tabIndex={accountMenuOpen ? 0 : -1}
+                >
+                  <span className="dash-overlay-index">04</span>
+                  <span>Cloud Sandbox &amp; Quota</span>
+                </button>
+              </li>
+              <li style={{ "--i": 4 }}>
+                <button
+                  type="button"
+                  className="dash-overlay-link danger-overlay-link"
+                  onClick={() => {
+                    setAccountMenuOpen(false);
+                    (onSignOut || logout)?.();
+                  }}
+                  tabIndex={accountMenuOpen ? 0 : -1}
+                >
+                  <span className="dash-overlay-index">05</span>
+                  <span>Sign Out</span>
+                </button>
+              </li>
+            </ul>
+          </nav>
+
+          <div className="bugatti-overlay-footer">
+            <span className="overlay-status-dot" />
+            <span>VOCODEAI • DEVELOPER IDENTITY</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ===== MAIN FULL-PAGE BODY ===== */}
       <div className="account-body">
-        {/* Left Navigation Sidebar */}
-        <nav className="account-sidebar">
-          <button
-            type="button"
-            className={`account-nav-btn ${activeTab === "profile" ? "active" : ""}`}
-            onClick={() => setActiveTab("profile")}
-          >
-            <User size={16} />
-            <span>Profile & Identity</span>
-          </button>
-          <button
-            type="button"
-            className={`account-nav-btn ${activeTab === "security" ? "active" : ""}`}
-            onClick={() => setActiveTab("security")}
-          >
-            <Shield size={16} />
-            <span>Security & Passwords</span>
-          </button>
-          <button
-            type="button"
-            className={`account-nav-btn ${activeTab === "connections" ? "active" : ""}`}
-            onClick={() => setActiveTab("connections")}
-          >
-            <GithubIcon size={16} />
-            <span>Connected Accounts</span>
-          </button>
-          <button
-            type="button"
-            className={`account-nav-btn ${activeTab === "cloud" ? "active" : ""}`}
-            onClick={() => setActiveTab("cloud")}
-          >
-            <HardDrive size={16} />
-            <span>Cloud Sandbox & Quota</span>
-          </button>
-
-          <div className="account-sidebar-divider" />
-
-          <button
-            type="button"
-            className="account-nav-btn danger-nav"
-            onClick={onSignOut || logout}
-          >
-            <LogOut size={16} />
-            <span>Sign Out</span>
-          </button>
-        </nav>
-
-        {/* Right Tab Content */}
+        {/* Full-Page Tab Content */}
         <main className="account-content">
           {/* ================= TAB 1: PROFILE & IDENTITY ================= */}
           {activeTab === "profile" && (

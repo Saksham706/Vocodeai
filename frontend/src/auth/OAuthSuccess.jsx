@@ -20,26 +20,61 @@ export default function OAuthSuccess() {
         const userParam = params.get("user");
         const returnTo = params.get("returnTo");
 
-        if (token && userParam) {
-          const user = JSON.parse(decodeURIComponent(userParam));
-          login(token, user);
-
-          if (returnTo) {
-            navigate(returnTo, { replace: true });
-            return;
+        if (token) {
+          let user = null;
+          if (userParam) {
+            try {
+              user = JSON.parse(userParam);
+            } catch {
+              try {
+                user = JSON.parse(decodeURIComponent(userParam));
+              } catch (e) {
+                console.warn("Could not parse user param:", e);
+              }
+            }
           }
 
-          navigate("/dashboard", { replace: true });
+          // If user object not provided in URL, fetch it using token
+          if (!user) {
+            try {
+              const profileRes = await api.get("/auth/profile", {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              user = profileRes.data?.user;
+            } catch (pErr) {
+              console.warn("Profile fetch error in OAuthSuccess:", pErr);
+            }
+          }
+
+          // Write synchronously to localStorage before state transitions
+          localStorage.setItem("accessToken", token);
+          if (user) {
+            localStorage.setItem("user", JSON.stringify(user));
+          }
+
+          login(token, user);
+
+          const dest = returnTo && !returnTo.startsWith("/login") ? returnTo : "/dashboard";
+          navigate(dest, { replace: true });
           return;
         }
 
         // Fallback: try refresh-token endpoint with cookie
         const { data } = await api.post("/auth/refresh-token");
-        login(data.accessToken, data.user);
-        navigate("/dashboard", { replace: true });
+        if (data?.accessToken) {
+          localStorage.setItem("accessToken", data.accessToken);
+          if (data.user) {
+            localStorage.setItem("user", JSON.stringify(data.user));
+          }
+          login(data.accessToken, data.user);
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+
+        throw new Error("No token returned from Google OAuth");
       } catch (err) {
         console.error("OAuth completion error:", err);
-        navigate("/login", { replace: true });
+        navigate("/?auth=login&error=oauth_failed", { replace: true });
       }
     };
 

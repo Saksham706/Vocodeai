@@ -121,9 +121,10 @@
 }
 
 [data-theme="dark"] .tree-row.selected {
-  background-color: var(--explorer-selection, #08281B) !important;
-  border: 1px solid var(--explorer-border-active, rgba(43, 216, 127, 0.45)) !important;
-  box-shadow: 0 0 10px var(--accent-soft, rgba(43, 216, 127, 0.14));
+  background-color: rgba(0, 240, 152, 0.12) !important;
+  border: 1px solid rgba(0, 240, 152, 0.35) !important;
+  box-shadow: 0 0 14px rgba(0, 240, 152, 0.16);
+  border-radius: 8px;
 }
 
 [data-theme="dark"] .tree-row.selected .folder-name-label,

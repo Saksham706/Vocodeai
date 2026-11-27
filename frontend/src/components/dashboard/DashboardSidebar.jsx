@@ -108,206 +108,170 @@ export default function DashboardSidebar({
 
   return (
     <>
-      {/* Mobile Top Navbar with Hamburger */}
-      <div className="mobile-dashboard-header">
+      {/* Fixed Top-Left Circular Menu Button + Back to Landing Button */}
+      <div className="dash-fixed-nav-controls">
         <button
           type="button"
-          className="dash-back-arrow-btn sidebar-back-btn mobile-brand-back-btn"
-          onClick={() => navigate("/")}
-          title="Back to Landing Page"
-          aria-label="Back to Landing Page"
+          className={`dash-menu-circle ${mobileSidebarOpen ? "is-open" : ""}`}
+          onClick={() => setMobileSidebarOpen((prev) => !prev)}
+          aria-label="Toggle dashboard navigation"
+          aria-expanded={mobileSidebarOpen}
+        >
+          <span className="dash-hamburger-morph" aria-hidden="true">
+            <span className="hm-line hm-line-top" />
+            <span className="hm-line hm-line-bot" />
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className="dash-back-circle"
+          onClick={() => {
+            if (activeTab && activeTab !== "workspaces") {
+              setActiveTab("workspaces");
+            } else {
+              navigate("/");
+            }
+          }}
+          title={activeTab && activeTab !== "workspaces" ? "Back to Workspaces" : "Back to Landing Page"}
+          aria-label={activeTab && activeTab !== "workspaces" ? "Back to Workspaces" : "Back to Landing Page"}
         >
           <ArrowLeft size={16} />
         </button>
-        <div className="sidebar-brand" onClick={() => navigate("/")}>
-          <img
-            src={theme === "light" ? "/vcode-light.png" : "/vcode.png"}
-            alt="Vocodeai"
-            className="sidebar-logo-img"
-          />
-        </div>
-        <button
-          className="mobile-hamburger-btn"
-          onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-          aria-label="Toggle Navigation"
-        >
-          {mobileSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
       </div>
 
-      {/* Backdrop for mobile drawer */}
-      {mobileSidebarOpen && (
-        <div
-          className="sidebar-backdrop"
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-      )}
-
-      {/* Left Sidebar */}
-      <aside className={`dashboard-sidebar ${mobileSidebarOpen ? "mobile-open" : ""}`}>
-        {/* Brand Logo & Back to Landing */}
-        <div className="sidebar-brand-wrapper">
-          <button
-            type="button"
-            className="dash-back-arrow-btn sidebar-back-btn"
-            onClick={() => navigate("/")}
-            title="Back to Landing Page"
-            aria-label="Back to Landing Page"
-          >
-            <ArrowLeft size={16} />
-          </button>
-          <div
-            className="sidebar-brand"
-            onClick={() => {
-              setMobileSidebarOpen(false);
-              navigate("/");
-            }}
-            title="Go to Vocodeai Home"
-          >
-            <img
-              src={theme === "light" ? "/vcode-light.png" : "/vcode.png"}
-              alt="Vocodeai Logo"
-              className="sidebar-logo-img"
-            />
-          </div>
-        </div>
-
-        {/* Navigation Items */}
-        <nav className="sidebar-nav">
-          <button
-            className={`sidebar-nav-item ${activeTab === "workspaces" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("workspaces");
-              setMobileSidebarOpen(false);
-            }}
-          >
-            <LayoutDashboard className="nav-icon" />
-            <span>Workspaces</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === "templates" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("templates");
-              setMobileSidebarOpen(false);
-            }}
-          >
-            <Layers3 className="nav-icon" />
-            <span>Templates</span>
-          </button>
-
-
-          <button
-            className={`sidebar-nav-item ${activeTab === "settings" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("settings");
-              setMobileSidebarOpen(false);
-            }}
-          >
-            <Settings className="nav-icon" />
-            <span>Settings</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === "recycle-bin" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("recycle-bin");
-              setMobileSidebarOpen(false);
-            }}
-          >
-            <Trash2 className="nav-icon" />
-            <span>Recycle Bin</span>
-            {recycleCount > 0 && (
-              <span className="sidebar-recycle-badge">{recycleCount}</span>
-            )}
-          </button>
-        </nav>
-
-        {/* User Profile Container */}
-        <div ref={userCardRef} className="sidebar-profile-container">
-          <div
-            className={`sidebar-user-card ${activeTab === "account" ? "account-active" : ""}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              setProfileMenuOpen((prev) => !prev);
-            }}
-          >
-            <div className="user-avatar">{renderSidebarAvatar()}</div>
-            <div className="user-info">
-              <span className="user-name">{userName}</span>
-              <span className="user-email">{userEmail}</span>
-            </div>
-            <ChevronRight className={`user-chevron ${profileMenuOpen ? "open" : ""}`} />
-          </div>
-
-          {/* Profile Popover Menu */}
-          {profileMenuOpen && (
-            <div
-              className="user-popover animate-scale-in"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
+      {/* Full-Screen Glassy Navigation Overlay (Matches Landing Page Overlay) */}
+      <div
+        className={`dash-nav-overlay ${theme} ${mobileSidebarOpen ? "is-open" : ""}`}
+        onClick={() => setMobileSidebarOpen(false)}
+        aria-hidden={!mobileSidebarOpen}
+      >
+        <div className="dash-overlay-inner" onClick={(e) => e.stopPropagation()}>
+          <div className="dash-overlay-topbar">
+            <span
+              className="dash-overlay-wordmark"
+              onClick={() => {
+                setMobileSidebarOpen(false);
+                navigate("/");
+              }}
+              role="button"
+              tabIndex={mobileSidebarOpen ? 0 : -1}
             >
-              <button
-                type="button"
-                className={`popover-item ${activeTab === "account" ? "active" : ""}`}
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setProfileMenuOpen(false);
-                  setActiveTab("account");
-                }}
-              >
-                <Settings size={15} />
-                <span>Account Settings</span>
-              </button>
-              <button
-                type="button"
-                className="popover-item"
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setProfileMenuOpen(false);
-                  try {
-                    await logout();
-                  } catch {}
+              VOCODEAI
+            </span>
+          </div>
+
+          <nav className="dash-overlay-nav" aria-label="Dashboard Navigation">
+            <ul className="dash-overlay-links">
+              <li style={{ "--i": 0 }}>
+                <button
+                  type="button"
+                  className={`dash-overlay-link ${activeTab === "workspaces" ? "is-active" : ""}`}
+                  onClick={() => {
+                    setActiveTab("workspaces");
+                    setMobileSidebarOpen(false);
+                  }}
+                  tabIndex={mobileSidebarOpen ? 0 : -1}
+                >
+                  <span className="dash-overlay-index">01</span>
+                  <span>Workspaces</span>
+                </button>
+              </li>
+              <li style={{ "--i": 1 }}>
+                <button
+                  type="button"
+                  className={`dash-overlay-link ${activeTab === "templates" ? "is-active" : ""}`}
+                  onClick={() => {
+                    setActiveTab("templates");
+                    setMobileSidebarOpen(false);
+                  }}
+                  tabIndex={mobileSidebarOpen ? 0 : -1}
+                >
+                  <span className="dash-overlay-index">02</span>
+                  <span>Templates</span>
+                </button>
+              </li>
+              <li style={{ "--i": 2 }}>
+                <button
+                  type="button"
+                  className={`dash-overlay-link ${activeTab === "settings" ? "is-active" : ""}`}
+                  onClick={() => {
+                    setActiveTab("settings");
+                    setMobileSidebarOpen(false);
+                  }}
+                  tabIndex={mobileSidebarOpen ? 0 : -1}
+                >
+                  <span className="dash-overlay-index">03</span>
+                  <span>Settings</span>
+                </button>
+              </li>
+              <li style={{ "--i": 3 }}>
+                <button
+                  type="button"
+                  className={`dash-overlay-link ${activeTab === "recycle-bin" ? "is-active" : ""}`}
+                  onClick={() => {
+                    setActiveTab("recycle-bin");
+                    setMobileSidebarOpen(false);
+                  }}
+                  tabIndex={mobileSidebarOpen ? 0 : -1}
+                >
+                  <span className="dash-overlay-index">04</span>
+                  <span>Recycle Bin</span>
+                  {recycleCount > 0 && (
+                    <span className="dash-overlay-badge">{recycleCount}</span>
+                  )}
+                </button>
+              </li>
+              <li style={{ "--i": 4 }}>
+                <button
+                  type="button"
+                  className={`dash-overlay-link ${activeTab === "account" ? "is-active" : ""}`}
+                  onClick={() => {
+                    setActiveTab("account");
+                    setMobileSidebarOpen(false);
+                  }}
+                  tabIndex={mobileSidebarOpen ? 0 : -1}
+                >
+                  <span className="dash-overlay-index">05</span>
+                  <span>Account</span>
+                </button>
+              </li>
+            </ul>
+          </nav>
+
+          {/* Compact User & Sign Out Footer inside Overlay */}
+          <div className="dash-overlay-footer">
+            <div className="dash-overlay-user">
+              <div className="user-avatar">{renderSidebarAvatar()}</div>
+              <div className="user-info">
+                <span className="user-name">{userName}</span>
+                <span className="user-email">{userEmail}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="dash-overlay-signout vocode-pill-btn"
+              onClick={async () => {
+                setMobileSidebarOpen(false);
+                try {
+                  await logout();
+                } catch (err) {
+                  console.warn("Logout error:", err);
+                } finally {
                   localStorage.removeItem("accessToken");
                   localStorage.removeItem("user");
                   localStorage.removeItem("vocode_ai_provider_config");
-                  navigate("/login?prompt=select_account", { replace: true });
-                }}
-              >
-                <UserCheck size={15} />
-                <span>Switch Account</span>
-              </button>
-              <button
-                type="button"
-                className="popover-item danger"
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setProfileMenuOpen(false);
-                  try {
-                    await logout();
-                  } catch (err) {
-                    console.warn("Logout error:", err);
-                  } finally {
-                    localStorage.removeItem("accessToken");
-                    localStorage.removeItem("user");
-                    localStorage.removeItem("vocode_ai_provider_config");
-                    navigate("/login", { replace: true });
-                  }
-                }}
-              >
-                <LogOut size={15} />
-                <span>Sign Out</span>
-              </button>
-            </div>
-          )}
+                  navigate("/?auth=login", { replace: true });
+                }
+              }}
+              tabIndex={mobileSidebarOpen ? 0 : -1}
+            >
+              <LogOut size={14} />
+              <span>Sign Out</span>
+            </button>
+          </div>
         </div>
-      </aside>
+      </div>
     </>
   );
 }

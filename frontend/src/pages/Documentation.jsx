@@ -215,7 +215,7 @@ export default function Documentation() {
     if (accessToken) {
       navigate("/dashboard");
     } else {
-      navigate("/login");
+      navigate("/?auth=login");
     }
   };
 
