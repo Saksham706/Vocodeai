@@ -294,6 +294,21 @@ export default function VocoAssistant() {
   const [textInput, setTextInput] = useState("");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showGreetingToast, setShowGreetingToast] = useState(false);
+  const [isEditorAIOpen, setIsEditorAIOpen] = useState(false);
+
+  useEffect(() => {
+    const handleAIPanelToggle = (e) => {
+      setIsEditorAIOpen(Boolean(e.detail?.open));
+    };
+    window.addEventListener("vocode-ai-panel-toggle", handleAIPanelToggle);
+    return () => window.removeEventListener("vocode-ai-panel-toggle", handleAIPanelToggle);
+  }, []);
+
+  useEffect(() => {
+    if (!location.pathname.startsWith("/workspace")) {
+      setIsEditorAIOpen(false);
+    }
+  }, [location.pathname]);
 
   // Draggable Orb & Compact Card Positions
   const [orbPos, setOrbPos] = useState(() => {
@@ -1151,8 +1166,8 @@ export default function VocoAssistant() {
         </div>
       )}
 
-      {/* 2. Standby Floating Living AI Orb Logo (Draggable & compact) */}
-      {!isOpen && (
+      {/* 2. Standby Floating Living AI Orb Logo (Hidden when VocodeAI Assistant panel is open in editor) */}
+      {!isOpen && !isEditorAIOpen && (
         <div
           ref={standbyBtnRef}
           className={`voco-standby-logo-btn ${isDraggingOrb ? "is-dragging" : ""}`}

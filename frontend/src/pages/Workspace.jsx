@@ -445,6 +445,18 @@ function WorkspaceLayout() {
 
   // 4. AI Assistant Panel State (Toggleable, default false on Welcome screen)
   const [showAI, setShowAI] = useState(false);
+
+  useEffect(() => {
+    const isVisible = Boolean(showAI && activityTab !== "antigravity");
+    window.dispatchEvent(
+      new CustomEvent("vocode-ai-panel-toggle", { detail: { open: isVisible } })
+    );
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent("vocode-ai-panel-toggle", { detail: { open: false } })
+      );
+    };
+  }, [showAI, activityTab]);
   const toggleAI = () => {
     setShowAI((prev) => !prev);
   };
