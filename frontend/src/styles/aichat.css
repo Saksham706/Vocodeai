@@ -5046,3 +5046,109 @@
   background: rgba(16, 185, 129, 0.35);
 }
 
+
+
+/* ========================================================
+   LIGHT MODE TEXT & SURFACE CONTRAST FIXES
+   ======================================================== */
+[data-theme="light"] .ai-chat-panel,
+.ide-app.light .ai-chat-panel {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .ai-chat-bubble.user,
+[data-theme="light"] .ai-chat-bubble.user p,
+[data-theme="light"] .ai-chat-bubble.user span,
+[data-theme="light"] .ai-chat-bubble.user li,
+[data-theme="light"] .ai-chat-bubble.user strong,
+.ide-app.light .ai-chat-bubble.user,
+.ide-app.light .ai-chat-bubble.user p,
+.ide-app.light .ai-chat-bubble.user span,
+.ide-app.light .ai-chat-bubble.user li,
+.ide-app.light .ai-chat-bubble.user strong {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .ai-chat-bubble.assistant,
+[data-theme="light"] .ai-chat-bubble.assistant p,
+[data-theme="light"] .ai-chat-bubble.assistant span,
+[data-theme="light"] .ai-chat-bubble.assistant li,
+[data-theme="light"] .ai-chat-bubble.assistant h1,
+[data-theme="light"] .ai-chat-bubble.assistant h2,
+[data-theme="light"] .ai-chat-bubble.assistant h3,
+[data-theme="light"] .ai-chat-bubble.assistant h4,
+[data-theme="light"] .ai-chat-bubble.assistant strong,
+.ide-app.light .ai-chat-bubble.assistant,
+.ide-app.light .ai-chat-bubble.assistant p,
+.ide-app.light .ai-chat-bubble.assistant span,
+.ide-app.light .ai-chat-bubble.assistant li,
+.ide-app.light .ai-chat-bubble.assistant h1,
+.ide-app.light .ai-chat-bubble.assistant h2,
+.ide-app.light .ai-chat-bubble.assistant h3,
+.ide-app.light .ai-chat-bubble.assistant h4,
+.ide-app.light .ai-chat-bubble.assistant strong {
+  color: #1e293b !important;
+}
+
+[data-theme="light"] .ai-chat-bubble code:not(pre code),
+.ide-app.light .ai-chat-bubble code:not(pre code) {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .ai-terminal-action-card,
+.ide-app.light .ai-terminal-action-card {
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+[data-theme="light"] .terminal-card-header,
+.ide-app.light .terminal-card-header {
+  background: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+[data-theme="light"] .terminal-card-cmd,
+[data-theme="light"] .terminal-card-cmd code,
+.ide-app.light .terminal-card-cmd,
+.ide-app.light .terminal-card-cmd code {
+  color: #0f172a !important;
+  background: transparent !important;
+}
+
+[data-theme="light"] .antigravity-file-action-badge,
+.ide-app.light .antigravity-file-action-badge {
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .file-badge-path,
+.ide-app.light .file-badge-path {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .ai-new-chat-btn,
+.ide-app.light .ai-new-chat-btn {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #1e293b !important;
+}
+
+[data-theme="light"] .ai-attach-menu,
+[data-theme="light"] .ai-mention-menu,
+.ide-app.light .ai-attach-menu,
+.ide-app.light .ai-mention-menu {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+[data-theme="light"] .ai-attach-menu button,
+[data-theme="light"] .ai-mention-item,
+.ide-app.light .ai-attach-menu button,
+.ide-app.light .ai-mention-item {
+  color: #0f172a !important;
+}

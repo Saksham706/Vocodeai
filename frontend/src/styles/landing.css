@@ -2894,3 +2894,42 @@ body {
     gap: 1.5rem 1rem !important;
   }
 }
+
+
+/* =========================================================
+   16. BOTTOM-LEFT BACK TO TOP BUTTON
+   ========================================================= */
+.landing-scroll-top-btn {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 950;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 19, 29, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.landing-scroll-top-btn:hover {
+  transform: translateY(-2px);
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.7);
+  box-shadow: 0 10px 24px rgba(16, 185, 129, 0.25);
+}
+
+[data-theme="light"] .landing-scroll-top-btn {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #059669;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}

@@ -909,3 +909,95 @@
 .ext-ai-status-dot.disconnected {
   background: #f59e0b;
 }
+
+
+/* ========================================================
+   EXTENSIONS PANEL LIGHT MODE STYLES
+   ======================================================== */
+[data-theme="light"] .ext-panel-container,
+.ide-app.light .ext-panel-container {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .ext-panel-header,
+.ide-app.light .ext-panel-header {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+[data-theme="light"] .ext-title,
+.ide-app.light .ext-title {
+  color: #334155 !important;
+}
+
+[data-theme="light"] .ext-search-box,
+[data-theme="light"] .ext-search-input-wrap,
+.ide-app.light .ext-search-box,
+.ide-app.light .ext-search-input-wrap {
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+[data-theme="light"] .ext-search-input,
+.ide-app.light .ext-search-input {
+  color: #0f172a !important;
+  background: transparent !important;
+}
+
+[data-theme="light"] .ext-search-input::placeholder,
+.ide-app.light .ext-search-input::placeholder {
+  color: #64748b !important;
+}
+
+[data-theme="light"] .ext-filter-pill,
+[data-theme="light"] .ext-tab-btn,
+.ide-app.light .ext-filter-pill,
+.ide-app.light .ext-tab-btn {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+[data-theme="light"] .ext-filter-pill.active,
+[data-theme="light"] .ext-tab-btn.active,
+.ide-app.light .ext-filter-pill.active,
+.ide-app.light .ext-tab-btn.active {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  color: #047857 !important;
+}
+
+[data-theme="light"] .ext-card,
+[data-theme="light"] .ext-item-card,
+.ide-app.light .ext-card,
+.ide-app.light .ext-item-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .ext-card:hover,
+[data-theme="light"] .ext-item-card:hover,
+.ide-app.light .ext-card:hover,
+.ide-app.light .ext-item-card:hover {
+  border-color: #94a3b8 !important;
+}
+
+[data-theme="light"] .ext-name,
+[data-theme="light"] .ext-card-title,
+.ide-app.light .ext-name,
+.ide-app.light .ext-card-title {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .ext-desc,
+[data-theme="light"] .ext-card-desc,
+[data-theme="light"] .ext-author,
+[data-theme="light"] .ext-meta,
+.ide-app.light .ext-desc,
+.ide-app.light .ext-card-desc,
+[data-theme="light"] .ext-author,
+.ide-app.light .ext-meta {
+  color: #475569 !important;
+}

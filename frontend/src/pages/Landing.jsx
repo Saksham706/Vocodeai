@@ -5,6 +5,7 @@ import { BACKEND_URL } from "../config/apiConfig";
 import {
   Rocket,
   ArrowRight,
+  ArrowUp,
   Play,
   BookOpen,
   Bot,
@@ -63,6 +64,14 @@ export default function Landing() {
   const [activePersona, setActivePersona] = useState("developers");
   const [openFaqIndex, setOpenFaqIndex] = useState(0);
   const [isVoiceSimulating, setIsVoiceSimulating] = useState(true);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 280);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   const [liveStats, setLiveStats] = useState({
     activeUsers: null,
     projectsCreated: null,
@@ -1504,6 +1513,18 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+
+      {showScrollTop && (
+        <button
+          type="button"
+          className="landing-scroll-top-btn"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          title="Back to top"
+          aria-label="Back to top"
+        >
+          <ArrowUp size={18} />
+        </button>
+      )}
     </div>
   );
 }

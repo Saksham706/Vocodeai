@@ -372,18 +372,30 @@ function WorkspaceLayout() {
     }
   }, [theme]);
 
-  // Initialize and apply saved theme extension
+  // Initialize and apply saved theme extension (only in dark mode so light mode stays persistent)
   useEffect(() => {
+    const savedTheme = localStorage.getItem("vocode_theme") || "dark";
     const activeExtTheme = getActiveThemeExtension();
-    if (activeExtTheme) {
+    if (activeExtTheme && savedTheme !== "light") {
       applyThemeExtension(activeExtTheme);
     }
+  }, []);
+
+  // Keep Workspace theme synced with global/voice theme toggle events
+  useEffect(() => {
+    const handleGlobalTheme = (e) => {
+      const next = e.detail?.theme || localStorage.getItem("vocode_theme") || "dark";
+      setTheme(next);
+    };
+    window.addEventListener("vocode-theme-toggle", handleGlobalTheme);
+    return () => window.removeEventListener("vocode-theme-toggle", handleGlobalTheme);
   }, []);
 
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
     localStorage.setItem("vocode_theme", nextTheme);
+    window.dispatchEvent(new CustomEvent("vocode-theme-toggle", { detail: { theme: nextTheme } }));
   };
 
   // 2. Diff & Git Changes State

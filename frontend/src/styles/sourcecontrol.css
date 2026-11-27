@@ -1729,3 +1729,82 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+
+/* ========================================================
+   SOURCE CONTROL LIGHT MODE PANEL STYLES
+   ======================================================== */
+[data-theme="light"] .sc-container,
+.ide-app.light .sc-container {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .sc-header,
+.ide-app.light .sc-header {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .sc-title,
+[data-theme="light"] .sc-empty-title,
+[data-theme="light"] .sc-section-title,
+.ide-app.light .sc-title,
+.ide-app.light .sc-empty-title,
+.ide-app.light .sc-section-title {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .sc-empty-desc,
+[data-theme="light"] .sc-starter-label,
+.ide-app.light .sc-empty-desc,
+.ide-app.light .sc-starter-label {
+  color: #475569 !important;
+}
+
+[data-theme="light"] .sc-account-bar,
+[data-theme="light"] .sc-user-bar,
+.ide-app.light .sc-account-bar,
+.ide-app.light .sc-user-bar {
+  background: #f1f5f9 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .sc-account-bar span,
+[data-theme="light"] .sc-user-bar span,
+.ide-app.light .sc-account-bar span,
+.ide-app.light .sc-user-bar span {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .sc-btn-secondary,
+[data-theme="light"] .sc-starter-btn,
+[data-theme="light"] .sc-quick-chip,
+.ide-app.light .sc-btn-secondary,
+.ide-app.light .sc-starter-btn,
+.ide-app.light .sc-quick-chip {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #1e293b !important;
+}
+
+[data-theme="light"] .sc-commit-input,
+[data-theme="light"] .sc-branch-select,
+.ide-app.light .sc-commit-input,
+.ide-app.light .sc-branch-select {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .sc-file-row:hover,
+.ide-app.light .sc-file-row:hover {
+  background: #e2e8f0 !important;
+}
+
+[data-theme="light"] .sc-file-name,
+.ide-app.light .sc-file-name {
+  color: #0f172a !important;
+}

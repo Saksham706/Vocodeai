@@ -139,10 +139,13 @@ function WorkspaceRedirect() {
 }
 
 export default function App() {
-  // Apply saved theme extension across the whole website on initial load
+  // Apply saved theme & theme extension across the whole website on initial load
   useEffect(() => {
+    const savedTheme = localStorage.getItem("vocode_theme") || "dark";
+    document.documentElement.setAttribute("data-theme", savedTheme);
+    document.body.setAttribute("data-theme", savedTheme);
     const activeTheme = getActiveThemeExtension();
-    if (activeTheme) {
+    if (activeTheme && savedTheme !== "light") {
       applyThemeExtension(activeTheme);
     }
   }, []);
