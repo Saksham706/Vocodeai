@@ -7,16 +7,10 @@ import {
   LockKeyhole,
   Eye,
   EyeOff,
-  Zap,
-  Cloud,
-  Mic,
-  Sparkles,
   Sun,
   Moon,
   ArrowRight,
   AlertCircle,
-  HardDrive,
-  Laptop,
   Check,
 } from "lucide-react";
 import AuthBackground from "./AuthBackground";
@@ -55,6 +49,24 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Slow Form Entrance Animation State
+  const [introPhase, setIntroPhase] = useState("entering"); // "entering" -> "revealing" -> "ready"
+
+  useEffect(() => {
+    const t1 = setTimeout(() => {
+      setIntroPhase("revealing");
+    }, 120);
+
+    const t2 = setTimeout(() => {
+      setIntroPhase("ready");
+    }, 2200);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, []);
 
   // Compute password strength (0 to 3)
   const getPasswordStrength = (pwd) => {
@@ -141,132 +153,27 @@ export default function Signup() {
       <AuthBackground theme={theme} />
 
       <div className="auth-container-fullscreen">
-        {/* ================= LEFT COLUMN ================= */}
-        <div className="auth-left-column">
-          {/* Official Vocodeai Logo */}
-          <div
-            className="auth-brand-logo"
-            onClick={() => navigate("/")}
-            role="button"
-            tabIndex={0}
-            title="Vocodeai — Back to Home"
-          >
-            <img
-              src={theme === "light" ? "/vcode-light.png" : "/vcode.png"}
-              alt="Vocodeai Logo"
-              className="auth-logo-img"
-            />
-            <span className="auth-version-pill">v2.0</span>
-          </div>
-
-          {/* Heading */}
-          <h1 className="auth-hero-title">
-            Start Building <br />
-            with Vocode<span className="auth-title-accent">ai</span>
-          </h1>
-
-          <p className="auth-hero-subtitle">
-            Create your account in seconds. Zero local setup, persistent cloud storage, and AI pair programming.
-          </p>
-
-          {/* 3 Feature Benefit Badges */}
-          <div className="auth-benefits-row">
-            <div className="auth-benefit-item">
-              <div className="auth-benefit-icon-circle">
-                <Mic size={17} className="auth-benefit-icon" />
-              </div>
-              <div className="auth-benefit-label">
-                <span>Code with voice</span>
-                <span>natural speech</span>
-              </div>
-            </div>
-
-            <div className="auth-benefit-item">
-              <div className="auth-benefit-icon-circle">
-                <Laptop size={17} className="auth-benefit-icon" />
-              </div>
-              <div className="auth-benefit-label">
-                <span>Zero installation</span>
-                <span>Mac, PC, iPad, Phone</span>
-              </div>
-            </div>
-
-            <div className="auth-benefit-item">
-              <div className="auth-benefit-icon-circle">
-                <HardDrive size={17} className="auth-benefit-icon" />
-              </div>
-              <div className="auth-benefit-label">
-                <span>Continuous backup</span>
-                <span>100% cloud storage</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Terminal Illustration Card */}
-          <div className="auth-terminal-card">
-            <div className="auth-terminal-header">
-              <span className="auth-dot red" />
-              <span className="auth-dot yellow" />
-              <span className="auth-dot green" />
-              <span className="auth-term-title">vocode-cloud: provision_workspace</span>
-            </div>
-            <div className="auth-terminal-inner">
-              <div className="auth-terminal-content">
-                <div className="auth-terminal-line-cmd">
-                  <span className="auth-cmd-prompt">&gt;_ $</span> vocode workspace create --template fullstack
-                </div>
-                <div className="auth-terminal-line-status">
-                  ✓ Isolated Linux container initialized in 118ms
-                </div>
-                <div className="auth-terminal-line-ready">
-                  <Sparkles size={14} className="auth-terminal-star" />
-                  <span>Free Forever Plan activated • Ready to code</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ================= RIGHT COLUMN ================= */}
+        {/* ================= CENTERED STAGE ================= */}
         <div className="auth-right-column">
-          <div className="auth-card-panel">
-            {/* Mobile-only brand header */}
+          <div className="login-stage">
             <div
-              className="auth-mobile-brand"
-              onClick={() => navigate("/")}
-              role="button"
-              tabIndex={0}
-              title="Vocodeai — Back to Home"
+              className={`auth-card-panel splash-reveal-panel phase-${introPhase}`}
             >
-              <img
-                src={theme === "light" ? "/vcode-light.png" : "/vcode.png"}
-                alt="Vocodeai Logo"
-                className="auth-mobile-logo"
-              />
-              <span className="auth-version-pill">v2.0</span>
-            </div>
-
-            <h2 className="auth-card-title">Create your free account</h2>
-            <p className="auth-card-subtitle">
-              Join developers building the future of software with VocodeAI.
-            </p>
-
-            {/* Google Sign-in */}
-            <button
-              type="button"
-              className="auth-google-button"
-              onClick={handleGoogleSignIn}
-            >
-              <img src="/google.png" alt="Google" className="auth-google-icon" />
-              <span>Sign up with Google</span>
-            </button>
-
-            {/* Divider */}
-            <div className="auth-divider">
-              <span className="auth-divider-line" />
-              <span className="auth-divider-text">or register with email</span>
-              <span className="auth-divider-line" />
-            </div>
+              {/* Mobile-only brand header */}
+              <div
+                className="auth-mobile-brand"
+                onClick={() => navigate("/")}
+                role="button"
+                tabIndex={0}
+                title="Vocodeai — Back to Home"
+              >
+                <img
+                  src={theme === "light" ? "/vcode-light.png" : "/vcode.png"}
+                  alt="Vocodeai Logo"
+                  className="auth-mobile-logo"
+                />
+                <span className="auth-version-pill">v2.0</span>
+              </div>
 
             {/* Error Message */}
             {error && (
@@ -415,6 +322,23 @@ export default function Signup() {
               </button>
             </form>
 
+            {/* Divider */}
+            <div className="auth-divider">
+              <span className="auth-divider-line" />
+              <span className="auth-divider-text">or</span>
+              <span className="auth-divider-line" />
+            </div>
+
+            {/* Google Sign-in */}
+            <button
+              type="button"
+              className="auth-google-button"
+              onClick={handleGoogleSignIn}
+            >
+              <img src="/google.png" alt="Google" className="auth-google-icon" />
+              <span>Continue with Google</span>
+            </button>
+
             <p className="auth-switch-footer">
               Already have an account?{" "}
               <button
@@ -425,6 +349,7 @@ export default function Signup() {
                 Log in
               </button>
             </p>
+            </div>
           </div>
         </div>
       </div>

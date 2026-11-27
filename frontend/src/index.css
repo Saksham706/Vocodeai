@@ -172,3 +172,105 @@ input[type="search"]:focus-visible,
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.45);
 }
+
+
+/* ========================================================
+   FERRARI-STYLE CENTERED LOGO PRELOADER ON RELOAD
+   ======================================================== */
+.vocode-splash-preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 50%, #071316 0%, #030709 70%);
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.55s ease;
+}
+
+.vocode-splash-preloader.is-fading {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.vocode-splash-preloader.is-fading .vocode-splash-inner {
+  transform: scale(1.06);
+  opacity: 0;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.45s ease;
+}
+
+[data-theme="light"] .vocode-splash-preloader {
+  background: radial-gradient(circle at 50% 50%, #ffffff 0%, #f1f5f9 75%);
+}
+
+.vocode-splash-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  opacity: 0;
+  animation: vocodeSplashEntrance 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.08s forwards;
+}
+
+.vocode-splash-logo {
+  height: 58px;
+  width: auto;
+  object-fit: contain;
+  animation: vocodeSplashBreathe 1.4s ease-in-out infinite alternate;
+}
+
+.vocode-splash-line {
+  width: 120px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+[data-theme="light"] .vocode-splash-line {
+  background: rgba(15, 23, 42, 0.12);
+}
+
+.vocode-splash-line-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent 0%, #34d399 50%, #38bdf8 100%);
+  transform-origin: left center;
+  animation: vocodeSplashBar 1.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes vocodeSplashEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.72) translateY(14px);
+    filter: blur(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes vocodeSplashBreathe {
+  0% {
+    filter: drop-shadow(0 0 16px rgba(16, 185, 129, 0.25));
+  }
+  100% {
+    filter: drop-shadow(0 0 34px rgba(16, 185, 129, 0.55));
+  }
+}
+
+@keyframes vocodeSplashBar {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}

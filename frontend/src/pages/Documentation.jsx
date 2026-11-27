@@ -39,6 +39,7 @@ import {
   Bookmark,
   Share2,
   CheckCircle2,
+  User,
 } from "lucide-react";
 import "../styles/Documentation.css";
 
@@ -292,16 +293,28 @@ export default function Documentation() {
          ========================================================= */}
       <header className="docs-topbar">
         <div className="docs-topbar-inner">
-          <button type="button" className="dash-back-arrow-btn docs-back-btn" onClick={() => navigate(-1)} title="Back" aria-label="Back"><ArrowLeft size={16} /></button>
-          {/* Logo & Docs Badge */}
-          <div className="docs-brand-left" onClick={() => navigate("/")} role="button" tabIndex={0} title="VocodeAI Home">
-            <img
-              src={theme === "light" ? "/vcode-light.png" : "/vcode.png"}
-              alt="Vocodeai Logo"
-              className="docs-brand-logo"
-            />
-            <span className="docs-brand-pill">Docs</span>
-            <span className="docs-version-chip">v2.0</span>
+          <div className="docs-topbar-left">
+            <button
+              type="button"
+              className="docs-back-circle"
+              onClick={() => navigate(-1)}
+              title="Back"
+              aria-label="Back"
+            >
+              <ArrowLeft size={15} />
+            </button>
+
+            <div
+              className="docs-brand-left"
+              onClick={() => navigate("/")}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === "Enter" && navigate("/")}
+              title="VocodeAI Home"
+            >
+              <span className="docs-brand-wordmark">VOCODEAI</span>
+              <span className="docs-brand-pill">Docs</span>
+            </div>
           </div>
 
           {/* Quick Search Bar */}
@@ -331,16 +344,16 @@ export default function Documentation() {
               title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
               aria-label="Toggle Theme"
             >
-              {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
             </button>
 
             <button
               className="docs-enter-cta-btn"
               onClick={handleEnterApp}
+              title={accessToken ? "Dashboard" : "Log in / Sign up"}
+              aria-label={accessToken ? "Go to Dashboard" : "Log in or Sign up"}
             >
-              <span className="docs-enter-full">{accessToken ? "Dashboard" : "Enter VocodeAI"}</span>
-              <span className="docs-enter-short">{accessToken ? "App" : "Enter"}</span>
-              <ArrowRight size={14} />
+              <User size={15} />
             </button>
 
             <button
@@ -348,7 +361,7 @@ export default function Documentation() {
               onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
               aria-label="Toggle navigation"
             >
-              {mobileSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+              {mobileSidebarOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
           </div>
         </div>

@@ -139,6 +139,9 @@ function WorkspaceRedirect() {
 }
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+  const [splashFading, setSplashFading] = useState(false);
+
   // Apply saved theme & theme extension across the whole website on initial load
   useEffect(() => {
     const savedTheme = localStorage.getItem("vocode_theme") || "dark";
@@ -148,10 +151,39 @@ export default function App() {
     if (activeTheme && savedTheme !== "light") {
       applyThemeExtension(activeTheme);
     }
+
+    const fadeTimer = setTimeout(() => setSplashFading(true), 1300);
+    const hideTimer = setTimeout(() => setShowSplash(false), 1850);
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(hideTimer);
+    };
   }, []);
+
+  const splashTheme =
+    typeof window !== "undefined"
+      ? localStorage.getItem("vocode_theme") || "dark"
+      : "dark";
 
   return (
     <AuthProvider>
+      {showSplash && (
+        <div
+          className={`vocode-splash-preloader ${splashFading ? "is-fading" : ""}`}
+          aria-hidden="true"
+        >
+          <div className="vocode-splash-inner">
+            <img
+              src={splashTheme === "light" ? "/vcode-light.png" : "/vcode.png"}
+              alt="VocodeAI"
+              className="vocode-splash-logo"
+            />
+            <div className="vocode-splash-line">
+              <span className="vocode-splash-line-fill" />
+            </div>
+          </div>
+        </div>
+      )}
       <BrowserRouter>
         {/* Dynamic SEO Meta & Title Manager */}
         <PageMeta />
