@@ -3892,7 +3892,16 @@ html {
   background: rgba(255, 255, 255, 0.03);
   color: #e2ece9;
   cursor: pointer;
+  flex-shrink: 0;
   transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bugatti-enter-link svg {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  display: block;
 }
 
 .bugatti-enter-link:hover {
@@ -5504,5 +5513,149 @@ body,
   }
   #how-it-works .lambo-tab-btn {
     flex-shrink: 0;
+  }
+}
+
+/* =========================================================
+   25. VERY SMALL SCREENS (<= 480PX) COMPACT FIT & SMOOTH SCROLL
+   ========================================================= */
+@media (max-width: 480px) {
+  .pagani-scene {
+    scroll-behavior: smooth;
+    overscroll-behavior-y: contain;
+  }
+
+  .lux-device-scene {
+    padding: 58px 12px 14px !important;
+    justify-content: center !important;
+  }
+
+  .lux-device-container {
+    gap: 10px;
+  }
+
+  .lux-device-intro {
+    gap: 3px;
+  }
+
+  .lux-section-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+  }
+
+  .lux-device-heading {
+    font-size: 1.32rem;
+    line-height: 1.15;
+  }
+
+  .lux-device-sub {
+    font-size: 0.76rem;
+    line-height: 1.35;
+  }
+
+  .lux-device-tabs {
+    gap: 6px;
+    padding-bottom: 2px;
+  }
+
+  .lux-device-tab {
+    min-height: 34px;
+    padding: 6px 11px;
+    font-size: 11.5px;
+    gap: 5px;
+  }
+
+  .lux-device-panel {
+    padding: 14px 14px 12px;
+    border-radius: 20px;
+  }
+
+  .lux-panel-grid {
+    gap: 10px;
+  }
+
+  .lux-panel-left {
+    gap: 6px;
+  }
+
+  .lux-feature-badge {
+    padding: 4px 9px;
+    font-size: 10.5px;
+  }
+
+  .lux-cloud-online {
+    font-size: 10.5px;
+  }
+
+  .lux-device-category {
+    font-size: 10.5px;
+  }
+
+  .lux-device-title {
+    font-size: 1.12rem;
+  }
+
+  .lux-device-desc {
+    font-size: 0.76rem;
+    line-height: 1.4;
+  }
+
+  .lux-terminal-cta-row {
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  .lux-terminal-cmd {
+    padding: 6px 10px;
+    font-size: 11px;
+    width: 100%;
+  }
+
+  .lux-try-btn {
+    min-height: 36px;
+    padding: 7px 14px;
+    font-size: 12px;
+  }
+
+  .lux-panel-right {
+    min-height: 125px;
+  }
+
+  .lux-device-chassis {
+    max-width: 250px;
+  }
+
+  .lux-ide-body {
+    min-height: 88px;
+  }
+
+  .lux-ide-editor {
+    padding: 8px 10px;
+    gap: 5px;
+  }
+
+  .lux-metrics-strip {
+    margin-top: 10px;
+    padding-top: 10px;
+    gap: 8px 12px;
+  }
+
+  .lux-metric-label {
+    font-size: 9.5px;
+  }
+
+  .lux-metric-value {
+    font-size: 0.86rem;
+  }
+
+  .footer-giant-wordmark::after {
+    background: radial-gradient(
+      160px circle at var(--mx) var(--my),
+      #ffffff 0%,
+      #2dd4bf 45%,
+      rgba(255, 255, 255, 0) 80%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
   }
 }

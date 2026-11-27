@@ -446,7 +446,7 @@ export default function Landing() {
               title={accessToken ? "Dashboard" : "Log in / Sign up"}
               aria-label={accessToken ? "Go to Dashboard" : "Log in or Sign up"}
             >
-              <User size={15} />
+              <User size={16} strokeWidth={1.9} />
             </button>
           </div>
         </div>
@@ -923,6 +923,31 @@ export default function Landing() {
               onMouseLeave={(e) => {
                 const wordmark = e.currentTarget.querySelector(".footer-giant-wordmark");
                 if (wordmark) wordmark.style.setProperty("--spot-opacity", "0");
+              }}
+              onTouchStart={(e) => {
+                const wordmark = e.currentTarget.querySelector(".footer-giant-wordmark");
+                const touch = e.touches?.[0];
+                if (!wordmark || !touch) return;
+                const rect = wordmark.getBoundingClientRect();
+                wordmark.style.setProperty("--mx", `${touch.clientX - rect.left}px`);
+                wordmark.style.setProperty("--my", `${touch.clientY - rect.top}px`);
+                wordmark.style.setProperty("--spot-opacity", "1");
+              }}
+              onTouchMove={(e) => {
+                const wordmark = e.currentTarget.querySelector(".footer-giant-wordmark");
+                const touch = e.touches?.[0];
+                if (!wordmark || !touch) return;
+                const rect = wordmark.getBoundingClientRect();
+                wordmark.style.setProperty("--mx", `${touch.clientX - rect.left}px`);
+                wordmark.style.setProperty("--my", `${touch.clientY - rect.top}px`);
+                wordmark.style.setProperty("--spot-opacity", "1");
+              }}
+              onTouchEnd={(e) => {
+                const wordmark = e.currentTarget.querySelector(".footer-giant-wordmark");
+                if (!wordmark) return;
+                setTimeout(() => {
+                  wordmark.style.setProperty("--spot-opacity", "0");
+                }, 650);
               }}
               role="button"
               tabIndex={0}
