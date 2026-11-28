@@ -27,8 +27,10 @@ import jobRoutes from "./routes/jobRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import gitRoutes from "./routes/gitRoutes.js";
 import billingRoutes from "./routes/billingRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 import { setupTerminalServer } from "./terminalServer.js";
+import { announcementWss } from "./services/announcementSocket.js";
 import { startContainerReaper } from "./sandbox/containerReaper.js";
 import { startCodeWorker } from "./workers/codeWorker.js";
 
@@ -190,6 +192,7 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/git", gitRoutes);
 app.use("/api/billing", billingRoutes);
+app.use("/api/admin", adminRoutes);
 
 /* ================= STATIC WORKSPACE PREVIEW ================= */
 import fs from "fs";
@@ -263,7 +266,20 @@ app.use((err, req, res, next) => {
 /* ================= SERVER & WEBSOCKET ================= */
 
 const server = http.createServer(app);
-setupTerminalServer(server);
+const terminalWss = setupTerminalServer(server);
+
+server.on("upgrade", (req, socket, head) => {
+  const pathname = (req.url || "").split("?")[0];
+  if (pathname === "/ws/announcements") {
+    announcementWss.handleUpgrade(req, socket, head, (ws) => {
+      announcementWss.emit("connection", ws, req);
+    });
+  } else {
+    terminalWss.handleUpgrade(req, socket, head, (ws) => {
+      terminalWss.emit("connection", ws, req);
+    });
+  }
+});
 
 const PORT = Number(process.env.PORT) || 8000;
 server.listen(PORT, () => {

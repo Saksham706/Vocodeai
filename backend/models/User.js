@@ -23,6 +23,8 @@ const userSchema = new mongoose.Schema(
     githubAvatar: String,
 
     isVerified: { type: Boolean, default: false },
+    isAdmin: { type: Boolean, default: false },
+    isSuspended: { type: Boolean, default: false },
 
     refreshToken: String,
 

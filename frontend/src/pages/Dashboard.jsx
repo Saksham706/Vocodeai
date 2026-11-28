@@ -24,6 +24,7 @@ import { Sparkles } from "lucide-react";
 import DashboardBackground from "../components/DashboardBackground";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import DashboardHeader from "../components/dashboard/DashboardHeader";
+import AnnouncementTicker from "../components/dashboard/AnnouncementTicker";
 import WorkspaceCardGrid from "../components/dashboard/WorkspaceCardGrid";
 import DashboardPlaceholderTab from "../components/dashboard/DashboardPlaceholderTab";
 import TemplatesView from "../components/dashboard/TemplatesView";
@@ -1047,6 +1048,9 @@ export default function Dashboard() {
           createInputRef={createInputRef}
           />
         )}
+
+        {/* Platform Announcement Ticker */}
+        <AnnouncementTicker userPlan={user?.plan} />
 
         {/* WORKSPACES TAB VIEW */}
         {activeTab === "workspaces" && (

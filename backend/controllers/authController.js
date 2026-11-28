@@ -50,9 +50,29 @@ export async function signup(req, res) {
 export async function login(req, res) {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = String(email || "").trim();
+    if (!normalizedEmail || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
 
-    const user = await User.findOne({ email });
+    const escapedEmail = normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const user = await User.findOne({
+      email: { $regex: new RegExp(`^${escapedEmail}$`, "i") },
+    });
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
+
+    if (user.isSuspended) {
+      return res.status(403).json({
+        error: "Your account has been suspended. Please contact support.",
+      });
+    }
+
+    if (!user.passwordHash) {
+      return res.status(401).json({
+        error:
+          "This account uses Google/GitHub sign-in and has no password set. Please continue with Google or use Forgot Password.",
+      });
+    }
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: "Invalid credentials" });
@@ -80,6 +100,7 @@ export async function login(req, res) {
         avatar: user.avatar || "default",
         phone: user.phone || "",
         plan: getEffectivePlanId(user),
+        isAdmin: Boolean(user.isAdmin),
       },
     });
   } catch (err) {
@@ -221,6 +242,7 @@ export async function refreshToken(req, res) {
         id: user._id,
         email: user.email,
         firstName: user.firstName,
+        isAdmin: Boolean(user.isAdmin),
       },
     });
   } catch (err) {

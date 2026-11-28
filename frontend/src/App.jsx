@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import PageMeta from "./components/common/PageMeta";
 import Landing from "./pages/Landing";
@@ -13,6 +13,17 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Workspace = lazy(() => import("./pages/Workspace"));
 const ResetPassword = lazy(() => import("./auth/ResetPassword"));
 const OAuthSuccess = lazy(() => import("./auth/OAuthSuccess"));
+
+// Admin pages
+const AdminLayout        = lazy(() => import("./pages/admin/AdminLayout"));
+const AdminOverview      = lazy(() => import("./pages/admin/AdminOverview"));
+const AdminUsers         = lazy(() => import("./pages/admin/AdminUsers"));
+const AdminUserDetail    = lazy(() => import("./pages/admin/AdminUserDetail"));
+const AdminSubscriptions = lazy(() => import("./pages/admin/AdminSubscriptions"));
+const AdminWorkspaces    = lazy(() => import("./pages/admin/AdminWorkspaces"));
+const AdminAnalytics     = lazy(() => import("./pages/admin/AdminAnalytics"));
+const AdminAnnouncements = lazy(() => import("./pages/admin/AdminAnnouncements"));
+const AdminSystem        = lazy(() => import("./pages/admin/AdminSystem"));
 
 /* =========================
    PAGE LOADING SKELETON
@@ -136,6 +147,29 @@ function WorkspaceRedirect() {
   return <Navigate to="/dashboard" replace />;
 }
 
+function AppExtras({ mountExtras }) {
+  const { pathname } = useLocation();
+  const isAdmin = pathname.startsWith("/admin");
+
+  useEffect(() => {
+    if (isAdmin) {
+      document.body.classList.add("admin-plain-cursor");
+    } else {
+      document.body.classList.remove("admin-plain-cursor");
+    }
+    return () => document.body.classList.remove("admin-plain-cursor");
+  }, [isAdmin]);
+
+  if (!mountExtras || isAdmin) return null;
+
+  return (
+    <Suspense fallback={null}>
+      <CustomCursor />
+      <VocoAssistant />
+    </Suspense>
+  );
+}
+
 export default function App() {
   const [mountExtras, setMountExtras] = useState(false);
 
@@ -164,12 +198,7 @@ export default function App() {
         {/* Dynamic SEO Meta & Title Manager */}
         <PageMeta />
 
-        {mountExtras && (
-          <Suspense fallback={null}>
-            <CustomCursor />
-            <VocoAssistant />
-          </Suspense>
-        )}
+        <AppExtras mountExtras={mountExtras} />
 
         <Suspense fallback={<PageFallback />}>
           <Routes>
@@ -230,6 +259,18 @@ export default function App() {
             />
 
             <Route path="*" element={<Navigate to="/" replace />} />
+
+            {/* ── Admin Panel ── */}
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminOverview />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="users/:id" element={<AdminUserDetail />} />
+              <Route path="subscriptions" element={<AdminSubscriptions />} />
+              <Route path="workspaces" element={<AdminWorkspaces />} />
+              <Route path="analytics" element={<AdminAnalytics />} />
+              <Route path="announcements" element={<AdminAnnouncements />} />
+              <Route path="system" element={<AdminSystem />} />
+            </Route>
           </Routes>
         </Suspense>
       </BrowserRouter>

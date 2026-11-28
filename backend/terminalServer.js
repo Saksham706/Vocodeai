@@ -35,7 +35,7 @@ function getContainerKey(userId, workspaceId) {
 }
 
 export function setupTerminalServer(server) {
-  const wss = new WebSocketServer({ server });
+  const wss = new WebSocketServer({ noServer: true });
 
   wss.on("connection", async (ws, req) => {
     /* ================= AUTH ================= */
@@ -559,4 +559,6 @@ export function setupTerminalServer(server) {
       }
     });
   });
+
+  return wss;
 }
