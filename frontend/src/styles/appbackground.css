@@ -131,4 +131,92 @@
   opacity: 0.08;
 }
 
+/* ---------------------------------------------------------
+   5. GIANT FOOTER-STYLE CURSOR-SPOTLIGHT WORDMARK (BETWEEN CIRCLES)
+   --------------------------------------------------------- */
+.dash-bg-wordmark-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+}
+
+.dash-bg-giant-wordmark {
+  position: relative;
+  display: inline-block;
+  font-size: clamp(3.8rem, 15.5vw, 14.5rem);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  line-height: 0.92;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.045);
+  --mx: -999px;
+  --my: -999px;
+  --spot-opacity: 0;
+}
+
+/* Ambient sweeping shimmer across letters even when cursor is still */
+.dash-bg-giant-wordmark::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 20%,
+    rgba(0, 240, 152, 0.22) 45%,
+    rgba(0, 229, 255, 0.28) 50%,
+    rgba(0, 240, 152, 0.22) 55%,
+    transparent 80%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: dashWordmarkSweep 7.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Interactive cursor spotlight matching Landing footer */
+.dash-bg-giant-wordmark::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    280px circle at var(--mx) var(--my),
+    #ffffff 0%,
+    #00F098 42%,
+    rgba(0, 240, 152, 0.22) 65%,
+    transparent 80%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  opacity: var(--spot-opacity);
+  transition: opacity 0.28s ease;
+  pointer-events: none;
+}
+
+@keyframes dashWordmarkSweep {
+  0% {
+    background-position: 150% 0;
+  }
+  50% {
+    background-position: -50% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
+}
+
+/* Dynamic Interactive Radial Spotlight Layer disabled - no shadow around cursor */
+.dash-spotlight-layer {
+  display: none !important;
+}
+
+
 

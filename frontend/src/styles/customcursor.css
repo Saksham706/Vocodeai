@@ -1,0 +1,91 @@
+/* =========================================================
+   VOCODEAI — GLOBAL CIRCULAR MOUSE POINTER SYSTEM
+   Small, clean, dot-free circle ring.
+   No native pointer or mouse type ever shows.
+   ========================================================= */
+
+*,
+*::before,
+*::after,
+html,
+body,
+#root,
+div,
+span,
+p,
+a,
+button,
+input,
+textarea,
+select,
+label,
+svg,
+path,
+pre,
+code,
+.monaco-editor,
+.monaco-editor *,
+.xterm,
+.xterm * {
+  cursor: none !important;
+}
+
+.custom-cursor-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 999999999;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.custom-cursor-container.visible {
+  opacity: 1;
+}
+
+/* Small, Pure Circular Pointer (No center dot, NO shadow) */
+.custom-cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border: 1.4px solid #00F098;
+  background: transparent !important;
+  border-radius: 50%;
+  pointer-events: none;
+  will-change: transform;
+  box-shadow: none !important;
+  transition: width 0.16s ease,
+              height 0.16s ease,
+              border-color 0.16s ease,
+              transform 0.16s ease;
+}
+
+/* Interactive Hover (Buttons, Links, Inputs, Cards) */
+.custom-cursor-container.hovered .custom-cursor-ring {
+  width: 22px;
+  height: 22px;
+  border-width: 1.6px;
+  border-color: #00F098;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Tactile Click / MouseDown */
+.custom-cursor-container.clicked .custom-cursor-ring {
+  width: 12px;
+  height: 12px;
+  background: transparent !important;
+  border-color: #00F098;
+  box-shadow: none !important;
+}
+
+@media (pointer: coarse) {
+  .custom-cursor-container {
+    display: none !important;
+  }
+}

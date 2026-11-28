@@ -344,59 +344,22 @@ function WorkspaceLayout() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activityTab, isExplorerOpen]);
 
-  // 1. Shared Theme State (Synced with localStorage & document attribute)
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("vocode_theme") || "dark";
-  });
+  // 1. Shared Theme State (Dark Mode Enforced)
+  const [theme] = useState("dark");
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    document.body.setAttribute("data-theme", theme);
-    if (theme === "light") {
-      const activeExtTheme = getActiveThemeExtension();
-      if (activeExtTheme && THEME_DEFINITIONS[activeExtTheme]?.cssVariables) {
-        Object.keys(THEME_DEFINITIONS[activeExtTheme].cssVariables).forEach((key) => {
-          document.documentElement.style.removeProperty(key);
-        });
-      }
-      if (window.monaco?.editor) {
-        window.monaco.editor.setTheme("light");
-      }
-    } else {
-      const activeExtTheme = getActiveThemeExtension();
-      if (activeExtTheme) {
-        applyThemeExtension(activeExtTheme);
-      } else if (window.monaco?.editor) {
-        window.monaco.editor.setTheme("vs-dark");
-      }
-    }
-  }, [theme]);
-
-  // Initialize and apply saved theme extension (only in dark mode so light mode stays persistent)
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("vocode_theme") || "dark";
+    localStorage.setItem("vocode_theme", "dark");
+    document.documentElement.setAttribute("data-theme", "dark");
+    document.body.setAttribute("data-theme", "dark");
     const activeExtTheme = getActiveThemeExtension();
-    if (activeExtTheme && savedTheme !== "light") {
+    if (activeExtTheme) {
       applyThemeExtension(activeExtTheme);
+    } else if (window.monaco?.editor) {
+      window.monaco.editor.setTheme("vs-dark");
     }
   }, []);
 
-  // Keep Workspace theme synced with global/voice theme toggle events
-  useEffect(() => {
-    const handleGlobalTheme = (e) => {
-      const next = e.detail?.theme || localStorage.getItem("vocode_theme") || "dark";
-      setTheme(next);
-    };
-    window.addEventListener("vocode-theme-toggle", handleGlobalTheme);
-    return () => window.removeEventListener("vocode-theme-toggle", handleGlobalTheme);
-  }, []);
-
-  const toggleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    localStorage.setItem("vocode_theme", nextTheme);
-    window.dispatchEvent(new CustomEvent("vocode-theme-toggle", { detail: { theme: nextTheme } }));
-  };
+  const toggleTheme = () => {};
 
   // 2. Diff & Git Changes State
   const [activeDiff, setActiveDiff] = useState(null);

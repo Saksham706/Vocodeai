@@ -38,7 +38,7 @@ export function VocodeLogo({
           height: "100%",
           objectFit: "contain",
           filter: glow
-            ? "drop-shadow(0 0 14px rgba(16, 185, 129, 0.55)) drop-shadow(0 0 4px rgba(56, 189, 248, 0.4))"
+            ? "drop-shadow(0 0 4px rgba(16, 185, 129, 0.28))"
             : undefined,
           userSelect: "none",
         }}

@@ -47,19 +47,13 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   // Shared Theme State (Synced with localStorage & Landing/Auth pages)
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("vocode_theme") || "dark";
-  });
+  const theme = "dark";
+  const toggleTheme = () => {};
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    localStorage.setItem("vocode_theme", nextTheme);
-  };
+    localStorage.setItem("vocode_theme", "dark");
+    document.documentElement.setAttribute("data-theme", "dark");
+  }, []);
 
   // State Management
   const [workspaces, setWorkspaces] = useState([]);
@@ -1039,7 +1033,6 @@ export default function Dashboard() {
           setSearch={setSearch}
           searchInputRef={searchInputRef}
           theme={theme}
-          toggleTheme={toggleTheme}
           folderInputRef={folderInputRef}
           handleFolderSelected={handleFolderSelected}
           onOpenImport={() => {

@@ -8,6 +8,15 @@
   box-sizing: border-box;
 }
 
+/* Universal Circular Mouse Pointer */
+@media (pointer: fine) {
+  *,
+  *::before,
+  *::after {
+    cursor: none !important;
+  }
+}
+
 html,
 body {
   width: 100%;

@@ -85,7 +85,7 @@ export default function WorkspaceCardGrid({
                 onClick={() => handleCardClick(ws._id)}
                 title={`Open ${ws.name}`}
               >
-                <FolderClosed className="workspace-folder-svg" />
+                <FolderClosed className="workspace-folder-svg" color="#FBBF24" fill="#F59E0B" />
               </div>
 
               {/* Workspace Details */}
@@ -197,7 +197,7 @@ export default function WorkspaceCardGrid({
         /* Empty State */
         <div className="workspaces-empty-state">
           <div className="empty-state-icon-tile">
-            <FolderClosed size={36} />
+            <FolderClosed size={36} color="#FBBF24" fill="#F59E0B" />
           </div>
           <h3 className="empty-state-title">
             {search ? "No workspaces found" : "No workspaces yet"}

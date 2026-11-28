@@ -8,8 +8,6 @@ import {
   PanelsTopLeft,
   Columns2,
   Search,
-  Sun,
-  Moon,
   Settings,
   Minus,
   Square,
@@ -740,15 +738,7 @@ export default function Navbar({
                         <span>Settings</span>
                         <kbd>Ctrl+,</kbd>
                       </button>
-                      <button
-                        className="ide-menu-entry"
-                        onClick={() => {
-                          closeMenu();
-                          toggleTheme();
-                        }}
-                      >
-                        <span>Toggle Theme ({theme === "dark" ? "Light" : "Dark"})</span>
-                      </button>
+
                       <button
                         className="ide-menu-entry"
                         onClick={() => {
@@ -1036,19 +1026,7 @@ export default function Navbar({
           </button>
         </div>
 
-        {/* Theme Toggle (Sun/Moon) */}
-        <button
-          className="ide-nav-icon-btn"
-          onClick={toggleTheme}
-          title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`}
-          aria-label="Toggle Theme"
-        >
-          {theme === "dark" ? (
-            <Sun size={16} strokeWidth={1.7} />
-          ) : (
-            <Moon size={16} strokeWidth={1.7} />
-          )}
-        </button>
+
 
         {/* Settings Icon */}
         <button

@@ -210,7 +210,7 @@ body {
   background: var(--bg-surface-glass);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: none !important;
   transition: all 0.25s ease;
 }
 
@@ -3200,13 +3200,15 @@ body {
   background: rgba(5, 11, 13, 0.25);
   backdrop-filter: blur(22px) saturate(165%);
   -webkit-backdrop-filter: blur(22px) saturate(165%);
-  border-bottom: none;
+  border-bottom: none !important;
+  box-shadow: none !important;
   transition: background-color 0.35s ease, box-shadow 0.35s ease;
 }
 
 .site-header.rr-navbar.is-scrolled {
   background: rgba(5, 11, 13, 0.58);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+  border-bottom: none !important;
+  box-shadow: none !important;
 }
 
 [data-theme="light"] .site-header.rr-navbar {
@@ -3275,6 +3277,15 @@ body {
   align-items: center;
   justify-content: center;
   transition: opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1), transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.rr-center-emblem img {
+  filter: drop-shadow(0 0 4px rgba(0, 240, 152, 0.25)) !important;
+  transition: filter 0.25s ease, transform 0.25s ease;
+}
+
+.rr-nav-center:hover .rr-center-emblem img {
+  filter: drop-shadow(0 0 7px rgba(0, 240, 152, 0.5)) !important;
 }
 
 .rr-center-wordmark {
@@ -3785,64 +3796,61 @@ html {
 
 .bugatti-navbar {
   background: transparent !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  border-bottom: none !important;
   backdrop-filter: none !important;
+  box-shadow: none !important;
 }
 
 .bugatti-navbar.is-scrolled {
   background: rgba(2, 5, 6, 0.72) !important;
   backdrop-filter: blur(18px) !important;
   -webkit-backdrop-filter: blur(18px) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
 }
 
-[data-theme="light"] .bugatti-navbar.is-scrolled {
-  background: rgba(248, 250, 251, 0.8) !important;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.07) !important;
-}
-
-.bugatti-menu-circle {
-  width: 38px;
-  height: 38px;
-  padding: 0 !important;
-  border-radius: 50% !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  background: rgba(255, 255, 255, 0.03) !important;
-  backdrop-filter: blur(12px);
+/* Menu Button - No circular badge plate, shadow applies directly to the icon */
+.bugatti-menu-circle,
+.rr-menu-btn.bugatti-menu-circle {
+  width: auto !important;
+  height: auto !important;
+  padding: 8px !important;
+  border-radius: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #e2e8f0;
-  transition: border-color 0.35s ease, background 0.35s ease, transform 0.35s ease !important;
+  cursor: pointer;
+  transition: transform 0.25s ease, color 0.25s ease !important;
 }
 
-.bugatti-menu-circle:hover {
-  border-color: rgba(20, 184, 166, 0.55) !important;
-  background: rgba(20, 184, 166, 0.08) !important;
-  transform: scale(1.04);
-}
-
-[data-theme="light"] .bugatti-menu-circle {
-  border-color: rgba(15, 23, 42, 0.14) !important;
-  background: rgba(15, 23, 42, 0.03) !important;
-  color: #0f172a;
+.bugatti-menu-circle:hover,
+.rr-menu-btn.bugatti-menu-circle:hover {
+  border: none !important;
+  background: transparent !important;
+  transform: scale(1.1);
 }
 
 .hamburger-morph {
   position: relative;
-  width: 16px;
-  height: 10px;
+  width: 20px;
+  height: 14px;
   display: inline-block;
 }
 
 .hm-line {
   position: absolute;
   left: 0;
-  width: 16px;
-  height: 1.5px;
-  background: currentColor;
+  width: 20px;
+  height: 2px;
+  background: #e2e8f0;
   border-radius: 2px;
-  transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), top 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+  filter: none !important;
+  transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), top 0.38s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.25s ease, filter 0.25s ease;
 }
 
 .hm-line-top {
@@ -3850,16 +3858,28 @@ html {
 }
 
 .hm-line-bot {
-  top: 7px;
+  top: 10px;
+}
+
+.bugatti-menu-circle:hover .hm-line,
+.rr-menu-btn.bugatti-menu-circle:hover .hm-line {
+  background: #00F098;
+  filter: drop-shadow(0 0 10px rgba(0, 240, 152, 0.95)) drop-shadow(0 0 3px #00F098) !important;
+}
+
+.bugatti-menu-circle.is-open .hm-line,
+.rr-menu-btn.bugatti-menu-circle.is-open .hm-line {
+  background: #00F098;
+  filter: drop-shadow(0 0 8px rgba(0, 240, 152, 0.85)) drop-shadow(0 0 3px #00F098) !important;
 }
 
 .bugatti-menu-circle.is-open .hm-line-top {
-  top: 4px;
+  top: 6px;
   transform: rotate(45deg);
 }
 
 .bugatti-menu-circle.is-open .hm-line-bot {
-  top: 4px;
+  top: 6px;
   transform: rotate(-45deg);
 }
 
@@ -3872,61 +3892,54 @@ html {
   opacity: 0.85;
 }
 
-.bugatti-theme-btn {
-  width: 34px !important;
-  height: 34px !important;
-  border-radius: 50% !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  background: rgba(255, 255, 255, 0.03) !important;
-}
-
-.bugatti-enter-link {
-  width: 34px;
-  height: 34px;
-  padding: 0;
+/* User Tab / Button - No circular badge plate, shadow applies directly to the icon on hover */
+.bugatti-enter-link,
+.bugatti-user-btn {
+  width: auto !important;
+  height: auto !important;
+  padding: 8px !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
   color: #e2ece9;
   cursor: pointer;
   flex-shrink: 0;
-  transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.25s ease, color 0.25s ease !important;
 }
 
-.bugatti-enter-link svg {
-  width: 16px;
-  height: 16px;
-  min-width: 16px;
-  min-height: 16px;
+.bugatti-enter-link svg,
+.bugatti-user-btn svg {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
   display: block;
+  color: #e2ece9;
+  filter: none !important;
+  transition: filter 0.25s ease, color 0.25s ease, transform 0.25s ease;
 }
 
-.bugatti-enter-link:hover {
-  border-color: rgba(20, 184, 166, 0.5);
-  background: rgba(20, 184, 166, 0.08);
-  color: #ffffff;
-  transform: translateY(-1px);
+.bugatti-enter-link:hover,
+.bugatti-user-btn:hover {
+  border: none !important;
+  background: transparent !important;
+  color: #00F098;
+  transform: scale(1.1);
 }
 
-.bugatti-enter-link .enter-arrow-icon {
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.bugatti-enter-link:hover .enter-arrow-icon {
-  transform: translateX(3px);
+.bugatti-enter-link:hover svg,
+.bugatti-user-btn:hover svg {
+  color: #00F098;
+  filter: drop-shadow(0 0 10px rgba(0, 240, 152, 0.95)) drop-shadow(0 0 3px #00F098) !important;
 }
 
 .enter-text-mobile {
   display: none;
-}
-
-[data-theme="light"] .bugatti-enter-link {
-  border-color: rgba(15, 23, 42, 0.16);
-  background: rgba(15, 23, 42, 0.04);
-  color: #0f172a;
 }
 
 /* Full-Screen Glassy Navigation Overlay */
@@ -4499,9 +4512,12 @@ html {
   .enter-text-mobile {
     display: inline;
   }
-  .bugatti-enter-link {
-    padding: 7px 13px;
-    font-size: 12px;
+  .bugatti-enter-link,
+  .bugatti-user-btn {
+    border: none !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 8px !important;
   }
   .bugatti-ring-1 {
     width: 120vw;

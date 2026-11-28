@@ -18,8 +18,6 @@ import {
   Users,
   User,
   Trophy,
-  Sun,
-  Moon,
   Sparkles,
   FileCode2,
   FolderTree,
@@ -58,10 +56,8 @@ export default function Landing() {
   const location = useLocation();
   const { accessToken } = useAuth();
 
-  // Dark mode by default for premium developer aesthetic
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("vocode_theme") || "dark";
-  });
+  // Always dark theme across the project
+  const [theme] = useState("dark");
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -225,14 +221,9 @@ export default function Landing() {
     },
   ];
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    localStorage.setItem("vocode_theme", nextTheme);
-  };
+    localStorage.setItem("vocode_theme", "dark");
+    document.documentElement.setAttribute("data-theme", "dark");
+  }, []);
 
   const handleEnter = (initialMode = "login") => {
     if (accessToken) {
@@ -456,17 +447,8 @@ export default function Landing() {
             </span>
           </div>
 
-          {/* Right: Theme Switch + Enter Experience */}
+          {/* Right: Enter Experience (Dashboard / Auth) */}
           <div className="header-actions rr-nav-right">
-            <button
-              className="theme-switch-btn bugatti-theme-btn"
-              onClick={toggleTheme}
-              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-              aria-label="Toggle dark and light mode"
-            >
-              {theme === "dark" ? <Sun size={15} className="theme-icon-sun" /> : <Moon size={15} className="theme-icon-moon" />}
-            </button>
-
             <button
               type="button"
               className="bugatti-enter-link bugatti-user-btn"
@@ -474,7 +456,7 @@ export default function Landing() {
               title={accessToken ? "Dashboard" : "Log in / Sign up"}
               aria-label={accessToken ? "Go to Dashboard" : "Log in or Sign up"}
             >
-              <User size={16} strokeWidth={1.9} />
+              <User size={18} strokeWidth={1.9} />
             </button>
           </div>
         </div>

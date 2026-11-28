@@ -11,11 +11,11 @@ export const MARKETPLACE_EXTENSIONS = [
     name: "VocodeAI Obsidian (Default)",
     publisher: "VocodeAI Team",
     version: "1.0.0",
-    description: "The official VocodeAI signature theme with deep obsidian backdrop, emerald green and cyber orange accents.",
+    description: "The official VocodeAI signature theme with deep obsidian backdrop, cyan emerald, cyber orange and golden amber accents.",
     category: "theme",
     downloads: "28.5M",
     rating: 5.0,
-    palette: ["#020708", "#43E65C", "#FF8B32", "#B7FF29", "#080F12"],
+    palette: ["#020506", "#2DD4BF", "#FF8B32", "#FBBF24", "#080F12"],
     verified: true,
   },
   {

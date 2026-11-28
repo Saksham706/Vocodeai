@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import "../styles/appbackground.css";
 
 /**
@@ -8,12 +8,62 @@ import "../styles/appbackground.css";
  *  1. Precision 52px technical geometric grid with radial vignette mask
  *  2. Multi-layer floating ambient aurora glow orbs (Coral, Emerald, Cyan)
  *  3. Cybernetic flowing orbital curves & glowing light beads (dual-theme)
+ *  4. Giant Footer-Style Cursor-Spotlight Wordmark between circles that enlightens on touch
  */
 export default function DashboardBackground({ theme = "dark" }) {
   const isLight = theme === "light";
+  const wordmarkRef = useRef(null);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const el = wordmarkRef.current;
+    const cont = containerRef.current;
+    if (!el) return;
+
+    const handlePointerMove = (e) => {
+      const rect = el.getBoundingClientRect();
+      const clientX = e.clientX ?? (e.touches && e.touches[0]?.clientX);
+      const clientY = e.clientY ?? (e.touches && e.touches[0]?.clientY);
+      if (clientX == null || clientY == null) return;
+
+      el.style.setProperty("--mx", `${clientX - rect.left}px`);
+      el.style.setProperty("--my", `${clientY - rect.top}px`);
+      el.style.setProperty("--spot-opacity", "1");
+
+      if (cont) {
+        cont.style.setProperty("--cursor-x", `${clientX}px`);
+        cont.style.setProperty("--cursor-y", `${clientY}px`);
+        cont.style.setProperty("--cursor-glow-opacity", "1");
+      }
+    };
+
+    const handlePointerLeave = () => {
+      el.style.setProperty("--spot-opacity", "0");
+      if (cont) cont.style.setProperty("--cursor-glow-opacity", "0");
+    };
+
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    window.addEventListener("touchmove", handlePointerMove, { passive: true });
+    window.addEventListener("touchstart", handlePointerMove, { passive: true });
+    document.addEventListener("mouseleave", handlePointerLeave);
+    window.addEventListener("touchend", () => {
+      setTimeout(handlePointerLeave, 600);
+    }, { passive: true });
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("touchmove", handlePointerMove);
+      window.removeEventListener("touchstart", handlePointerMove);
+      document.removeEventListener("mouseleave", handlePointerLeave);
+    };
+  }, []);
 
   return (
-    <div className={`app-background-system ${theme}`} aria-hidden="true">
+    <div
+      ref={containerRef}
+      className={`app-background-system ${theme}`}
+      aria-hidden="true"
+    >
       {/* 1. Precision 52px Geometric Technical Grid Overlay */}
       <div className="background-grid" />
 
@@ -22,7 +72,18 @@ export default function DashboardBackground({ theme = "dark" }) {
       <div className="ambient-aurora ambient-aurora-2" />
       <div className="ambient-aurora ambient-aurora-3" />
 
-      {/* 3. Cybernetic Flowing Energy Curves & Orbital Beads */}
+      {/* 3. Giant Footer-Style Cursor-Spotlight Wordmark between circles */}
+      <div className="dash-bg-wordmark-wrap">
+        <span
+          ref={wordmarkRef}
+          className="dash-bg-giant-wordmark"
+          data-text="VOCODEAI"
+        >
+          VOCODEAI
+        </span>
+      </div>
+
+      {/* 4. Cybernetic Flowing Energy Curves & Orbital Beads */}
       {isLight ? (
         <svg
           className="app-bg-curves"

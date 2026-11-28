@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import VocoAssistant from "./components/mascot/VocoAssistant";
 import PageMeta from "./components/common/PageMeta";
+import CustomCursor from "./components/common/CustomCursor";
 import { applyThemeExtension, getActiveThemeExtension } from "./utils/themeRegistry";
 
 // Lazy-loaded routes for code splitting and instant page loads
@@ -140,13 +141,13 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [splashFading, setSplashFading] = useState(false);
 
-  // Apply saved theme & theme extension across the whole website on initial load
+  // Enforce dark theme across the whole website on initial load
   useEffect(() => {
-    const savedTheme = localStorage.getItem("vocode_theme") || "dark";
-    document.documentElement.setAttribute("data-theme", savedTheme);
-    document.body.setAttribute("data-theme", savedTheme);
+    localStorage.setItem("vocode_theme", "dark");
+    document.documentElement.setAttribute("data-theme", "dark");
+    document.body.setAttribute("data-theme", "dark");
     const activeTheme = getActiveThemeExtension();
-    if (activeTheme && savedTheme !== "light") {
+    if (activeTheme) {
       applyThemeExtension(activeTheme);
     }
 
@@ -183,6 +184,9 @@ export default function App() {
         </div>
       )}
       <BrowserRouter>
+        {/* Universal Circular Mouse Pointer */}
+        <CustomCursor />
+
         {/* Dynamic SEO Meta & Title Manager */}
         <PageMeta />
 

@@ -6,8 +6,6 @@ import {
   KeyRound,
   Eye,
   EyeOff,
-  Sun,
-  Moon,
   ArrowRight,
   ArrowLeft,
   AlertCircle,
@@ -26,19 +24,12 @@ export default function ResetPassword() {
   const email = location.state?.email;
 
   // Theme state synced with landing page
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("vocode_theme") || "dark";
-  });
+  const theme = "dark";
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    localStorage.setItem("vocode_theme", nextTheme);
-  };
+    localStorage.setItem("vocode_theme", "dark");
+    document.documentElement.setAttribute("data-theme", "dark");
+  }, []);
 
   const [form, setForm] = useState({
     otp: "",
@@ -105,20 +96,7 @@ export default function ResetPassword() {
 
   return (
     <div className={`auth-page-wrapper ${theme}`}>
-      {/* Floating Theme Switcher Button */}
-      <button
-        type="button"
-        className="auth-theme-switch-btn"
-        onClick={toggleTheme}
-        title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-        aria-label="Toggle dark and light mode"
-      >
-        {theme === "dark" ? (
-          <Sun size={18} className="theme-icon-sun" />
-        ) : (
-          <Moon size={18} className="theme-icon-moon" />
-        )}
-      </button>
+
 
       {/* Background SVG Artwork & Glowing Atmosphere */}
       <AuthBackground theme={theme} />

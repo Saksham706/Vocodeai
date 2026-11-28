@@ -1,12 +1,12 @@
 import React from "react";
-import { Search, Sun, Moon, Upload, Download, Plus } from "lucide-react";
+import { Search, Upload, Download, Plus } from "lucide-react";
 
 export default function DashboardHeader({
   search,
   setSearch,
   searchInputRef,
-  theme,
-  toggleTheme,
+  theme = "dark",
+  toggleTheme = () => {},
   folderInputRef,
   handleFolderSelected,
   onOpenImport,
@@ -32,15 +32,7 @@ export default function DashboardHeader({
         <span className="search-shortcut-badge">⌘ K</span>
       </div>
 
-      {/* Theme Toggle Button */}
-      <button
-        className="dash-theme-toggle vocode-pill-btn"
-        onClick={toggleTheme}
-        title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-        aria-label="Toggle dark and light mode"
-      >
-        {theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
-      </button>
+
 
       {/* Hidden File Input for Folder Import */}
       <input

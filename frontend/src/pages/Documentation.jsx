@@ -19,8 +19,6 @@ import {
   ArrowLeft,
   BookOpen,
   Search,
-  Sun,
-  Moon,
   ChevronRight,
   Terminal,
   Eye,
@@ -184,10 +182,8 @@ export default function Documentation() {
   const navigate = useNavigate();
   const { accessToken } = useAuth();
 
-  // Dual Theme Support matching Landing & Dashboard
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("vocode_theme") || "dark";
-  });
+
+  const theme = "dark";
 
   const [activeTopicId, setActiveTopicId] = useState("overview");
   const [activeSubheadingId, setActiveSubheadingId] = useState("");
@@ -201,15 +197,11 @@ export default function Documentation() {
 
   const mainContentRef = useRef(null);
 
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
 
-  const toggleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    localStorage.setItem("vocode_theme", nextTheme);
-  };
+  useEffect(() => {
+    localStorage.setItem("vocode_theme", "dark");
+    document.documentElement.setAttribute("data-theme", "dark");
+  }, []);
 
   const handleEnterApp = () => {
     if (accessToken) {
@@ -338,14 +330,7 @@ export default function Documentation() {
 
           {/* Right Action Buttons */}
           <div className="docs-topbar-actions">
-            <button
-              className="docs-theme-toggle-btn"
-              onClick={toggleTheme}
-              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-              aria-label="Toggle Theme"
-            >
-              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
-            </button>
+
 
             <button
               className="docs-enter-cta-btn"
