@@ -37,25 +37,38 @@ export default function CustomCursor() {
 
     const onPointerOver = (e) => {
       const target = e.target;
+      if (!target) {
+        setIsHovered(false);
+        return;
+      }
+
       if (
-        target &&
-        (target.tagName === "BUTTON" ||
-          target.tagName === "A" ||
-          target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT" ||
-          target.closest("button") ||
-          target.closest("a") ||
-          target.closest("[role='button']") ||
-          target.closest(".clickable") ||
-          target.closest(".workspace-card-item") ||
-          target.closest(".template-card") ||
-          target.closest(".rr-nav-center") ||
-          target.closest(".vocode-pill-btn") ||
-          target.closest(".dash-nav-item") ||
-          target.closest(".workspace-menu-trigger") ||
-          target.closest(".rr-menu-btn") ||
-          target.closest(".bugatti-enter-link"))
+        target.tagName === "BUTTON" ||
+        target.tagName === "A" ||
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
+        target.closest("button") ||
+        target.closest("a") ||
+        target.closest("[role='button']") ||
+        target.closest(".clickable") ||
+        target.closest(".workspace-card-item") ||
+        target.closest(".template-card") ||
+        target.closest(".rr-nav-center") ||
+        target.closest(".vocode-pill-btn") ||
+        target.closest(".dash-nav-item") ||
+        target.closest(".sidebar-nav-item") ||
+        target.closest(".dash-overlay-link") ||
+        target.closest(".workspace-menu-trigger") ||
+        target.closest(".rr-menu-btn") ||
+        target.closest(".bugatti-enter-link") ||
+        target.closest(".bugatti-user-btn") ||
+        target.closest(".dash-menu-circle") ||
+        target.closest(".dash-back-circle") ||
+        target.closest(".category-pill-btn") ||
+        target.closest(".welcome-btn") ||
+        target.closest(".tab") ||
+        target.closest(".terminal-tab")
       ) {
         setIsHovered(true);
       } else {

@@ -51,37 +51,41 @@ code,
   position: fixed;
   top: 0;
   left: 0;
-  width: 16px;
-  height: 16px;
-  border: 1.4px solid #00F098;
+  width: 15px;
+  height: 15px;
+  border: 1.4px solid #2DD4BF;
   background: transparent !important;
   border-radius: 50%;
   pointer-events: none;
   will-change: transform;
   box-shadow: none !important;
-  transition: width 0.16s ease,
-              height 0.16s ease,
-              border-color 0.16s ease,
-              transform 0.16s ease;
+  filter: none !important;
+  transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s ease,
+              background 0.2s ease;
 }
 
-/* Interactive Hover (Buttons, Links, Inputs, Cards) */
+/* Interactive Hover (Expands noticeably, no shadow) */
 .custom-cursor-container.hovered .custom-cursor-ring {
-  width: 22px;
-  height: 22px;
-  border-width: 1.6px;
-  border-color: #00F098;
-  background: transparent !important;
+  width: 32px;
+  height: 32px;
+  border-width: 1.5px;
+  border-color: #2DD4BF;
+  background: rgba(45, 212, 191, 0.08) !important;
   box-shadow: none !important;
+  filter: none !important;
 }
 
 /* Tactile Click / MouseDown */
 .custom-cursor-container.clicked .custom-cursor-ring {
   width: 12px;
   height: 12px;
-  background: transparent !important;
-  border-color: #00F098;
+  border-width: 2px;
+  background: rgba(45, 212, 191, 0.2) !important;
+  border-color: #2DD4BF;
   box-shadow: none !important;
+  filter: none !important;
 }
 
 @media (pointer: coarse) {

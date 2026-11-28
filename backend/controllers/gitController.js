@@ -29,13 +29,16 @@ const DEFAULT_GITIGNORE = `# Compiled class and binary files
 a.out
 a.exe
 
-# OS and temporary files
+# OS, credentials and temporary files
 .DS_Store
 thumbs.db
 .workspace.json
+.git-credentials
 
-# Dependencies and build outputs
+# Dependencies, caches and build outputs
 node_modules/
+.npm/
+.cache/
 dist/
 build/
 __pycache__/
@@ -70,7 +73,7 @@ async function ensureGitignore(wsPath) {
     } else {
       let content = fs.readFileSync(gitignorePath, "utf-8");
       let changed = false;
-      const criticalEntries = ["*.class", "*.out", "*.exe", "*.pyc", "node_modules/", "dist/", "build/"];
+      const criticalEntries = ["*.class", "*.out", "*.exe", "*.pyc", "node_modules/", ".npm/", ".cache/", ".git-credentials", "dist/", "build/"];
       for (const entry of criticalEntries) {
         if (!content.includes(entry)) {
           content += `\n${entry}`;
@@ -96,6 +99,18 @@ function getGlobalExcludesPath() {
     const p = path.join(getWorkspacesRoot(), ".gitignore_global");
     if (!fs.existsSync(p)) {
       fs.writeFileSync(p, DEFAULT_GITIGNORE, "utf-8");
+    } else {
+      let content = fs.readFileSync(p, "utf-8");
+      let changed = false;
+      for (const entry of [".npm/", ".cache/", ".git-credentials"]) {
+        if (!content.includes(entry)) {
+          content += `\n${entry}`;
+          changed = true;
+        }
+      }
+      if (changed) {
+        fs.writeFileSync(p, content.trim() + "\n", "utf-8");
+      }
     }
     globalExcludesPath = p.replace(/\\/g, "/");
     return globalExcludesPath;
@@ -120,6 +135,7 @@ async function runGit(workspaceDir, args, envOptions = {}) {
   const finalArgs = [
     "-c", "safe.directory=*",
     "-c", "core.filemode=false",
+    "-c", "core.longpaths=true",
     ...(excludesFile ? ["-c", `core.excludesFile=${excludesFile}`] : []),
     ...args
   ];

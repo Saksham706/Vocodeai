@@ -15,7 +15,7 @@ export const CHROME_RESTRICTED_PORTS = new Set([
   993, 995, 2049, 3659, 4045, 6000
 ]);
 
-const RESERVED_HOST_PORTS = new Set([
+export const RESERVED_HOST_PORTS = new Set([
   Number(process.env.PORT) || 8000,
   5173, // Frontend
   6379, // Redis

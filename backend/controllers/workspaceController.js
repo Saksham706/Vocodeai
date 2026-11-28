@@ -17,6 +17,7 @@ import { getWorkspacesRoot } from "../config/paths.js";
 import { scanLocalDirectory } from "../utils/scanLocalFolder.js";
 import { STARTER_TEMPLATES, getTemplateById } from "../templates/starterTemplates.js";
 import * as r2Service from "../services/r2Service.js";
+import { stopAndRemoveContainer, getContainerKey } from "../sandbox/containerManager.js";
 
 /* GET STARTER TEMPLATES */
 export async function getTemplates(req, res) {
@@ -160,9 +161,12 @@ export async function deleteWorkspace(req, res) {
       type: n.type || "file",
     }));
 
-    // 3. Move filesystem files to .trash directory in background so API response is instant
+    // 3. Stop/remove container & move filesystem files to .trash directory in background so ports are freed and API response is instant
     const targetUserId = req.user.id || req.user._id;
     const targetWsId = workspace._id.toString();
+    stopAndRemoveContainer(getContainerKey(targetUserId, targetWsId)).catch((err) => {
+      console.warn("Background stopAndRemoveContainer notice:", err.message);
+    });
     setTimeout(() => {
       try {
         moveToTrash(targetUserId, targetWsId);

@@ -94,6 +94,21 @@ export default function AccountSettingsView({ onBack, onSignOut }) {
   const [selectedAvatar, setSelectedAvatar] = useState(() => {
     return localStorage.getItem("vocode_user_avatar") || "default";
   });
+  const [developerRole, setDeveloperRole] = useState(() => {
+    return localStorage.getItem("vocode_user_role") || "Full-Stack Developer";
+  });
+  const [availabilityStatus, setAvailabilityStatus] = useState(() => {
+    return localStorage.getItem("vocode_user_status") || "Active • Coding";
+  });
+  const [preferredStack, setPreferredStack] = useState(() => {
+    return localStorage.getItem("vocode_user_stack") || "TypeScript / React / Node.js";
+  });
+  const [syncSettings, setSyncSettings] = useState(() => {
+    return getEffectiveSettings()?.account?.syncSettings ?? true;
+  });
+  const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(() => {
+    return getEffectiveSettings()?.account?.sessionTimeoutMinutes ?? 120;
+  });
 
   // Profile Save Status
   const [profileSaving, setProfileSaving] = useState(false);
@@ -254,13 +269,18 @@ export default function AccountSettingsView({ onBack, onSignOut }) {
         });
       }
 
-      // Update global display name in settings storage
+      // Update global display name, sync, and session timeout in settings storage
       const currentSettings = getUserSettings();
-      const updated = setNestedValue(currentSettings, "account.displayName", displayName);
+      let updated = setNestedValue(currentSettings, "account.displayName", displayName);
+      updated = setNestedValue(updated, "account.syncSettings", syncSettings);
+      updated = setNestedValue(updated, "account.sessionTimeoutMinutes", Number(sessionTimeoutMinutes));
       saveUserSettings(updated);
 
       localStorage.setItem("vocode_user_bio", bio);
       localStorage.setItem("vocode_user_avatar", selectedAvatar);
+      localStorage.setItem("vocode_user_role", developerRole);
+      localStorage.setItem("vocode_user_status", availabilityStatus);
+      localStorage.setItem("vocode_user_stack", preferredStack);
 
       // Dispatch settings changed event for sidebar name
       window.dispatchEvent(
@@ -530,182 +550,304 @@ export default function AccountSettingsView({ onBack, onSignOut }) {
                 </p>
               </div>
 
-              {/* Avatar Selector Card */}
-              <div className="account-card">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
-                  <h3 className="card-title" style={{ margin: 0 }}>Avatar & Visual Identity</h3>
-                  <span style={{ fontSize: "11.5px", color: "var(--text-secondary)" }}>
-                    Instant live preview on bottom sidebar
-                  </span>
-                </div>
-
-                <div className="avatar-selection-row">
-                  <div className="current-avatar-preview">
-                    {selectedAvatar?.startsWith("data:image/") || selectedAvatar?.startsWith("http") ? (
-                      <img
-                        src={selectedAvatar}
-                        alt="Profile Preview"
-                        className="avatar-custom-img-preview"
-                      />
-                    ) : selectedAvatar === "default" || selectedAvatar === "initial" ? (
-                      <span className="avatar-initial-large">{userInitial}</span>
-                    ) : (
-                      <span className="avatar-emoji-large">
-                        {AVATAR_OPTIONS.find((a) => a.id === selectedAvatar)?.icon || "🦉"}
-                      </span>
-                    )}
-                    <span className="avatar-online-dot" />
+              <div className="account-cards-grid-2 account-profile-grid">
+                {/* Avatar & Visual Identity Card */}
+                <div className="account-card account-card-balanced">
+                  <div className="card-split-header">
+                    <h3 className="card-title" style={{ margin: 0 }}>Avatar & Visual Identity</h3>
+                    <span className="field-hint">Instant live preview on bottom sidebar</span>
                   </div>
 
-                  <div className="avatar-options-grid">
-                    {AVATAR_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        className={`avatar-option-chip ${
-                          selectedAvatar === opt.id ? "selected" : ""
-                        }`}
-                        onClick={() => handleSelectAvatar(opt.id)}
-                      >
-                        <span className="opt-icon">
-                          {opt.type === "initial" ? userInitial : opt.icon}
+                  <div className="avatar-selection-row">
+                    <div className="current-avatar-preview">
+                      {selectedAvatar?.startsWith("data:image/") || selectedAvatar?.startsWith("http") ? (
+                        <img
+                          src={selectedAvatar}
+                          alt="Profile Preview"
+                          className="avatar-custom-img-preview"
+                        />
+                      ) : selectedAvatar === "default" || selectedAvatar === "initial" ? (
+                        <span className="avatar-initial-large">{userInitial}</span>
+                      ) : (
+                        <span className="avatar-emoji-large">
+                          {AVATAR_OPTIONS.find((a) => a.id === selectedAvatar)?.icon || "🦉"}
                         </span>
-                        <span className="opt-label">{opt.label}</span>
-                        {selectedAvatar === opt.id && <Check size={12} className="opt-check" />}
-                      </button>
-                    ))}
+                      )}
+                      <span className="avatar-online-dot" />
+                    </div>
 
-                    {/* Custom Image Upload Chip */}
-                    <label className="avatar-upload-chip" title="Upload custom profile photo">
-                      <Camera size={14} style={{ color: "#43e65c" }} />
-                      <span>{selectedAvatar?.startsWith("data:image/") ? "Change Photo" : "Upload Photo"}</span>
+                    <div className="avatar-options-grid">
+                      {AVATAR_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          className={`avatar-option-chip ${
+                            selectedAvatar === opt.id ? "selected" : ""
+                          }`}
+                          onClick={() => handleSelectAvatar(opt.id)}
+                        >
+                          <span className="opt-icon">
+                            {opt.type === "initial" ? userInitial : opt.icon}
+                          </span>
+                          <span className="opt-label">{opt.label}</span>
+                          {selectedAvatar === opt.id && <Check size={12} className="opt-check" />}
+                        </button>
+                      ))}
+
+                      {/* Custom Image Upload Chip */}
+                      <label className="avatar-upload-chip" title="Upload custom profile photo">
+                        <Camera size={14} style={{ color: "#43e65c" }} />
+                        <span>{selectedAvatar?.startsWith("data:image/") ? "Change Photo" : "Upload Photo"}</span>
+                        <input
+                          type="file"
+                          accept="image/png, image/jpeg, image/webp"
+                          style={{ display: "none" }}
+                          onChange={handleCustomPhotoUpload}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Live Workspace Identity Preview */}
+                  <div className="identity-preview-panel">
+                    <div className="identity-preview-header">
+                      <span className="identity-preview-label">Workspace Identity Preview</span>
+                      <span className="status-chip connected">{availabilityStatus}</span>
+                    </div>
+                    <div className="identity-preview-user">
+                      <div className="identity-preview-name">
+                        {displayName || `${firstName} ${lastName}`.trim() || "VocodeAI Developer"}
+                      </div>
+                      <div className="identity-preview-meta">
+                        {developerRole} • {preferredStack}
+                      </div>
+                    </div>
+                    <div className="identity-preview-stats">
+                      <div className="identity-stat-pill">
+                        <HardDrive size={13} />
+                        <span>{storageData.usedFormatted} / {storageData.maxFormatted}</span>
+                      </div>
+                      <div className="identity-stat-pill">
+                        <GithubIcon size={13} />
+                        <span>{githubStatus.connected ? `@${githubStatus.username}` : "GitHub Not Linked"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Account Sync & Session Preferences */}
+                  <div className="account-sync-panel">
+                    <div className="account-pref-row">
+                      <div>
+                        <div className="account-pref-title">Sync Workspace Settings</div>
+                        <div className="account-pref-desc">
+                          Keep editor, AI companion & terminal preferences synced
+                        </div>
+                      </div>
+                      <label className="account-switch">
+                        <input
+                          type="checkbox"
+                          checked={syncSettings}
+                          onChange={(e) => {
+                            const next = e.target.checked;
+                            setSyncSettings(next);
+                            const curr = getUserSettings();
+                            saveUserSettings(setNestedValue(curr, "account.syncSettings", next));
+                          }}
+                        />
+                        <span className="switch-slider" />
+                      </label>
+                    </div>
+
+                    <div className="account-pref-row">
+                      <div>
+                        <div className="account-pref-title">Cloud Sandbox Session Timeout</div>
+                        <div className="account-pref-desc">
+                          Auto-lock idle cloud workspace sessions
+                        </div>
+                      </div>
+                      <select
+                        className="account-select-compact"
+                        value={sessionTimeoutMinutes}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setSessionTimeoutMinutes(val);
+                          const curr = getUserSettings();
+                          saveUserSettings(setNestedValue(curr, "account.sessionTimeoutMinutes", val));
+                        }}
+                      >
+                        <option value={30}>30 mins</option>
+                        <option value={60}>1 hour</option>
+                        <option value={120}>2 hours</option>
+                        <option value={480}>8 hours</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Profile Details Form */}
+                <form onSubmit={handleSaveProfile} className="account-card account-card-balanced">
+                  <h3 className="card-title">Personal Details</h3>
+
+                  <div className="form-grid-2">
+                    <div className="form-field">
+                      <label>First Name</label>
                       <input
-                        type="file"
-                        accept="image/png, image/jpeg, image/webp"
-                        style={{ display: "none" }}
-                        onChange={handleCustomPhotoUpload}
+                        type="text"
+                        className="account-input"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="e.g. Saksham"
                       />
-                    </label>
+                    </div>
+                    <div className="form-field">
+                      <label>Last Name</label>
+                      <input
+                        type="text"
+                        className="account-input"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        placeholder="e.g. Agarwal"
+                      />
+                    </div>
                   </div>
-                </div>
+
+                  <div className="form-grid-2">
+                    <div className="form-field">
+                      <label>Display Name / Public Handle</label>
+                      <input
+                        type="text"
+                        className="account-input"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder="e.g. Saksham Agarwal"
+                      />
+                      <span className="field-hint">
+                        Shown in workspace dashboard, AI chats & commit signatures.
+                      </span>
+                    </div>
+
+                    <div className="form-field">
+                      <label>Email Address</label>
+                      <div className="input-with-badge">
+                        <input
+                          type="email"
+                          className="account-input read-only"
+                          value={user?.email || "developer@vocodeai.com"}
+                          disabled
+                        />
+                        <span className="verified-badge">
+                          <ShieldCheck size={13} />
+                          <span>Verified</span>
+                        </span>
+                      </div>
+                      <span className="field-hint">
+                        Primary login identity for ADC and cloud backups.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="form-grid-2">
+                    <div className="form-field">
+                      <label>Developer Role / Title</label>
+                      <select
+                        className="account-input"
+                        value={developerRole}
+                        onChange={(e) => setDeveloperRole(e.target.value)}
+                      >
+                        <option value="Full-Stack Developer">Full-Stack Developer</option>
+                        <option value="Frontend Engineer">Frontend Engineer</option>
+                        <option value="Backend Engineer">Backend Engineer</option>
+                        <option value="AI / ML Engineer">AI / ML Engineer</option>
+                        <option value="Cloud Architect">Cloud Architect</option>
+                        <option value="DevOps / SRE">DevOps / SRE</option>
+                      </select>
+                    </div>
+
+                    <div className="form-field">
+                      <label>Availability Status</label>
+                      <select
+                        className="account-input"
+                        value={availabilityStatus}
+                        onChange={(e) => setAvailabilityStatus(e.target.value)}
+                      >
+                        <option value="Active • Coding">Active • Coding</option>
+                        <option value="In Deep Focus">In Deep Focus</option>
+                        <option value="Open to Collaborate">Open to Collaborate</option>
+                        <option value="Away">Away</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-grid-2">
+                    <div className="form-field">
+                      <label>Primary Tech Stack</label>
+                      <input
+                        type="text"
+                        className="account-input"
+                        value={preferredStack}
+                        onChange={(e) => setPreferredStack(e.target.value)}
+                        placeholder="e.g. TypeScript / React / Node.js"
+                      />
+                    </div>
+
+                    <div className="form-field">
+                      <label>Phone Number (Optional)</label>
+                      <input
+                        type="tel"
+                        className="account-input"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="+1 (555) 000-0000"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Developer Bio & AI Context</label>
+                    <textarea
+                      rows={2}
+                      className="account-textarea"
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      placeholder="Brief developer summary..."
+                    />
+                  </div>
+
+                  {profileError && (
+                    <div className="account-alert error">
+                      <AlertCircle size={15} />
+                      <span>{profileError}</span>
+                    </div>
+                  )}
+
+                  {profileSuccess && (
+                    <div className="account-alert success">
+                      <CheckCircle2 size={15} />
+                      <span>Profile saved and synchronized successfully!</span>
+                    </div>
+                  )}
+
+                  <div className="card-actions-right" style={{ marginTop: "auto" }}>
+                    <button
+                      type="submit"
+                      className="account-btn primary"
+                      disabled={profileSaving}
+                    >
+                      {profileSaving ? (
+                        <>
+                          <RefreshCw size={14} className="spin-slow" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save size={14} />
+                          <span>Save Profile Changes</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
-
-              {/* Profile Details Form */}
-              <form onSubmit={handleSaveProfile} className="account-card">
-                <h3 className="card-title">Personal Details</h3>
-
-                <div className="form-grid-2">
-                  <div className="form-field">
-                    <label>First Name</label>
-                    <input
-                      type="text"
-                      className="account-input"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="e.g. Saksham"
-                    />
-                  </div>
-                  <div className="form-field">
-                    <label>Last Name</label>
-                    <input
-                      type="text"
-                      className="account-input"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      placeholder="e.g. Agarwal"
-                    />
-                  </div>
-                </div>
-
-                <div className="form-field">
-                  <label>Display Name / Public Handle</label>
-                  <input
-                    type="text"
-                    className="account-input"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="e.g. Saksham Agarwal"
-                  />
-                  <span className="field-hint">
-                    Shown in the workspace dashboard, AI companion chats, and commit signatures.
-                  </span>
-                </div>
-
-                <div className="form-field">
-                  <label>Email Address</label>
-                  <div className="input-with-badge">
-                    <input
-                      type="email"
-                      className="account-input read-only"
-                      value={user?.email || "developer@vocodeai.com"}
-                      disabled
-                    />
-                    <span className="verified-badge">
-                      <ShieldCheck size={13} />
-                      <span>Verified</span>
-                    </span>
-                  </div>
-                  <span className="field-hint">
-                    Primary login identity for Application Default Credentials (ADC) and cloud backups.
-                  </span>
-                </div>
-
-                <div className="form-field">
-                  <label>Phone Number (Optional)</label>
-                  <input
-                    type="tel"
-                    className="account-input"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+1 (555) 000-0000"
-                  />
-                </div>
-
-                <div className="form-field">
-                  <label>Developer Bio & Status</label>
-                  <textarea
-                    rows={3}
-                    className="account-textarea"
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    placeholder="Brief developer summary..."
-                  />
-                </div>
-
-                {profileError && (
-                  <div className="account-alert error">
-                    <AlertCircle size={15} />
-                    <span>{profileError}</span>
-                  </div>
-                )}
-
-                {profileSuccess && (
-                  <div className="account-alert success">
-                    <CheckCircle2 size={15} />
-                    <span>Profile saved and synchronized successfully!</span>
-                  </div>
-                )}
-
-                <div className="card-actions-right">
-                  <button
-                    type="submit"
-                    className="account-btn primary"
-                    disabled={profileSaving}
-                  >
-                    {profileSaving ? (
-                      <>
-                        <RefreshCw size={14} className="spin-slow" />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save size={14} />
-                        <span>Save Profile Changes</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
             </div>
           )}
 
@@ -720,158 +862,162 @@ export default function AccountSettingsView({ onBack, onSignOut }) {
                 </p>
               </div>
 
-              {/* Change Password Card */}
-              <form onSubmit={handleChangePassword} className="account-card">
-                <h3 className="card-title">
-                  <KeyRound size={17} className="text-accent" />
-                  <span>Change Password</span>
-                </h3>
+              <div className="account-cards-grid-2">
+                {/* Change Password Card */}
+                <form onSubmit={handleChangePassword} className="account-card">
+                  <h3 className="card-title">
+                    <KeyRound size={17} className="text-accent" />
+                    <span>Change Password</span>
+                  </h3>
 
-                <div className="form-field">
-                  <label>Current Password</label>
-                  <div className="password-input-wrapper">
-                    <input
-                      type={showCurrentPassword ? "text" : "password"}
-                      className="account-input"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      placeholder="Enter current password"
-                      required
-                    />
-                    <button
-                      type="button"
-                      className="password-toggle-btn"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    >
-                      {showCurrentPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="form-grid-2">
                   <div className="form-field">
-                    <label>New Password</label>
+                    <label>Current Password</label>
                     <div className="password-input-wrapper">
                       <input
-                        type={showNewPassword ? "text" : "password"}
+                        type={showCurrentPassword ? "text" : "password"}
                         className="account-input"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="At least 6 characters"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="Enter current password"
                         required
                       />
                       <button
                         type="button"
                         className="password-toggle-btn"
-                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                       >
-                        {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                        {showCurrentPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                       </button>
                     </div>
                   </div>
 
-                  <div className="form-field">
-                    <label>Confirm New Password</label>
-                    <input
-                      type="password"
-                      className="account-input"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Re-enter new password"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {newPassword && (
-                  <div className="password-strength-bar">
-                    <div
-                      className={`strength-meter ${
-                        newPassword.length < 6
-                          ? "weak"
-                          : newPassword.length < 10
-                          ? "medium"
-                          : "strong"
-                      }`}
-                    />
-                    <span className="strength-text">
-                      Strength:{" "}
-                      {newPassword.length < 6
-                        ? "Too short"
-                        : newPassword.length < 10
-                        ? "Good"
-                        : "Very Strong"}
-                    </span>
-                  </div>
-                )}
-
-                {passwordError && (
-                  <div className="account-alert error">
-                    <AlertCircle size={15} />
-                    <span>{passwordError}</span>
-                  </div>
-                )}
-
-                {passwordSuccess && (
-                  <div className="account-alert success">
-                    <CheckCircle2 size={15} />
-                    <span>Password updated successfully!</span>
-                  </div>
-                )}
-
-                <div className="card-actions-right">
-                  <button
-                    type="submit"
-                    className="account-btn primary"
-                    disabled={passwordSaving || !currentPassword || !newPassword}
-                  >
-                    {passwordSaving ? "Updating..." : "Update Password"}
-                  </button>
-                </div>
-              </form>
-
-              {/* Two-Factor Authentication Card */}
-              <div className="account-card">
-                <div className="card-split-header">
-                  <div>
-                    <h3 className="card-title">Two-Factor Authentication (2FA)</h3>
-                    <p className="card-desc">
-                      Add an extra layer of security when logging in from new devices or
-                      suspicious networks.
-                    </p>
-                  </div>
-                  <label className="account-switch">
-                    <input
-                      type="checkbox"
-                      checked={twoFactorEnabled}
-                      onChange={(e) => handleToggle2FA(e.target.checked)}
-                    />
-                    <span className="switch-slider" />
-                  </label>
-                </div>
-                <div className="security-status-strip">
-                  <ShieldCheck size={16} className="text-accent" />
-                  <span>
-                    Status:{" "}
-                    <strong>{twoFactorEnabled ? "Active & Enforced" : "Disabled (Optional)"}</strong>
-                  </span>
-                </div>
-              </div>
-
-              {/* Active Sessions */}
-              <div className="account-card">
-                <h3 className="card-title">Active Devices & Sessions</h3>
-                <div className="session-item active">
-                  <div className="session-icon">
-                    <Cpu size={18} />
-                  </div>
-                  <div className="session-info">
-                    <div className="session-name">
-                      Windows PC • Chrome Web Sandbox
-                      <span className="current-badge">Current Session</span>
+                  <div className="form-grid-2">
+                    <div className="form-field">
+                      <label>New Password</label>
+                      <div className="password-input-wrapper">
+                        <input
+                          type={showNewPassword ? "text" : "password"}
+                          className="account-input"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="At least 6 characters"
+                          required
+                        />
+                        <button
+                          type="button"
+                          className="password-toggle-btn"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                        >
+                          {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                      </div>
                     </div>
-                    <div className="session-meta">
-                      IP: 127.0.0.1 • Connected to Docker Cloud Micro-VM • Active Now
+
+                    <div className="form-field">
+                      <label>Confirm New Password</label>
+                      <input
+                        type="password"
+                        className="account-input"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Re-enter new password"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {newPassword && (
+                    <div className="password-strength-bar">
+                      <div
+                        className={`strength-meter ${
+                          newPassword.length < 6
+                            ? "weak"
+                            : newPassword.length < 10
+                            ? "medium"
+                            : "strong"
+                        }`}
+                      />
+                      <span className="strength-text">
+                        Strength:{" "}
+                        {newPassword.length < 6
+                          ? "Too short"
+                          : newPassword.length < 10
+                          ? "Good"
+                          : "Very Strong"}
+                      </span>
+                    </div>
+                  )}
+
+                  {passwordError && (
+                    <div className="account-alert error">
+                      <AlertCircle size={15} />
+                      <span>{passwordError}</span>
+                    </div>
+                  )}
+
+                  {passwordSuccess && (
+                    <div className="account-alert success">
+                      <CheckCircle2 size={15} />
+                      <span>Password updated successfully!</span>
+                    </div>
+                  )}
+
+                  <div className="card-actions-right" style={{ marginTop: "auto" }}>
+                    <button
+                      type="submit"
+                      className="account-btn primary"
+                      disabled={passwordSaving || !currentPassword || !newPassword}
+                    >
+                      {passwordSaving ? "Updating..." : "Update Password"}
+                    </button>
+                  </div>
+                </form>
+
+                <div className="account-cards-stack">
+                  {/* Two-Factor Authentication Card */}
+                  <div className="account-card">
+                    <div className="card-split-header">
+                      <div>
+                        <h3 className="card-title">Two-Factor Authentication (2FA)</h3>
+                        <p className="card-desc">
+                          Add an extra layer of security when logging in from new devices or
+                          suspicious networks.
+                        </p>
+                      </div>
+                      <label className="account-switch">
+                        <input
+                          type="checkbox"
+                          checked={twoFactorEnabled}
+                          onChange={(e) => handleToggle2FA(e.target.checked)}
+                        />
+                        <span className="switch-slider" />
+                      </label>
+                    </div>
+                    <div className="security-status-strip">
+                      <ShieldCheck size={16} className="text-accent" />
+                      <span>
+                        Status:{" "}
+                        <strong>{twoFactorEnabled ? "Active & Enforced" : "Disabled (Optional)"}</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Active Sessions */}
+                  <div className="account-card" style={{ flex: 1 }}>
+                    <h3 className="card-title">Active Devices & Sessions</h3>
+                    <div className="session-item active">
+                      <div className="session-icon">
+                        <Cpu size={18} />
+                      </div>
+                      <div className="session-info">
+                        <div className="session-name">
+                          Windows PC • Chrome Web Sandbox
+                          <span className="current-badge">Current Session</span>
+                        </div>
+                        <div className="session-meta">
+                          IP: 127.0.0.1 • Connected to Docker Cloud Micro-VM • Active Now
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -890,111 +1036,113 @@ export default function AccountSettingsView({ onBack, onSignOut }) {
                 </p>
               </div>
 
-              {/* GitHub Integration Card */}
-              <div className="account-card">
-                <div className="card-split-header">
-                  <div className="provider-info-group">
-                    <div className="provider-icon github">
-                      <GithubIcon size={24} />
-                    </div>
-                    <div>
-                      <h3 className="card-title">GitHub Integration</h3>
-                      <p className="card-desc">
-                        Clone repositories directly into cloud sandboxes, commit, and push hands-free.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    {githubStatus.connected ? (
-                      <span className="status-chip connected">
-                        <CheckCircle2 size={13} /> Connected
-                      </span>
-                    ) : (
-                      <span className="status-chip disconnected">Disconnected</span>
-                    )}
-                  </div>
-                </div>
-
-                {githubStatus.connected ? (
-                  <div className="connected-profile-box">
-                    <div className="gh-user-row">
-                      {githubStatus.avatar && (
-                        <img
-                          src={githubStatus.avatar}
-                          alt="GitHub Avatar"
-                          className="gh-avatar"
-                        />
-                      )}
+              <div className="account-cards-grid-2">
+                {/* GitHub Integration Card */}
+                <div className="account-card">
+                  <div className="card-split-header">
+                    <div className="provider-info-group">
+                      <div className="provider-icon github">
+                        <GithubIcon size={24} />
+                      </div>
                       <div>
-                        <strong>@{githubStatus.username}</strong>
-                        <p>Linked for Git pushes and Cloud PTY sync</p>
+                        <h3 className="card-title">GitHub Integration</h3>
+                        <p className="card-desc">
+                          Clone repositories directly into cloud sandboxes, commit, and push hands-free.
+                        </p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      className="account-btn outline-danger"
-                      onClick={handleDisconnectGithub}
-                      disabled={githubLoading}
-                    >
-                      Disconnect GitHub
-                    </button>
+
+                    <div>
+                      {githubStatus.connected ? (
+                        <span className="status-chip connected">
+                          <CheckCircle2 size={13} /> Connected
+                        </span>
+                      ) : (
+                        <span className="status-chip disconnected">Disconnected</span>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  <div className="connect-form-box">
-                    <p className="hint-text">
-                      Connect instantly with a GitHub Personal Access Token (with `repo` permissions):
-                    </p>
-                    <div className="token-input-row">
-                      <input
-                        type="password"
-                        className="account-input"
-                        placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                        value={githubTokenInput}
-                        onChange={(e) => setGithubTokenInput(e.target.value)}
-                      />
+
+                  {githubStatus.connected ? (
+                    <div className="connected-profile-box">
+                      <div className="gh-user-row">
+                        {githubStatus.avatar && (
+                          <img
+                            src={githubStatus.avatar}
+                            alt="GitHub Avatar"
+                            className="gh-avatar"
+                          />
+                        )}
+                        <div>
+                          <strong>@{githubStatus.username}</strong>
+                          <p>Linked for Git pushes and Cloud PTY sync</p>
+                        </div>
+                      </div>
                       <button
                         type="button"
-                        className="account-btn primary"
-                        onClick={handleConnectGithub}
-                        disabled={githubLoading || !githubTokenInput.trim()}
+                        className="account-btn outline-danger"
+                        onClick={handleDisconnectGithub}
+                        disabled={githubLoading}
                       >
-                        {githubLoading ? "Verifying..." : "Connect GitHub"}
+                        Disconnect GitHub
                       </button>
                     </div>
-                  </div>
-                )}
-
-                {githubMessage && (
-                  <div className={`account-alert ${githubMessage.type}`}>
-                    {githubMessage.type === "success" ? (
-                      <CheckCircle2 size={15} />
-                    ) : (
-                      <AlertCircle size={15} />
-                    )}
-                    <span>{githubMessage.text}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Google OAuth Card */}
-              <div className="account-card">
-                <div className="card-split-header">
-                  <div className="provider-info-group">
-                    <div className="provider-icon google">
-                      <Globe size={24} />
-                    </div>
-                    <div>
-                      <h3 className="card-title">Google Account</h3>
-                      <p className="card-desc">
-                        Single Sign-On (SSO) and Application Default Credentials verification.
+                  ) : (
+                    <div className="connect-form-box">
+                      <p className="hint-text">
+                        Connect instantly with a GitHub Personal Access Token (with `repo` permissions):
                       </p>
+                      <div className="token-input-row">
+                        <input
+                          type="password"
+                          className="account-input"
+                          placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                          value={githubTokenInput}
+                          onChange={(e) => setGithubTokenInput(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="account-btn primary"
+                          onClick={handleConnectGithub}
+                          disabled={githubLoading || !githubTokenInput.trim()}
+                        >
+                          {githubLoading ? "Verifying..." : "Connect GitHub"}
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  <span className="status-chip connected">
-                    <CheckCircle2 size={13} /> Active SSO
-                  </span>
+                  {githubMessage && (
+                    <div className={`account-alert ${githubMessage.type}`}>
+                      {githubMessage.type === "success" ? (
+                        <CheckCircle2 size={15} />
+                      ) : (
+                        <AlertCircle size={15} />
+                      )}
+                      <span>{githubMessage.text}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Google OAuth Card */}
+                <div className="account-card">
+                  <div className="card-split-header">
+                    <div className="provider-info-group">
+                      <div className="provider-icon google">
+                        <Globe size={24} />
+                      </div>
+                      <div>
+                        <h3 className="card-title">Google Account</h3>
+                        <p className="card-desc">
+                          Single Sign-On (SSO) and Application Default Credentials verification.
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="status-chip connected">
+                      <CheckCircle2 size={13} /> Active SSO
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1011,66 +1159,70 @@ export default function AccountSettingsView({ onBack, onSignOut }) {
                 </p>
               </div>
 
-              <div className="account-card">
-                <div className="card-split-header">
-                  <h3 className="card-title">Real-Time Storage Allocation</h3>
-                  <span className="field-hint">
-                    Calculated from your active cloud workspace files
-                  </span>
-                </div>
-                <div className="quota-bar-wrapper">
-                  <div
-                    className="quota-bar-fill"
-                    style={{ width: `${Math.max(2, storageData.percentUtilized)}%` }}
-                  />
-                </div>
-                <div className="quota-meta-row">
-                  <span>
-                    Used: <strong>{storageData.usedFormatted}</strong> of {storageData.maxFormatted}
-                  </span>
-                  <span>
-                    {storageData.percentUtilized}% utilized • {storageData.availableFormatted} Available ({storageData.workspaceCount} Workspaces)
-                  </span>
-                </div>
-              </div>
+              <div className="account-cards-grid-2">
+                <div className="account-cards-stack">
+                  <div className="account-card">
+                    <div className="card-split-header">
+                      <h3 className="card-title">Real-Time Storage Allocation</h3>
+                      <span className="field-hint">
+                        Calculated from your active cloud workspace files
+                      </span>
+                    </div>
+                    <div className="quota-bar-wrapper">
+                      <div
+                        className="quota-bar-fill"
+                        style={{ width: `${Math.max(2, storageData.percentUtilized)}%` }}
+                      />
+                    </div>
+                    <div className="quota-meta-row">
+                      <span>
+                        Used: <strong>{storageData.usedFormatted}</strong> of {storageData.maxFormatted}
+                      </span>
+                      <span>
+                        {storageData.percentUtilized}% utilized • {storageData.availableFormatted} Available ({storageData.workspaceCount} Workspaces)
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="account-card">
-                <h3 className="card-title">Cloud Micro-VM Environment</h3>
-                <div className="env-grid">
-                  <div className="env-item">
-                    <span className="env-label">Runner Image</span>
-                    <span className="env-val">Ubuntu 22.04 LTS (Docker PTY)</span>
-                  </div>
-                  <div className="env-item">
-                    <span className="env-label">Node.js Runtime</span>
-                    <span className="env-val">v20.18.0 LTS</span>
-                  </div>
-                  <div className="env-item">
-                    <span className="env-label">Python Environment</span>
-                    <span className="env-val">Python 3.10+ (pip / venv)</span>
-                  </div>
-                  <div className="env-item">
-                    <span className="env-label">Memory Limit</span>
-                    <span className="env-val">2,048 MB RAM / Container</span>
+                  {/* Danger Zone */}
+                  <div className="account-card danger-card" style={{ flex: 1 }}>
+                    <h3 className="card-title text-danger">Danger Zone</h3>
+                    <p className="card-desc">
+                      Irreversible actions concerning your account data and saved workspaces.
+                    </p>
+                    <div className="danger-actions-row">
+                      <button
+                        type="button"
+                        className="account-btn outline-danger"
+                        onClick={onSignOut || logout}
+                      >
+                        <LogOut size={14} />
+                        <span>Sign Out of VocodeAI</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Danger Zone */}
-              <div className="account-card danger-card">
-                <h3 className="card-title text-danger">Danger Zone</h3>
-                <p className="card-desc">
-                  Irreversible actions concerning your account data and saved workspaces.
-                </p>
-                <div className="danger-actions-row">
-                  <button
-                    type="button"
-                    className="account-btn outline-danger"
-                    onClick={onSignOut || logout}
-                  >
-                    <LogOut size={14} />
-                    <span>Sign Out of VocodeAI</span>
-                  </button>
+                <div className="account-card">
+                  <h3 className="card-title">Cloud Micro-VM Environment</h3>
+                  <div className="env-grid">
+                    <div className="env-item">
+                      <span className="env-label">Runner Image</span>
+                      <span className="env-val">Ubuntu 22.04 LTS (Docker PTY)</span>
+                    </div>
+                    <div className="env-item">
+                      <span className="env-label">Node.js Runtime</span>
+                      <span className="env-val">v20.18.0 LTS</span>
+                    </div>
+                    <div className="env-item">
+                      <span className="env-label">Python Environment</span>
+                      <span className="env-val">Python 3.10+ (pip / venv)</span>
+                    </div>
+                    <div className="env-item">
+                      <span className="env-label">Memory Limit</span>
+                      <span className="env-val">2,048 MB RAM / Container</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -4,12 +4,14 @@ import FileNode from "../models/FileNode.js";
 
 const IGNORED_PATTERNS = [
   "node_modules",
-  ".git",
+  ".git/",
   "dist",
   "build",
   "__pycache__",
   ".venv",
   ".pytest_cache",
+  ".npm",
+  ".cache",
   ".DS_Store",
   ".workspace.json",
 ];
@@ -37,6 +39,8 @@ const IGNORED_FILENAMES = [
   "a.exe",
   ".ds_store",
   "thumbs.db",
+  ".git",
+  ".git-credentials",
 ];
 
 export function isIgnoredFile(relativePath) {

@@ -18,67 +18,67 @@
   --ide-terminal-bg: rgba(3, 12, 10, 0.94);
   --ide-card-bg: rgba(5, 16, 20, 0.85);
   --ide-border: rgba(255, 255, 255, 0.08);
-  --ide-border-hover: rgba(0, 240, 152, 0.35);
+  --ide-border-hover: rgba(45, 212, 191, 0.35);
   --ide-text-primary: #FFFFFF;
   --ide-text-secondary: #94A3B8;
   --ide-text-muted: #64748B;
-  --ide-accent-green: #00F098;
-  --ide-accent-lime: #00F098;
+  --ide-accent-green: #2DD4BF;
+  --ide-accent-lime: #2DD4BF;
   --ide-accent-orange: #00E5FF;
   --ide-accent-coral: #FF6448;
-  --ide-active-pill-bg: rgba(0, 240, 152, 0.12);
-  --ide-active-pill-border: rgba(0, 240, 152, 0.45);
-  --ide-active-pill-text: #00F098;
-  --ide-hover-bg: rgba(0, 240, 152, 0.08);
+  --ide-active-pill-bg: rgba(45, 212, 191, 0.12);
+  --ide-active-pill-border: rgba(45, 212, 191, 0.45);
+  --ide-active-pill-text: #2DD4BF;
+  --ide-hover-bg: rgba(45, 212, 191, 0.08);
   --ide-card-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  --ide-glow-primary: rgba(0, 240, 152, 0.2);
+  --ide-glow-primary: rgba(45, 212, 191, 0.2);
 
   /* Section 3 Dark Mode Explorer Variables */
   --explorer-bg: rgba(2, 7, 8, 0.85);
   --explorer-surface: rgba(5, 16, 20, 0.75);
-  --explorer-surface-hover: rgba(0, 240, 152, 0.08);
+  --explorer-surface-hover: rgba(45, 212, 191, 0.08);
   --explorer-text: #FFFFFF;
   --explorer-text-muted: #94A3B8;
   --explorer-border: rgba(255, 255, 255, 0.08);
-  --explorer-border-active: rgba(0, 240, 152, 0.8);
-  --explorer-accent: #00F098;
+  --explorer-border-active: rgba(45, 212, 191, 0.8);
+  --explorer-accent: #2DD4BF;
   --explorer-accent-secondary: #00E5FF;
-  --explorer-selection: rgba(0, 240, 152, 0.14);
+  --explorer-selection: rgba(45, 212, 191, 0.14);
   --explorer-guide-line: rgba(255, 255, 255, 0.08);
 
   /* Terminal Variables - Dark Mode */
-  --terminal-bg: rgba(3, 12, 10, 0.94);
+  --terminal-bg: rgba(2, 7, 8, 0.94);
   --terminal-header-bg: rgba(2, 7, 8, 0.9);
   --terminal-tabs-bg: rgba(2, 7, 8, 0.9);
-  --terminal-output-bg: rgba(3, 12, 10, 0.94);
+  --terminal-output-bg: rgba(2, 7, 8, 0.94);
   --terminal-border: rgba(255, 255, 255, 0.08);
-  --terminal-border-active: rgba(0, 240, 152, 0.6);
+  --terminal-border-active: rgba(45, 212, 191, 0.6);
   --terminal-divider: rgba(255, 255, 255, 0.06);
   --terminal-text: #E2E8F0;
   --terminal-text-muted: #94A3B8;
-  --terminal-prompt-user: #00F098;
+  --terminal-prompt-user: #2DD4BF;
   --terminal-prompt-path: #00E5FF;
   --terminal-cmd: #FFFFFF;
   --terminal-link: #00E5FF;
-  --terminal-cursor: #00F098;
-  --terminal-hover-bg: rgba(0, 240, 152, 0.08);
-  --terminal-active-tab-bg: rgba(0, 240, 152, 0.12);
-  --terminal-active-tab-border: rgba(0, 240, 152, 0.5);
-  --terminal-active-tab-text: #00F098;
+  --terminal-cursor: #2DD4BF;
+  --terminal-hover-bg: rgba(45, 212, 191, 0.08);
+  --terminal-active-tab-bg: rgba(45, 212, 191, 0.12);
+  --terminal-active-tab-border: rgba(45, 212, 191, 0.5);
+  --terminal-active-tab-text: #2DD4BF;
 
   /* AI Assistant Variables - Dark Mode */
   --ai-bg: rgba(2, 7, 8, 0.88);
   --ai-surface: rgba(5, 16, 20, 0.85);
   --ai-surface-secondary: rgba(9, 25, 31, 0.8);
-  --ai-surface-hover: rgba(0, 240, 152, 0.08);
+  --ai-surface-hover: rgba(45, 212, 191, 0.08);
   --ai-text: #FFFFFF;
   --ai-text-secondary: #CBD5E1;
   --ai-text-muted: #94A3B8;
   --ai-border: rgba(255, 255, 255, 0.08);
-  --ai-border-strong: rgba(0, 240, 152, 0.38);
-  --ai-accent: #00F098;
+  --ai-border-strong: rgba(45, 212, 191, 0.38);
+  --ai-accent: #2DD4BF;
   --ai-accent-secondary: #00E5FF;
-  --ai-selection: rgba(0, 240, 152, 0.14);
+  --ai-selection: rgba(45, 212, 191, 0.14);
   --ai-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
 }
 

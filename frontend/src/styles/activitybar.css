@@ -28,10 +28,10 @@
   --activity-border: rgba(255, 255, 255, 0.08);
   --activity-icon: #94A3B8;
   --activity-icon-hover: #FFFFFF;
-  --activity-active-bg: rgba(0, 240, 152, 0.12);
-  --activity-active-border: rgba(0, 240, 152, 0.45);
-  --activity-active-icon: #00F098;
-  --activity-active-glow: 0 0 16px rgba(0, 240, 152, 0.25);
+  --activity-active-bg: rgba(45, 212, 191, 0.12);
+  --activity-active-border: rgba(45, 212, 191, 0.45);
+  --activity-active-icon: #2DD4BF;
+  --activity-active-glow: 0 0 16px rgba(45, 212, 191, 0.25);
 }
 
 [data-theme="light"] .ide-activity-bar {

@@ -28,9 +28,9 @@
 }
 
 .tab.active {
-  background: rgba(0, 240, 152, 0.08);
+  background: rgba(45, 212, 191, 0.08);
   color: #FFFFFF;
-  border-bottom: 2px solid #00F098;
+  border-bottom: 2px solid #2DD4BF;
 }
 
 .tab.active::after {
@@ -40,7 +40,7 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 240, 152, 0.4), transparent);
+  background: linear-gradient(90deg, transparent, rgba(45, 212, 191, 0.4), transparent);
 }
 
 .close {
@@ -87,8 +87,8 @@
 }
 
 .terminal-tab.active {
-  background: rgba(0, 240, 152, 0.08);
-  color: #00F098;
+  background: rgba(45, 212, 191, 0.08);
+  color: #2DD4BF;
   font-weight: 600;
-  border-bottom: 2px solid #00F098;
+  border-bottom: 2px solid #2DD4BF;
 }

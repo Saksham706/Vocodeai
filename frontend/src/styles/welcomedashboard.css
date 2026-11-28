@@ -144,35 +144,35 @@
 
 .btn-icon {
   flex-shrink: 0;
-  color: #00F098;
+  color: #2DD4BF;
   transition: transform 0.25s ease, color 0.25s ease;
 }
 
 .welcome-btn:hover {
-  background: rgba(0, 240, 152, 0.08);
-  border-color: rgba(0, 240, 152, 0.5);
-  box-shadow: 0 0 24px rgba(0, 240, 152, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  color: #00F098;
+  background: rgba(45, 212, 191, 0.08);
+  border-color: rgba(45, 212, 191, 0.5);
+  box-shadow: 0 0 24px rgba(45, 212, 191, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: #2DD4BF;
   transform: translateY(-2px);
 }
 
 .welcome-btn:hover .btn-icon {
-  color: #00E5FF;
+  color: #38BDF8;
   transform: scale(1.1);
 }
 
 /* Primary Button (Open Folder) with subtle prominent glow */
 .welcome-btn-primary {
-  background: linear-gradient(135deg, rgba(0, 240, 152, 0.12) 0%, rgba(0, 229, 255, 0.08) 100%);
-  border: 1px solid rgba(0, 240, 152, 0.35);
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.12) 0%, rgba(56, 189, 248, 0.08) 100%);
+  border: 1px solid rgba(45, 212, 191, 0.35);
   color: #FFFFFF;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 16px rgba(0, 240, 152, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 16px rgba(45, 212, 191, 0.12);
 }
 
 .welcome-btn-primary:hover {
-  background: linear-gradient(135deg, rgba(0, 240, 152, 0.18) 0%, rgba(0, 229, 255, 0.14) 100%);
-  border-color: rgba(0, 240, 152, 0.7);
-  box-shadow: 0 0 28px rgba(0, 240, 152, 0.35);
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.18) 0%, rgba(56, 189, 248, 0.14) 100%);
+  border-color: rgba(45, 212, 191, 0.7);
+  box-shadow: 0 0 28px rgba(45, 212, 191, 0.25);
   color: #FFFFFF;
   transform: translateY(-2px);
 }
@@ -185,9 +185,9 @@
 }
 
 .welcome-btn-secondary:hover {
-  background: rgba(0, 240, 152, 0.08);
-  border-color: rgba(0, 240, 152, 0.45);
-  color: #00F098;
+  background: rgba(45, 212, 191, 0.08);
+  border-color: rgba(45, 212, 191, 0.45);
+  color: #2DD4BF;
 }
 
 .welcome-btn-shortcut {
@@ -203,8 +203,8 @@
 }
 
 .welcome-btn:hover .welcome-btn-shortcut {
-  border-color: rgba(0, 240, 152, 0.3);
-  color: #00F098;
+  border-color: rgba(45, 212, 191, 0.3);
+  color: #2DD4BF;
 }
 
 [data-theme="light"] .welcome-btn {

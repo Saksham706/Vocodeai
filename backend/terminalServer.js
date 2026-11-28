@@ -9,6 +9,10 @@ import {
   configureContainerEnvironment,
   getWorkspacePortBindings,
 } from "./sandbox/containerManager.js";
+import {
+  CHROME_RESTRICTED_PORTS,
+  RESERVED_HOST_PORTS,
+} from "./services/dynamicPortForwarder.js";
 import { touchContainer } from "./sandbox/containerRegistry.js";
 import { createDockerPty, createLocalPty } from "./terminal/dockerPty.js";
 import { syncWorkspaceToDB } from "./services/syncService.js";
@@ -149,7 +153,9 @@ export function setupTerminalServer(server) {
                     `  \x1b[90m•\x1b[0m Port \x1b[33m${b.containerPort}\x1b[0m ➜ \x1b[36m${b.hostUrl}\x1b[0m`
                 )
                 .join("\r\n") +
-              `\r\n\r\n`;
+              `\r\n  \x1b[32m✓ Allowed Ports:\x1b[0m 3000-3005, 4000-4002, 4200, 5000-5005, 5174-5176, 6001+, 8001-8088, 9000-9001\r\n` +
+              `  \x1b[31m✖ Reserved / Blocked (DO NOT USE):\x1b[0m 5173, 6000, 6379, 8000, 27017\r\n` +
+              `  \x1b[90mℹ Always open \x1b[36mhttp://localhost:<PORT>\x1b[90m in your browser (never 0.0.0.0)\x1b[0m\r\n\r\n`;
           }
         } catch {}
       } catch (dockerErr) {
@@ -197,6 +203,7 @@ export function setupTerminalServer(server) {
       }
 
       /* ---------- TERMINAL OUTPUT MULTICAST ---------- */
+      const warnedPorts = new Set();
       ptyProcess.onData((data) => {
         const entry = getTerminal(terminalId);
         if (entry) {
@@ -212,6 +219,48 @@ export function setupTerminalServer(server) {
               if (sock.readyState === 1 /* OPEN */) {
                 sock.send(payload);
               }
+            }
+          }
+
+          // Detect server URLs / ports in terminal output and warn on unusable ports or 0.0.0.0 / shifted ports
+          const urlMatches = data.matchAll(/(?:https?:\/\/)?(0\.0\.0\.0|127\.0\.0\.1|localhost):(\d{2,5})/gi);
+          for (const m of urlMatches) {
+            const host = m[1];
+            const port = parseInt(m[2], 10);
+            if (!port || port < 1 || port > 65535) continue;
+
+            if ((RESERVED_HOST_PORTS.has(port) || CHROME_RESTRICTED_PORTS.has(port)) && !warnedPorts.has(`bad:${port}`)) {
+              warnedPorts.add(`bad:${port}`);
+              const warningText =
+                `\r\n\x1b[31m⚠ [VocodeAI Port Warning]\x1b[0m Port \x1b[33m${port}\x1b[0m is reserved or blocked by the browser and \x1b[1mcannot be used\x1b[0m.\r\n` +
+                `  \x1b[32mYou can only use allowed dev ports:\x1b[0m 3000-3005, 4000-4002, 4200, 5000-5005, 5174-5176, 6001+, 8001-8088, 9000-9001\r\n` +
+                `  \x1b[31mCannot use:\x1b[0m 5173, 6000, 6379, 8000, 27017 (or ports < 1024)\r\n`;
+              if (entry.sockets) {
+                entry.buffer = (entry.buffer + warningText).slice(-40000);
+                const warnPayload = JSON.stringify({ type: "output", terminalId, data: warningText });
+                for (const sock of entry.sockets) {
+                  if (sock.readyState === 1 /* OPEN */) sock.send(warnPayload);
+                }
+              }
+            } else if (host === "0.0.0.0" && !warnedPorts.has(`zero:${port}`)) {
+              warnedPorts.add(`zero:${port}`);
+              getWorkspacePortBindings(getContainerKey(userId, workspaceId))
+                .then((bindings) => {
+                  const mapped = bindings?.find((b) => b.containerPort === port);
+                  const targetUrl = mapped ? mapped.hostUrl : `http://localhost:${port}`;
+                  const infoText = mapped && mapped.hostPort !== port
+                    ? `\r\n\x1b[36mℹ [VocodeAI]\x1b[0m Container port \x1b[33m${port}\x1b[0m is mapped to \x1b[4m${targetUrl}\x1b[0m — open \x1b[4m${targetUrl}\x1b[0m in your browser.\r\n`
+                    : `\r\n\x1b[36mℹ [VocodeAI]\x1b[0m Open \x1b[4m${targetUrl}\x1b[0m in your browser (0.0.0.0 is not reachable on Windows).\r\n`;
+                  const curEntry = getTerminal(terminalId);
+                  if (curEntry?.sockets) {
+                    curEntry.buffer = (curEntry.buffer + infoText).slice(-40000);
+                    const infoPayload = JSON.stringify({ type: "output", terminalId, data: infoText });
+                    for (const sock of curEntry.sockets) {
+                      if (sock.readyState === 1 /* OPEN */) sock.send(infoPayload);
+                    }
+                  }
+                })
+                .catch(() => {});
             }
           }
         }
