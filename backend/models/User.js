@@ -29,8 +29,27 @@ const userSchema = new mongoose.Schema(
     resetOTP: String,
     resetOTPExpiry: Date,
 
-    // Persistent Daily AI Quota (150 requests/day, resets at 12:00 AM midnight)
+    // Subscription Plan & Razorpay Billing
+    plan: {
+      type: String,
+      enum: ["free", "pro", "ultra"],
+      default: "free",
+    },
+    planStartedAt: { type: Date, default: null },
+    planExpiresAt: { type: Date, default: null },
+    billingProvider: { type: String, default: null },
+    razorpayOrderId: { type: String, default: null },
+    razorpayPaymentId: { type: String, default: null },
+
+    // Persistent Daily AI Chat Quota (resets at 12:00 AM midnight)
     aiDailyUsage: {
+      date: { type: String, default: "" },
+      count: { type: Number, default: 0 },
+      lifetimeCount: { type: Number, default: 0 },
+    },
+
+    // Persistent Daily Voco Voice AI Quota (resets at 12:00 AM midnight)
+    vocaDailyUsage: {
       date: { type: String, default: "" },
       count: { type: Number, default: 0 },
       lifetimeCount: { type: Number, default: 0 },

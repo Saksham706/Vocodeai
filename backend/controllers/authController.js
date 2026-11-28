@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import axios from "axios";
@@ -9,7 +10,9 @@ import { getWorkspacesRoot } from "../config/paths.js";
 import { generateAccessToken, generateRefreshToken } from "../utils/token.js";
 import { generateOTP, hashOTP } from "../utils/otp.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { buildPasswordResetEmailHtml } from "../utils/emailTemplates.js";
 import { updateGitCredentialsForUser } from "../sandbox/containerManager.js";
+import { getPlanConfig, getEffectivePlanId } from "../config/plans.js";
 
 export async function signup(req, res) {
   try {
@@ -76,6 +79,7 @@ export async function login(req, res) {
         lastName: user.lastName,
         avatar: user.avatar || "default",
         phone: user.phone || "",
+        plan: getEffectivePlanId(user),
       },
     });
   } catch (err) {
@@ -102,11 +106,35 @@ export async function forgotPassword(req, res) {
     user.resetOTPExpiry = Date.now() + 10 * 60 * 1000;
     await user.save();
 
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const localLogoPath = path.resolve(__dirname, "../assets/vcode.png");
+    const hasLocalLogo = fs.existsSync(localLogoPath);
+    const logoUrl = hasLocalLogo ? "cid:vocodeai-logo" : "https://vocodeai.com/vcode.png";
+    const attachments = hasLocalLogo
+      ? [
+          {
+            filename: "vcode.png",
+            path: localLogoPath,
+            cid: "vocodeai-logo",
+            contentDisposition: "inline",
+          },
+        ]
+      : [];
+
+    const html = buildPasswordResetEmailHtml({
+      firstName: user.firstName,
+      otp,
+      logoUrl,
+    });
+    const text = `Hi ${user.firstName || "Developer"},\n\nYour VocodeAI password reset verification code is: ${otp}\n\nThis code expires in 10 minutes. If you did not request this, you can safely ignore this email.\n\n- VocodeAI Security`;
+
     try {
       await sendEmail(
         email,
-        "VocodeAI Password Reset OTP",
-        `Your reset OTP is: ${otp}`
+        "VocodeAI — Password Reset Verification Code",
+        html,
+        text,
+        attachments
       );
     } catch (mailErr) {
       console.error("Nodemailer failed:", mailErr.message);
@@ -136,7 +164,7 @@ export async function resetPassword(req, res) {
       return res.status(400).json({ error: "OTP expired" });
     }
 
-    const match = await bcrypt.compare(otp, user.resetOTP);
+    const match = hashOTP(String(otp || "").trim()) === user.resetOTP;
     if (!match) {
       return res.status(400).json({ error: "Invalid OTP" });
     }
@@ -548,24 +576,32 @@ export async function getStorageUsage(req, res) {
     const userDir = path.join(getWorkspacesRoot(), String(userId));
     const usedBytes = calculateDirSize(userDir);
 
-    const workspaceCount = await Workspace.countDocuments({
-      userId,
-    });
+    const [workspaceCount, user] = await Promise.all([
+      Workspace.countDocuments({ userId }),
+      User.findById(userId).select("plan planExpiresAt").lean(),
+    ]);
 
-    const maxBytes = 10 * 1024 * 1024 * 1024; // 10 GB limit
+    const planConfig = getPlanConfig(user);
+    const maxBytes = planConfig.limits.storageBytes;
+    const maxGB = maxBytes / (1024 * 1024 * 1024);
     const usedMB = (usedBytes / (1024 * 1024)).toFixed(1);
     const usedGB = (usedBytes / (1024 * 1024 * 1024)).toFixed(2);
     const percent = Math.min(100, Math.round((usedBytes / maxBytes) * 100));
 
     res.json({
       success: true,
+      planId: planConfig.id,
+      planName: planConfig.name,
       usedBytes,
       usedFormatted:
         usedBytes > 1024 * 1024 * 1024 ? `${usedGB} GB` : `${usedMB} MB`,
-      maxFormatted: "10.0 GB",
+      maxFormatted: planConfig.limits.storageLabel,
       percentUtilized: percent,
-      availableFormatted: `${(10 - Number(usedGB)).toFixed(1)} GB`,
+      availableFormatted: `${Math.max(0, maxGB - Number(usedGB)).toFixed(1)} GB`,
       workspaceCount,
+      maxWorkspaces: planConfig.limits.maxWorkspaces,
+      containerMemoryLabel: planConfig.limits.containerMemoryLabel,
+      containerIdleLabel: planConfig.limits.containerIdleLabel,
     });
   } catch (err) {
     res.status(500).json({ error: "Failed to calculate storage quota: " + err.message });

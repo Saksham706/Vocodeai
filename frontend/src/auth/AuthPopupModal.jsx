@@ -11,7 +11,10 @@ import {
   Eye,
   EyeOff,
   ArrowRight,
+  ArrowLeft,
   AlertCircle,
+  CheckCircle2,
+  KeyRound,
   Check,
   X,
 } from "lucide-react";
@@ -30,7 +33,8 @@ export default function AuthPopupModal({
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const [mode, setMode] = useState(initialMode); // "login" | "signup"
+  const [mode, setMode] = useState(initialMode); // "login" | "signup" | "forgot"
+  const [backFace, setBackFace] = useState(initialMode === "forgot" ? "forgot" : "signup");
   const [isClosing, setIsClosing] = useState(false);
 
   // Login state
@@ -54,13 +58,34 @@ export default function AuthPopupModal({
   const [signupSuccess, setSignupSuccess] = useState("");
   const [signupLoading, setSignupLoading] = useState(false);
 
+  // Forgot / Reset Password state
+  const [forgotStep, setForgotStep] = useState("email"); // "email" | "reset"
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotOtp, setForgotOtp] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
+  const [showForgotNewPwd, setShowForgotNewPwd] = useState(false);
+  const [showForgotConfirmPwd, setShowForgotConfirmPwd] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+  const [forgotSuccess, setForgotSuccess] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode);
+      if (initialMode !== "login") {
+        setBackFace(initialMode === "forgot" ? "forgot" : "signup");
+      }
       setIsClosing(false);
       setLoginError(initialError || "");
       setSignupError("");
       setSignupSuccess("");
+      setForgotStep("email");
+      setForgotOtp("");
+      setForgotNewPassword("");
+      setForgotConfirmPassword("");
+      setForgotError("");
+      setForgotSuccess("");
     }
   }, [isOpen, initialMode, initialError]);
 
@@ -90,6 +115,17 @@ export default function AuthPopupModal({
     setLoginError("");
     setSignupError("");
     setSignupSuccess("");
+    setForgotError("");
+    setForgotSuccess("");
+    if (nextMode === "forgot") {
+      setBackFace("forgot");
+      setForgotStep("email");
+      if (loginEmail && !forgotEmail) {
+        setForgotEmail(loginEmail);
+      }
+    } else if (nextMode === "signup") {
+      setBackFace("signup");
+    }
     setMode(nextMode);
   };
 
@@ -183,6 +219,77 @@ export default function AuthPopupModal({
     }
   };
 
+  const handleForgotEmailSubmit = async (e) => {
+    e.preventDefault();
+    setForgotError("");
+    setForgotSuccess("");
+
+    if (!forgotEmail.trim()) {
+      setForgotError("Please enter your registered email address.");
+      return;
+    }
+
+    try {
+      setForgotLoading(true);
+      await api.post("/auth/forgot-password", { email: forgotEmail.trim() });
+      setForgotSuccess("A 6-digit verification code has been sent to your email.");
+      setForgotStep("reset");
+    } catch (err) {
+      setForgotError(
+        err.response?.data?.error ||
+          "Could not send reset code. Please check the email and try again."
+      );
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleForgotResetSubmit = async (e) => {
+    e.preventDefault();
+    setForgotError("");
+    setForgotSuccess("");
+
+    if (!forgotOtp.trim() || !forgotNewPassword || !forgotConfirmPassword) {
+      setForgotError("Please complete all required fields.");
+      return;
+    }
+
+    if (forgotNewPassword.length < 8) {
+      setForgotError("Password must be at least 8 characters long.");
+      return;
+    }
+
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setForgotError("Passwords do not match.");
+      return;
+    }
+
+    try {
+      setForgotLoading(true);
+      await api.post("/auth/reset-password", {
+        email: forgotEmail.trim(),
+        otp: forgotOtp.trim(),
+        newPassword: forgotNewPassword,
+      });
+
+      setLoginEmail(forgotEmail.trim());
+      setForgotSuccess("Password updated! Flipping back to login...");
+      setTimeout(() => {
+        setForgotStep("email");
+        setForgotOtp("");
+        setForgotNewPassword("");
+        setForgotConfirmPassword("");
+        flipTo("login");
+      }, 1100);
+    } catch (err) {
+      setForgotError(
+        err.response?.data?.error || "Invalid OTP code or expired token."
+      );
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   const handleGoogleSignIn = () => {
     const origin = encodeURIComponent(window.location.origin);
     window.location.href = `${backendUrl}/api/auth/google?origin=${origin}&prompt=select_account%20consent`;
@@ -196,11 +303,17 @@ export default function AuthPopupModal({
       }}
       role="dialog"
       aria-modal="true"
-      aria-label={mode === "login" ? "Log in to VocodeAI" : "Create VocodeAI account"}
+      aria-label={
+        mode === "login"
+          ? "Log in to VocodeAI"
+          : mode === "forgot"
+          ? "Reset VocodeAI password"
+          : "Create VocodeAI account"
+      }
     >
       <div className={`auth-popup-shell ${isClosing ? "is-closing" : ""}`}>
         <div className="auth-flip-perspective">
-          <div className={`auth-flip-inner ${mode === "signup" ? "is-flipped" : ""}`}>
+          <div className={`auth-flip-inner ${mode !== "login" ? "is-flipped" : ""}`}>
             {/* ================= FRONT FACE: LOGIN ================= */}
             <div className="auth-flip-face auth-flip-front">
               <div className="auth-card-panel auth-popup-card">
@@ -250,10 +363,7 @@ export default function AuthPopupModal({
                       <button
                         type="button"
                         className="auth-forgot-link"
-                        onClick={() => {
-                          onClose?.();
-                          navigate("/forgot");
-                        }}
+                        onClick={() => flipTo("forgot")}
                       >
                         Forgot Password?
                       </button>
@@ -318,7 +428,7 @@ export default function AuthPopupModal({
               </div>
             </div>
 
-            {/* ================= BACK FACE: SIGNUP ================= */}
+            {/* ================= BACK FACE: SIGNUP OR FORGOT PASSWORD ================= */}
             <div className="auth-flip-face auth-flip-back">
               <div className="auth-card-panel auth-popup-card">
                 <button
@@ -336,6 +446,170 @@ export default function AuthPopupModal({
                     className="auth-popup-logo"
                   />
                 </div>
+
+                {backFace === "forgot" ? (
+                  <>
+                    <button
+                      type="button"
+                      className="auth-back-link"
+                      onClick={() => flipTo("login")}
+                    >
+                      <ArrowLeft size={15} />
+                      <span>Back to Login</span>
+                    </button>
+
+                    <h2 className="auth-card-title mt-2">
+                      {forgotStep === "email" ? "Reset your password" : "Set new password"}
+                    </h2>
+                    <p className="auth-card-subtitle">
+                      {forgotStep === "email"
+                        ? "Enter your registered email and we'll send you a 6-digit verification code."
+                        : "Enter the verification code sent to your email and choose your new password."}
+                    </p>
+
+                    {forgotStep === "reset" && forgotEmail && (
+                      <div className="auth-email-target-pill">
+                        <span>
+                          Code sent to: <strong>{forgotEmail}</strong>
+                        </span>
+                      </div>
+                    )}
+
+                    {forgotError && (
+                      <div className="auth-alert-error" role="alert">
+                        <AlertCircle size={16} className="auth-alert-icon" />
+                        <span>{forgotError}</span>
+                      </div>
+                    )}
+
+                    {forgotSuccess && (
+                      <div className="auth-alert-success" role="status">
+                        <CheckCircle2 size={16} className="auth-alert-icon" />
+                        <span>{forgotSuccess}</span>
+                      </div>
+                    )}
+
+                    {forgotStep === "email" ? (
+                      <form onSubmit={handleForgotEmailSubmit} className="auth-form" noValidate>
+                        <div className="auth-field-group">
+                          <label className="auth-field-label">Account Email Address</label>
+                          <div className="auth-input-wrapper">
+                            <Mail size={17} className="auth-field-icon" />
+                            <input
+                              type="email"
+                              className="auth-text-input"
+                              placeholder="name@company.com"
+                              value={forgotEmail}
+                              onChange={(e) => setForgotEmail(e.target.value)}
+                              autoComplete="email"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="auth-submit-button"
+                          disabled={forgotLoading}
+                        >
+                          <span>
+                            {forgotLoading ? "Sending verification code..." : "Send Verification Code"}
+                          </span>
+                          <ArrowRight size={16} className="btn-arrow" />
+                        </button>
+                      </form>
+                    ) : (
+                      <form onSubmit={handleForgotResetSubmit} className="auth-form" noValidate>
+                        <div className="auth-field-group">
+                          <label className="auth-field-label">One-Time Verification Code (OTP)</label>
+                          <div className="auth-input-wrapper">
+                            <KeyRound size={17} className="auth-field-icon" />
+                            <input
+                              type="text"
+                              className="auth-text-input auth-otp-input"
+                              placeholder="Enter 6-digit code"
+                              value={forgotOtp}
+                              onChange={(e) => setForgotOtp(e.target.value)}
+                              autoComplete="one-time-code"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="auth-field-group">
+                          <label className="auth-field-label">New Password</label>
+                          <div className="auth-input-wrapper">
+                            <LockKeyhole size={17} className="auth-field-icon" />
+                            <input
+                              type={showForgotNewPwd ? "text" : "password"}
+                              className="auth-text-input"
+                              placeholder="Min. 8 characters"
+                              value={forgotNewPassword}
+                              onChange={(e) => setForgotNewPassword(e.target.value)}
+                              autoComplete="new-password"
+                              required
+                            />
+                            <button
+                              type="button"
+                              className="auth-eye-toggle"
+                              onClick={() => setShowForgotNewPwd(!showForgotNewPwd)}
+                              aria-label={showForgotNewPwd ? "Hide password" : "Show password"}
+                            >
+                              {showForgotNewPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="auth-field-group">
+                          <label className="auth-field-label">Confirm New Password</label>
+                          <div className="auth-input-wrapper">
+                            <LockKeyhole size={17} className="auth-field-icon" />
+                            <input
+                              type={showForgotConfirmPwd ? "text" : "password"}
+                              className="auth-text-input"
+                              placeholder="Re-enter password"
+                              value={forgotConfirmPassword}
+                              onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                              autoComplete="new-password"
+                              required
+                            />
+                            <button
+                              type="button"
+                              className="auth-eye-toggle"
+                              onClick={() => setShowForgotConfirmPwd(!showForgotConfirmPwd)}
+                              aria-label={showForgotConfirmPwd ? "Hide password" : "Show password"}
+                            >
+                              {showForgotConfirmPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="auth-submit-button"
+                          disabled={forgotLoading}
+                        >
+                          <span>
+                            {forgotLoading ? "Updating credentials..." : "Reset Password & Log In"}
+                          </span>
+                          <ArrowRight size={16} className="btn-arrow" />
+                        </button>
+                      </form>
+                    )}
+
+                    <p className="auth-switch-footer">
+                      Remembered your password?{" "}
+                      <button
+                        type="button"
+                        className="auth-switch-link"
+                        onClick={() => flipTo("login")}
+                      >
+                        Sign in
+                      </button>
+                    </p>
+                  </>
+                ) : (
+                  <>
                 {signupError && (
                   <div className="auth-alert-error" role="alert">
                     <AlertCircle size={16} className="auth-alert-icon" />
@@ -526,6 +800,8 @@ export default function AuthPopupModal({
                     Sign in
                   </button>
                 </p>
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -12,6 +12,7 @@ import {
 } from "./containerRegistry.js";
 import User from "../models/User.js";
 import { getWorkspacesRoot } from "../config/paths.js";
+import { getPlanConfig } from "../config/plans.js";
 
 const docker = new Docker();
 
@@ -584,7 +585,16 @@ export async function getOrCreateContainer({
     await leftover.remove({ force: true }).catch(() => {});
   } catch {}
 
-  // 4. Create a fresh container with volume mount and dynamic port forwarding
+  // 4. Create a fresh container with volume mount, dynamic port forwarding, and plan resource limits
+  let planConfig = getPlanConfig("free");
+  try {
+    const userId = workspaceKey?.split("-")[0];
+    if (userId && userId !== "demo") {
+      const u = await User.findById(userId).select("plan planExpiresAt").lean();
+      if (u) planConfig = getPlanConfig(u);
+    }
+  } catch {}
+
   const image = getImageForWorkspace();
   const absolutePath = path.resolve(workspacePath);
   const { exposedPorts, portBindings } = await getAvailableDevPortBindings(
@@ -602,14 +612,14 @@ export async function getOrCreateContainer({
     HostConfig: {
       Binds: [`${absolutePath}:/workspace`],
       PortBindings: portBindings,
-      Memory: 1024 * 1024 * 1024,
-      CpuShares: 512,
+      Memory: planConfig.limits.containerMemoryBytes,
+      CpuShares: planConfig.limits.containerCpuShares,
       PidsLimit: 256,
     },
   });
 
   await container.start();
-  registerContainer(workspaceKey, container);
+  registerContainer(workspaceKey, container, planConfig.limits.containerIdleTimeoutMs);
   touchContainer(workspaceKey);
   configureContainerEnvironment(container, workspaceKey);
 

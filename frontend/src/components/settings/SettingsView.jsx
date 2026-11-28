@@ -550,8 +550,10 @@ export default function SettingsView({
               </div>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc" }}>{user?.name || "Developer"}</span>
-                  <span style={{ fontSize: 10, padding: "1px 6px", background: "rgba(56, 189, 248, 0.2)", color: "#38bdf8", borderRadius: 4, fontWeight: 600 }}>VOCODEAI USER</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc" }}>{user?.name || user?.firstName || "Developer"}</span>
+                  <span style={{ fontSize: 10, padding: "1px 6px", background: "rgba(67, 230, 92, 0.18)", color: "#43E65C", borderRadius: 4, fontWeight: 700, textTransform: "uppercase" }}>
+                    {(user?.plan || "free")} PLAN
+                  </span>
                 </div>
                 <div style={{ fontSize: 11.5, color: "#94a3b8" }}>{user?.email || "Signed in"}</div>
               </div>

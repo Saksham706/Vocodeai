@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { BACKEND_URL } from "../config/apiConfig";
 import VocodeLogo from "../components/common/VocodeLogo";
-import AuthPopupModal from "../auth/AuthPopupModal";
+import PricingSection from "../components/billing/PricingSection";
+const AuthPopupModal = lazy(() => import("../auth/AuthPopupModal"));
 import {
   Rocket,
   ArrowRight,
@@ -64,12 +65,12 @@ export default function Landing() {
   const [authModalMode, setAuthModalMode] = useState("login");
   const [authModalError, setAuthModalError] = useState("");
 
-  // Open auth popup automatically when redirected via /?auth=login or /?auth=signup
+  // Open auth popup automatically when redirected via /?auth=login, /?auth=signup, or /?auth=forgot
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const authParam = params.get("auth");
     const errorParam = params.get("error");
-    if (authParam === "login" || authParam === "signup") {
+    if (authParam === "login" || authParam === "signup" || authParam === "forgot") {
       const activeToken = localStorage.getItem("accessToken") || accessToken;
       if (activeToken) {
         navigate("/dashboard", { replace: true });
@@ -90,7 +91,7 @@ export default function Landing() {
     }
   }, [location.search, accessToken, navigate]);
   const [activeScene, setActiveScene] = useState(0);
-  const TOTAL_SCENES = 4;
+  const TOTAL_SCENES = 5;
   const activeSceneRef = React.useRef(0);
   const sceneLockRef = React.useRef(false);
   const lockTimerRef = React.useRef(null);
@@ -240,7 +241,8 @@ export default function Landing() {
       top: 0,
       "any-device": 1,
       "how-it-works": 2,
-      footer: 3,
+      pricing: 3,
+      footer: 4,
     };
     if (id in sceneMap) {
       sceneLockRef.current = false;
@@ -507,6 +509,17 @@ export default function Landing() {
               <li style={{ "--i": 3 }}>
                 <button
                   type="button"
+                  className={`bugatti-overlay-link ${activeScene === 3 ? "is-active" : ""}`}
+                  onClick={() => scrollToSection("pricing")}
+                  tabIndex={mobileMenuOpen ? 0 : -1}
+                >
+                  <span className="overlay-link-index">04</span>
+                  <span className="overlay-link-label">Pricing &amp; Plans</span>
+                </button>
+              </li>
+              <li style={{ "--i": 4 }}>
+                <button
+                  type="button"
                   className="bugatti-overlay-link"
                   onClick={() => {
                     setMobileMenuOpen(false);
@@ -514,11 +527,11 @@ export default function Landing() {
                   }}
                   tabIndex={mobileMenuOpen ? 0 : -1}
                 >
-                  <span className="overlay-link-index">04</span>
+                  <span className="overlay-link-index">05</span>
                   <span className="overlay-link-label">Documentation</span>
                 </button>
               </li>
-              <li style={{ "--i": 4 }}>
+              <li style={{ "--i": 5 }}>
                 <button
                   type="button"
                   className="bugatti-overlay-link"
@@ -528,7 +541,7 @@ export default function Landing() {
                   }}
                   tabIndex={mobileMenuOpen ? 0 : -1}
                 >
-                  <span className="overlay-link-index">05</span>
+                  <span className="overlay-link-index">06</span>
                   <span className="overlay-link-label">Enter VocodeAI</span>
                 </button>
               </li>
@@ -813,10 +826,6 @@ export default function Landing() {
             <section className={`workflow-block pagani-scene ${activeScene === 2 ? "is-in-view" : activeScene > 2 ? "is-past" : "is-future"}`} id="how-it-works" style={{ zIndex: 3 }}>
               <div className="section-inner-container">
                 <div className="section-heading-wrapper text-center">
-                  <div className="section-pill-tag">
-                    <Play size={12} fill="currentColor" />
-                    <span>Instant Onboarding</span>
-                  </div>
                   <h2 className="section-title">
                     How It Works in <span className="coral-gradient-text">3 Simple Steps</span>
                   </h2>
@@ -912,12 +921,43 @@ export default function Landing() {
                 </div>
               </div>
             </section>
+
+            {/* =========================================================
+           11B. PRICING & PLANS (Scene 4)
+           ========================================================= */}
+            <section
+              className={`pagani-scene ${activeScene === 3
+                  ? "is-in-view"
+                  : activeScene > 3
+                    ? "is-past"
+                    : "is-future"
+                }`}
+              id="pricing"
+              style={{
+                zIndex: 4,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "flex-start",
+                padding: "clamp(68px, 8vh, 88px) clamp(12px, 3vw, 40px) clamp(18px, 3vh, 28px)",
+                boxSizing: "border-box",
+                overflowY: "auto",
+                background: "#050507",
+              }}
+            >
+              <div style={{ width: "100%", margin: "auto 0" }}>
+                <PricingSection
+                  accessToken={accessToken}
+                  onRequireAuth={(mode) => handleEnter(mode)}
+                />
+              </div>
+            </section>
           </main>
 
           {/* =========================================================
-         12. FOOTER (Scene 4 — Bugatti Spotlight)
+         12. FOOTER (Scene 5 — Bugatti Spotlight)
          ========================================================= */}
-          <footer className={`site-footer pagani-scene pagani-footer-scene ${activeScene === 3 ? "is-in-view" : "is-future"}`} style={{ zIndex: 4 }}>
+          <footer className={`site-footer pagani-scene pagani-footer-scene ${activeScene === 4 ? "is-in-view" : "is-future"}`} style={{ zIndex: 5 }}>
             {/* Giant Bugatti-style Cursor-Spotlight Wordmark */}
             <div
               className="footer-wordmark-wrap"
@@ -984,7 +1024,7 @@ export default function Landing() {
 
       {/* Pagani Right-Side Scene Indicator */}
       <div className="pagani-scene-dots" aria-label="Page sections">
-        {["Hero", "Devices", "Workflow", "VocodeAI"].map((label, idx) => (
+        {["Hero", "Devices", "Workflow", "Pricing", "VocodeAI"].map((label, idx) => (
           <button
             key={label}
             type="button"
@@ -1009,13 +1049,17 @@ export default function Landing() {
         <ArrowUp size={18} />
       </button>
 
-      <AuthPopupModal
-        isOpen={authModalOpen}
-        initialMode={authModalMode}
-        initialError={authModalError}
-        onClose={() => setAuthModalOpen(false)}
-        theme={theme}
-      />
+      {authModalOpen && (
+        <Suspense fallback={null}>
+          <AuthPopupModal
+            isOpen={authModalOpen}
+            initialMode={authModalMode}
+            initialError={authModalError}
+            onClose={() => setAuthModalOpen(false)}
+            theme={theme}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

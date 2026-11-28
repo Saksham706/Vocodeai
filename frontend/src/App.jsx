@@ -1,17 +1,16 @@
 import React, { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import VocoAssistant from "./components/mascot/VocoAssistant";
 import PageMeta from "./components/common/PageMeta";
-import CustomCursor from "./components/common/CustomCursor";
+import Landing from "./pages/Landing";
 import { applyThemeExtension, getActiveThemeExtension } from "./utils/themeRegistry";
 
-// Lazy-loaded routes for code splitting and instant page loads
-const Landing = lazy(() => import("./pages/Landing"));
+// Lazy-loaded non-critical UI & secondary routes for instant first paint
+const VocoAssistant = lazy(() => import("./components/mascot/VocoAssistant"));
+const CustomCursor = lazy(() => import("./components/common/CustomCursor"));
 const Documentation = lazy(() => import("./pages/Documentation"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Workspace = lazy(() => import("./pages/Workspace"));
-const ForgotPassword = lazy(() => import("./auth/ForgotPassword"));
 const ResetPassword = lazy(() => import("./auth/ResetPassword"));
 const OAuthSuccess = lazy(() => import("./auth/OAuthSuccess"));
 
@@ -138,8 +137,7 @@ function WorkspaceRedirect() {
 }
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(true);
-  const [splashFading, setSplashFading] = useState(false);
+  const [mountExtras, setMountExtras] = useState(false);
 
   // Enforce dark theme across the whole website on initial load
   useEffect(() => {
@@ -151,47 +149,27 @@ export default function App() {
       applyThemeExtension(activeTheme);
     }
 
-    const fadeTimer = setTimeout(() => setSplashFading(true), 1300);
-    const hideTimer = setTimeout(() => setShowSplash(false), 1850);
-    return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(hideTimer);
-    };
+    // Defer non-critical floating widgets until after first paint
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(() => setMountExtras(true), { timeout: 1200 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const timer = setTimeout(() => setMountExtras(true), 250);
+    return () => clearTimeout(timer);
   }, []);
-
-  const splashTheme =
-    typeof window !== "undefined"
-      ? localStorage.getItem("vocode_theme") || "dark"
-      : "dark";
 
   return (
     <AuthProvider>
-      {showSplash && (
-        <div
-          className={`vocode-splash-preloader ${splashFading ? "is-fading" : ""}`}
-          aria-hidden="true"
-        >
-          <div className="vocode-splash-inner">
-            <img
-              src={splashTheme === "light" ? "/vcode-light.png" : "/vcode.png"}
-              alt="VocodeAI"
-              className="vocode-splash-logo"
-            />
-            <div className="vocode-splash-line">
-              <span className="vocode-splash-line-fill" />
-            </div>
-          </div>
-        </div>
-      )}
       <BrowserRouter>
-        {/* Universal Circular Mouse Pointer */}
-        <CustomCursor />
-
         {/* Dynamic SEO Meta & Title Manager */}
         <PageMeta />
 
-        {/* Voco — Siri-like Voice AI Assistant */}
-        <VocoAssistant />
+        {mountExtras && (
+          <Suspense fallback={null}>
+            <CustomCursor />
+            <VocoAssistant />
+          </Suspense>
+        )}
 
         <Suspense fallback={<PageFallback />}>
           <Routes>
@@ -210,11 +188,7 @@ export default function App() {
 
             <Route
               path="/forgot"
-              element={
-                <PublicRoute>
-                  <ForgotPassword />
-                </PublicRoute>
-              }
+              element={<Navigate to="/?auth=forgot" replace />}
             />
 
             <Route

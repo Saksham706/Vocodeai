@@ -1,0 +1,245 @@
+/* ==========================================================================
+   VOCODEAI STACKED DECK PLAN CARDS (Wallet / Timeline Stack Style)
+   ========================================================================== */
+
+.tc-pricing-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0 clamp(8px, 1.5vw, 24px);
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.tc-pricing-wrap.is-compact {
+  max-width: 100%;
+  padding: 4px 0;
+}
+
+@keyframes stackCardPop {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.sd-deck-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 1240px;
+  margin: 4px auto 0;
+}
+
+/* Stacked Top Pill Headers (Inactive Plans) */
+.sd-stack-pills {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+  margin-bottom: 12px;
+  z-index: 2;
+}
+
+.sd-top-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 999px;
+  background: #0c0c10;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e4e4e7;
+  padding: 8px 18px;
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+.sd-top-pill.tier-back {
+  width: 46%;
+  min-width: 240px;
+  max-width: 520px;
+  opacity: 0.78;
+}
+
+.sd-top-pill.tier-mid {
+  width: 68%;
+  min-width: 280px;
+  max-width: 780px;
+  opacity: 0.92;
+}
+
+.sd-top-pill:hover {
+  transform: translateY(-2px) scale(1.015);
+  opacity: 1;
+  border-color: rgba(249, 91, 28, 0.55);
+  background: #14141a;
+  box-shadow: 0 10px 28px rgba(249, 91, 28, 0.16);
+}
+
+/* Active Expanded Main Card */
+.sd-main-card {
+  position: relative;
+  z-index: 5;
+  width: 100%;
+  min-height: clamp(300px, 44vh, 410px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: 26px;
+  padding: clamp(20px, 2.6vw, 32px) clamp(18px, 3vw, 38px);
+  overflow: hidden;
+  animation: stackCardPop 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.72);
+}
+
+.sd-main-card.theme-free {
+  background: radial-gradient(ellipse 85% 55% at 50% 0%, rgba(168, 85, 247, 0.42) 0%, rgba(56, 189, 248, 0.16) 42%, rgba(11, 11, 15, 0.98) 78%), #0b0b0f;
+  border: 1.5px solid rgba(226, 232, 240, 0.35);
+}
+
+.sd-main-card.theme-pro {
+  background: radial-gradient(ellipse 90% 58% at 50% 0%, rgba(249, 91, 28, 0.72) 0%, rgba(180, 52, 14, 0.32) 42%, rgba(12, 11, 14, 0.98) 78%), #0c0b0e;
+  border: 1.5px solid rgba(249, 91, 28, 0.65);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.72), 0 0 42px rgba(249, 91, 28, 0.24);
+}
+
+.sd-main-card.theme-ultra {
+  background: radial-gradient(ellipse 88% 55% at 50% 0%, rgba(56, 189, 248, 0.56) 0%, rgba(99, 102, 241, 0.24) 44%, rgba(9, 11, 17, 0.98) 78%), #090b11;
+  border: 1.5px solid rgba(56, 189, 248, 0.55);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.72), 0 0 38px rgba(56, 189, 248, 0.2);
+}
+
+/* Progress / Tier Bar inside Main Card */
+.sd-tier-bar-track {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 14px 0 16px;
+  overflow: visible;
+}
+
+.sd-tier-bar-fill {
+  position: relative;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sd-tier-bar-knob {
+  position: absolute;
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.85);
+}
+
+.sd-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 20px;
+  margin-bottom: 22px;
+}
+
+@media (max-width: 960px) {
+  .sd-features-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 14px;
+  }
+}
+
+.sd-toggles-row {
+  margin-top: 14px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.sd-toggle-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #0b0b0e;
+  border-radius: 8px;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+.sd-toggle-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+.sd-discount-tag {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+@media (max-width: 640px) {
+  .sd-toggles-row {
+    gap: 6px;
+  }
+  .sd-toggle-box {
+    padding: 3px;
+    gap: 2px;
+    border-radius: 7px;
+  }
+  .sd-toggle-btn {
+    padding: 5px 8px;
+    font-size: 10.5px;
+    gap: 4px;
+    border-radius: 5px;
+  }
+  .sd-discount-tag {
+    font-size: 9px;
+    padding: 1px 5px;
+  }
+  .sd-main-card {
+    min-height: auto;
+    padding: 18px 16px;
+    border-radius: 22px;
+  }
+  .sd-features-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .sd-top-pill {
+    padding: 7px 14px;
+  }
+  .sd-top-pill.tier-back {
+    width: 82%;
+    min-width: 0;
+  }
+  .sd-top-pill.tier-mid {
+    width: 94%;
+    min-width: 0;
+  }
+}

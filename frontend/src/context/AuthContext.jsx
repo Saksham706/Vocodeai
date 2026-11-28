@@ -41,6 +41,12 @@ export function AuthProvider({ children }) {
 
     const checkAuth = async () => {
       const storedToken = localStorage.getItem("accessToken");
+      const hasSession = localStorage.getItem("vocode_has_session") === "1";
+
+      if (!storedToken && !hasSession) {
+        if (isMounted) setLoading(false);
+        return;
+      }
 
       try {
         // If stored token exists, attempt to verify it with /auth/profile
@@ -127,7 +133,10 @@ export function AuthProvider({ children }) {
     setAccessToken(token);
     setUser(userData);
     setLoading(false);
-    if (token) localStorage.setItem("accessToken", token);
+    if (token) {
+      localStorage.setItem("accessToken", token);
+      localStorage.setItem("vocode_has_session", "1");
+    }
     if (userData) {
       localStorage.setItem("user", JSON.stringify(userData));
       window.dispatchEvent(
@@ -149,6 +158,7 @@ export function AuthProvider({ children }) {
       setUser(null);
       localStorage.removeItem("accessToken");
       localStorage.removeItem("user");
+      localStorage.removeItem("vocode_has_session");
       localStorage.removeItem("vocode_ai_provider_config");
       sessionStorage.clear();
       window.dispatchEvent(

@@ -26,6 +26,7 @@ import statsRoutes from "./routes/statsRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import gitRoutes from "./routes/gitRoutes.js";
+import billingRoutes from "./routes/billingRoutes.js";
 
 import { setupTerminalServer } from "./terminalServer.js";
 import { startContainerReaper } from "./sandbox/containerReaper.js";
@@ -188,6 +189,7 @@ app.use("/api/jobs", jobRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/git", gitRoutes);
+app.use("/api/billing", billingRoutes);
 
 /* ================= STATIC WORKSPACE PREVIEW ================= */
 import fs from "fs";

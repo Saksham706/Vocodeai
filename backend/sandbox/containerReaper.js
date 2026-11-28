@@ -10,7 +10,8 @@ export function startContainerReaper() {
     const now = Date.now();
 
     for (const [workspaceId, entry] of getAllContainers()) {
-      if (now - entry.lastUsed > IDLE_TIMEOUT) {
+      const timeout = entry.idleTimeoutMs || IDLE_TIMEOUT;
+      if (now - entry.lastUsed > timeout) {
         console.log(`[REAPER] Stopping idle container: ${workspaceId}`);
         await stopAndRemoveContainer(workspaceId);
       }

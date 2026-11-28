@@ -15,6 +15,7 @@ import {
   getGoogleAIAccountStatus,
   getValidGoogleAccessToken,
 } from "../utils/googleAuthHelper.js";
+import { getPlanConfig, getEffectivePlanId } from "../config/plans.js";
 
 async function clearLegacyAICredentials(userId) {
   if (!userId || !mongoose.Types.ObjectId.isValid(String(userId))) return;
@@ -71,12 +72,18 @@ export async function handleAI(req, res) {
       String(workspaceId)
     );
 
-    /* ================= CHECK 150 DAILY QUOTA LIMIT ================= */
+    /* ================= CHECK PLAN-BASED DAILY AI QUOTA LIMIT ================= */
     const todayKey = new Date().toISOString().slice(0, 10);
+    const hasByok = Boolean(
+      (typeof apiKey === "string" && apiKey.trim()) ||
+      (Array.isArray(apiKeys) && apiKeys.some((k) => typeof k === "string" && k.trim()))
+    );
     let userDoc = null;
+    let planConfig = getPlanConfig("free");
     try {
       userDoc = await User.findById(userId);
       if (userDoc) {
+        planConfig = getPlanConfig(userDoc);
         if (!userDoc.aiDailyUsage || userDoc.aiDailyUsage.date !== todayKey) {
           userDoc.aiDailyUsage = {
             date: todayKey,
@@ -85,11 +92,13 @@ export async function handleAI(req, res) {
           };
         }
 
-        if (userDoc.aiDailyUsage.count >= 150) {
+        const aiLimit = planConfig.limits.aiDailyLimit;
+        if (!hasByok && aiLimit !== -1 && userDoc.aiDailyUsage.count >= aiLimit) {
           return res.status(429).json({
-            error: "Daily AI request limit reached (150/150 requests used today). Quota resets at 12:00 AM midnight.",
+            error: `Daily AI request limit reached (${aiLimit}/${aiLimit} requests used today on the ${planConfig.name} plan). Upgrade your plan or use your own API key (BYOK).`,
             limitReached: true,
-            dailyLimit: 150,
+            planId: planConfig.id,
+            dailyLimit: aiLimit,
             remainingRequests: 0,
           });
         }
@@ -246,8 +255,8 @@ export async function handleAI(req, res) {
       content: summary,
     });
 
-    // Increment user's persistent daily quota counter
-    if (userDoc) {
+    // Increment user's persistent daily quota counter (only when using platform quota)
+    if (userDoc && !hasByok) {
       try {
         userDoc.aiDailyUsage.count = (userDoc.aiDailyUsage.count || 0) + 1;
         userDoc.aiDailyUsage.lifetimeCount = (userDoc.aiDailyUsage.lifetimeCount || 0) + 1;
@@ -296,6 +305,42 @@ export async function handleVoiceAI(req, res) {
     const { message, workspaceId, activeFile, history = [] } = req.body;
     if (!message || !message.trim()) {
       return res.status(400).json({ error: "Message is required." });
+    }
+
+    // Check Voco daily quota if user is authenticated
+    const vocaTodayKey = new Date().toISOString().slice(0, 10);
+    let vocaUserDoc = null;
+    try {
+      const authHeader = req.headers.authorization || "";
+      const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+      if (token && token !== "demo-token" && !token.startsWith("demo-") && process.env.JWT_SECRET) {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const uid = decoded?.id || decoded?._id;
+        if (uid && mongoose.Types.ObjectId.isValid(String(uid))) {
+          vocaUserDoc = await User.findById(uid);
+          if (vocaUserDoc) {
+            const vPlan = getPlanConfig(vocaUserDoc);
+            if (!vocaUserDoc.vocaDailyUsage || vocaUserDoc.vocaDailyUsage.date !== vocaTodayKey) {
+              vocaUserDoc.vocaDailyUsage = {
+                date: vocaTodayKey,
+                count: 0,
+                lifetimeCount: vocaUserDoc.vocaDailyUsage?.lifetimeCount || 0,
+              };
+            }
+            const vLimit = vPlan.limits.vocaDailyLimit;
+            if (vLimit !== -1 && vocaUserDoc.vocaDailyUsage.count >= vLimit) {
+              return res.status(429).json({
+                error: `Daily Voco AI voice limit reached (${vLimit}/${vLimit} commands today on the ${vPlan.name} plan). Upgrade to Pro or Ultra for more voice commands.`,
+                vocaLimitReached: true,
+                planId: vPlan.id,
+                vocaDailyLimit: vLimit,
+              });
+            }
+          }
+        }
+      }
+    } catch (vocaQuotaErr) {
+      // Non-fatal if token is expired or absent; continue for guest/demo
     }
 
     // Optional workspace context if workspaceId is supplied
@@ -531,6 +576,16 @@ VOICE RESPONSE GUIDELINES:
       cleanReply = `On it! Executing ${detectedAction.type.replace(/-/g, " ")}.`;
     }
 
+    if (vocaUserDoc) {
+      try {
+        vocaUserDoc.vocaDailyUsage.count = (vocaUserDoc.vocaDailyUsage.count || 0) + 1;
+        vocaUserDoc.vocaDailyUsage.lifetimeCount = (vocaUserDoc.vocaDailyUsage.lifetimeCount || 0) + 1;
+        await vocaUserDoc.save();
+      } catch (saveErr) {
+        console.warn("Could not increment user Voco daily usage:", saveErr.message);
+      }
+    }
+
     return res.json({
       success: true,
       reply: cleanReply,
@@ -626,8 +681,21 @@ export async function getAIUsageStats(req, res) {
       totalCount = await Chat.countDocuments({ userId, role: "user" });
     }
 
-    const dailyLimit = 150;
-    const remaining = Math.max(0, dailyLimit - todayCount);
+    const planId = getEffectivePlanId(userDoc);
+    const planConfig = getPlanConfig(planId);
+    const dailyLimit = planConfig.limits.aiDailyLimit;
+    const remaining = dailyLimit === -1 ? 999999 : Math.max(0, dailyLimit - todayCount);
+
+    let vocaTodayCount = 0;
+    let vocaTotalCount = 0;
+    if (userDoc?.vocaDailyUsage) {
+      if (userDoc.vocaDailyUsage.date === todayKey) {
+        vocaTodayCount = userDoc.vocaDailyUsage.count || 0;
+      }
+      vocaTotalCount = userDoc.vocaDailyUsage.lifetimeCount || vocaTodayCount;
+    }
+    const vocaDailyLimit = planConfig.limits.vocaDailyLimit;
+    const vocaRemaining = vocaDailyLimit === -1 ? -1 : Math.max(0, vocaDailyLimit - vocaTodayCount);
 
     const now = new Date();
     const nextMidnight = new Date();
@@ -638,15 +706,21 @@ export async function getAIUsageStats(req, res) {
 
     return res.json({
       success: true,
+      planId,
+      planName: planConfig.name,
       todayRequests: todayCount,
       totalRequests: totalCount,
       dailyLimit,
       remainingRequests: remaining,
+      vocaTodayRequests: vocaTodayCount,
+      vocaTotalRequests: vocaTotalCount,
+      vocaDailyLimit,
+      vocaRemainingRequests: vocaRemaining,
       resetIn: `${hoursLeft}h ${minsLeft}m`,
       status: remaining > 0 ? "Optimal" : "Limit Reached",
-      quotaPercentage: Math.min(100, Math.round((todayCount / dailyLimit) * 100)),
-      rpmLimit: 15,
-      maxTokens: 4096,
+      quotaPercentage: dailyLimit > 0 ? Math.min(100, Math.round((todayCount / dailyLimit) * 100)) : 0,
+      rpmLimit: planId === "ultra" ? 60 : planId === "pro" ? 30 : 15,
+      maxTokens: planId === "ultra" ? 16384 : planId === "pro" ? 8192 : 4096,
       avgLatency: "0.8s",
       managedBackendKeys: true,
       sequentialFailover: true,

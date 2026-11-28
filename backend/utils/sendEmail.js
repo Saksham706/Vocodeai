@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 
-export async function sendEmail(to, subject, html) {
+export async function sendEmail(to, subject, html, text, attachments = []) {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -10,9 +10,11 @@ export async function sendEmail(to, subject, html) {
   });
 
   await transporter.sendMail({
-    from: `"Vocodeai" <${process.env.EMAIL_USER}>`,
+    from: `"VocodeAI" <${process.env.EMAIL_USER}>`,
     to,
     subject,
-    html,             
+    html,
+    ...(text ? { text } : {}),
+    ...(attachments.length > 0 ? { attachments } : {}),
   });
 }

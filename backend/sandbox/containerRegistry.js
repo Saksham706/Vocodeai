@@ -1,9 +1,10 @@
 const containers = new Map();
 
-export function registerContainer(workspaceId, container) {
+export function registerContainer(workspaceId, container, idleTimeoutMs = null) {
   containers.set(workspaceId, {
     container,
     lastUsed: Date.now(),
+    idleTimeoutMs,
   });
 }
 

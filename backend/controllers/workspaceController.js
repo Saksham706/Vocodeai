@@ -3,7 +3,9 @@ import path from "path";
 import os from "os";
 import { ZipArchive } from "archiver";
 import Workspace from "../models/Workspace.js";
+import User from "../models/User.js";
 import FileNode from "../models/FileNode.js";
+import { getPlanConfig } from "../config/plans.js";
 import RecycleBin from "../models/RecycleBin.js";
 import {
   ensureWorkspace,
@@ -46,6 +48,21 @@ export async function getTemplates(req, res) {
 /* CREATE */
 export async function createWorkspace(req, res) {
   try {
+    const user = await User.findById(req.user.id).select("plan planExpiresAt").lean();
+    const planConfig = getPlanConfig(user);
+    const maxWorkspaces = planConfig.limits.maxWorkspaces;
+    if (maxWorkspaces !== -1) {
+      const currentCount = await Workspace.countDocuments({ userId: req.user.id });
+      if (currentCount >= maxWorkspaces) {
+        return res.status(403).json({
+          error: `Workspace limit reached (${currentCount}/${maxWorkspaces} on the ${planConfig.name} plan). Upgrade your plan to create more workspaces.`,
+          workspaceLimitReached: true,
+          planId: planConfig.id,
+          maxWorkspaces,
+        });
+      }
+    }
+
     const templateId = req.body.templateId;
     const template = templateId ? getTemplateById(templateId) : null;
 

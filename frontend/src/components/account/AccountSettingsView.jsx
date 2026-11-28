@@ -27,6 +27,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import PricingSection from "../billing/PricingSection";
 
 function GithubIcon({ size = 16, className = "" }) {
   return (
@@ -411,6 +412,7 @@ export default function AccountSettingsView({ onBack, onSignOut }) {
                 {activeTab === "security" && "Security & Passwords"}
                 {activeTab === "connections" && "Connected Accounts"}
                 {activeTab === "cloud" && "Cloud Sandbox & Quota"}
+                {activeTab === "billing" && "Plans & Billing"}
               </span>
             </nav>
             <h1 className="account-title">
@@ -514,6 +516,20 @@ export default function AccountSettingsView({ onBack, onSignOut }) {
               <li style={{ "--i": 4 }}>
                 <button
                   type="button"
+                  className={`dash-overlay-link ${activeTab === "billing" ? "is-active" : ""}`}
+                  onClick={() => {
+                    setActiveTab("billing");
+                    setAccountMenuOpen(false);
+                  }}
+                  tabIndex={accountMenuOpen ? 0 : -1}
+                >
+                  <span className="dash-overlay-index">05</span>
+                  <span>Plans &amp; Billing</span>
+                </button>
+              </li>
+              <li style={{ "--i": 5 }}>
+                <button
+                  type="button"
                   className="dash-overlay-link danger-overlay-link"
                   onClick={() => {
                     setAccountMenuOpen(false);
@@ -521,7 +537,7 @@ export default function AccountSettingsView({ onBack, onSignOut }) {
                   }}
                   tabIndex={accountMenuOpen ? 0 : -1}
                 >
-                  <span className="dash-overlay-index">05</span>
+                  <span className="dash-overlay-index">06</span>
                   <span>Sign Out</span>
                 </button>
               </li>
@@ -1219,12 +1235,37 @@ export default function AccountSettingsView({ onBack, onSignOut }) {
                       <span className="env-val">Python 3.10+ (pip / venv)</span>
                     </div>
                     <div className="env-item">
+                      <span className="env-label">Active Plan</span>
+                      <span className="env-val" style={{ color: "#43E65C", fontWeight: 700, textTransform: "uppercase" }}>
+                        {storageData.planName || user?.plan || "Free"} ({storageData.maxWorkspaces === -1 ? "Unlimited" : storageData.maxWorkspaces || 10} Workspaces)
+                      </span>
+                    </div>
+                    <div className="env-item">
                       <span className="env-label">Memory Limit</span>
-                      <span className="env-val">2,048 MB RAM / Container</span>
+                      <span className="env-val">{storageData.containerMemoryLabel || "1,024 MB RAM / Container"}</span>
                     </div>
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ================= TAB 5: PLANS & BILLING (RAZORPAY) ================= */}
+          {activeTab === "billing" && (
+            <div className="account-tab-section animate-fade-in">
+              <div className="section-intro">
+                <h2>Plans &amp; Razorpay Billing</h2>
+                <p>
+                  Manage your VocodeAI subscription. Upgrade anytime for higher AI Assistant &amp;
+                  Voco voice quotas, more workspaces, and larger cloud containers.
+                </p>
+              </div>
+              <PricingSection
+                compact
+                currentPlanId={storageData.planId || user?.plan || "free"}
+                accessToken={accessToken}
+                user={user}
+              />
             </div>
           )}
         </main>
